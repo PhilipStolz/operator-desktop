@@ -1,0 +1,120 @@
+PROJEKTKONTEXT – OPERATOR (AKTUELLER STAND)
+
+Projektname:
+Operator
+
+Repository:
+operator-desktop
+
+ZIEL
+Operator ist eine plattformübergreifende Desktop-Anwendung (Windows & Linux) auf Basis von Electron + TypeScript, später React im Renderer.
+
+Operator fungiert als sichere, human-in-the-loop Middleware zwischen:
+- Web-basierten LLM-Chats (z. B. ChatGPT, DeepSeek, Claude im Browser)
+- lokalen Aktionen auf dem Rechner des Nutzers
+
+Operator nutzt KEINE offiziellen APIs der LLM-Anbieter.
+
+---
+
+GRUNDPRINZIP (NON-NEGOTIABLE)
+- Das LLM läuft ausschließlich im Webbrowser (embedded in Electron).
+- Kein DOM-Scraping.
+- Keine Website-spezifische Automatisierung.
+- Keine Code-Ausführung durch das LLM.
+- Der Nutzer kopiert relevante Chat-Ausgaben manuell in Operator.
+- Operator erkennt strukturierte Textbefehle.
+- Jede Aktion ist explizit zu bestätigen.
+- Ergebnisse werden manuell zurück in den Webchat kopiert.
+
+---
+
+AKTUELLER TECHNISCHER STAND
+
+Electron Main Process:
+- BrowserWindow mit festem App-Namen: „Operator“
+- Festgenagelter Fenstertitel (page-title-updated wird unterdrückt)
+- Eigenes App-Icon (assets/icons/win/OperatorIcon.png)
+- Quelldatei für App-Icon (assets/branding/OperatorIcon.svg)
+- Externe Links (window.open) werden im Systembrowser geöffnet
+- Navigation-Lockdown per Domain-Whitelist (ALLOWED_HOSTS)
+- Nicht erlaubte Navigation wird blockiert und extern geöffnet
+
+Security Defaults:
+- nodeIntegration: false
+- contextIsolation: true
+- sandbox: true
+
+Start-URL:
+- Konfigurierbar über OPERATOR_START_URL (Environment Variable)
+
+---
+
+NAVIGATION & SICHERHEIT
+
+Whitelist-Ansatz:
+- Nur explizit erlaubte HTTPS-Hosts dürfen im Embedded Browser geladen werden
+- Beispiele:
+  - chat.openai.com
+  - chatgpt.com
+  - auth.openai.com
+  - openai.com
+
+Alles andere:
+- wird NICHT in der App geöffnet
+- sondern im externen Systembrowser
+
+---
+
+DESIGN-ZIEL (NEXT STEPS)
+
+Outside-In-Entwicklung:
+1. Stabile Operator-Shell etablieren
+2. Webchat als eingebettete Komponente (BrowserView)
+3. Sichtbares Branding (Operator ≠ Browser)
+4. Danach: Operator-spezifische UI (Sidebar / Command Inbox)
+
+---
+
+OPERATOR TEXTPROTOKOLL (KERNFEATURE – NOCH NICHT IMPLEMENTIERT)
+
+Befehle vom LLM (als Klartext):
+
+OPERATOR_CMD
+version: 1
+id: <uuid>
+action: fs.read | fs.write | fs.list | fs.delete | ...
+path: <relativer pfad>
+(optionale argumente)
+END_OPERATOR_CMD
+
+Antwort von Operator:
+
+OPERATOR_RESULT
+id: <uuid>
+ok: true | false
+summary: <kurze beschreibung>
+details_b64: <optional>
+END_OPERATOR_RESULT
+
+---
+
+SICHERHEITSMODELL (ZUKÜNFTIG)
+
+- Nutzer wählt ein Workspace-Root-Verzeichnis
+- Alle Dateioperationen müssen innerhalb dieses Roots liegen
+- Schutz gegen Path Traversal (..)
+- Schreib- und Löschaktionen erfordern explizite Bestätigung
+- Destruktive Aktionen sind reversibel (Trash / Backups)
+- Vollständiger Audit-Log aller Aktionen
+
+---
+
+WICHTIGE LEITPLANKEN FÜR CHATGPT / LLM
+
+- Keine API-Vorschläge
+- Kein Scraping
+- Keine Automatisierung von Websites
+- Kein „Mach das einfach automatisch“
+- Alle Aktionen immer human-in-the-loop
+- Fokus auf Sicherheit, Nachvollziehbarkeit, Einfachheit
