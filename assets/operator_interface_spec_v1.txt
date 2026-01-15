@@ -1,0 +1,32 @@
+Operator Interface Specification (version: 1)
+
+Markers (must be alone on their own line):
+- OPERATOR_CMD
+- END_OPERATOR_CMD
+- OPERATOR_RESULT
+- END_OPERATOR_RESULT
+
+Command format (inside OPERATOR_CMD block):
+- key: value (one per line)
+- Required: version: 1, id: <string>, action: <string>
+- Rule: path is REQUIRED only for actions starting with "fs."
+
+Actions:
+- operator.getInterfaceSpec
+  - no workspace required
+  - no path
+  - returns this document as base64 UTF-8 in details_b64
+
+- fs.list
+- fs.read
+- fs.write
+- fs.patch
+- fs.delete
+  - all fs.* actions require workspace
+  - all fs.* actions require path
+
+Results:
+- id
+- ok: true|false
+- summary: short text
+- details_b64: optional base64 UTF-8 payload
