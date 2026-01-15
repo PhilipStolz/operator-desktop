@@ -1,32 +1,78 @@
 Operator Interface Specification (version: 1)
 
+HARD RULES
+1. When you output OPERATOR_CMD blocks, output ONLY plain text. DO NOT use markdown. DO NOT use bullet lists. DO NOT use indentation-based formatting.
+6. Marker lines must be exactly:
+   OPERATOR_CMD
+  END_OPERATOR_CMD
+  OPERATOR_RESULT
+  END_OPERATOR_RESULT
+  and must be alone on their own line.
+3. Inside OPERATOR_CMD, use only "key: value" lines. One key per line.
+4. Never send multi-line payloads in a plain "content:" field. ALWAYS use content_b64 for multi-line text, and patch_b64 for unified diffs.
+5. To keep context small: use fs.search to find locations, then fs.readSlice to fetch exact context. Then use a very small fs.patch (single-hunk).
+
 Markers (must be alone on their own line):
-- OPERATOR_CMD
-- END_OPERATOR_CMD
-- OPERATOR_RESULT
-- END_OPERATOR_RESULT
+ OPERATOR_CMD
+ END_OPERATOR_CMD
+ OPRERATOR_RESULT
+ END_OPERATOR_RESULT
 
 Command format (inside OPERATOR_CMD block):
-- key: value (one per line)
-- Required: version: 1, id: <string>, action: <string>
-- Rule: path is REQUIRED only for actions starting with "fs."
+ - Key: Value (one per line)
+ - Required: version: 1, id: <string>, action: <string>
+ - Rule: path is REQUIRED only for actions starting with "fs."
+
+Result format:
+ OPERATOR_RESULT
+ id: <same id>
+ ok: true|false
+ summary: <short one-line summary>
+ details_b64: <optional base64 UTF-8 payload>
+ END_OPERATOR_RESULT
 
 Actions:
+
 - operator.getInterfaceSpec
-  - no workspace required
-  - no path
-  - returns this document as base64 UTF-8 in details_b64
+  Required: version, id, action
+  No workspace required
+  No path required
+  Result: details_b64 contains this spec (base64 UTF-8)
 
 - fs.list
-- fs.read
-- fs.write
-- fs.patch
-- fs.delete
-  - all fs.* actions require workspace
-  - all fs.* actions require path
+  Requires: workspace, path (dir)
 
-Results:
-- id
-- ok: true|false
-- summary: short text
-- details_b64: optional base64 UTF-8 payload
+- fs.read
+  Requires: workspace, path (file)
+  Result: details_b64 contains full file content (base64 UTF-8)
+
+- fs.readSlice
+  Requires: workspace, path (file)
+  Params: start (1-based line, default 1), lines (default 120, max 400)
+  Result: details_b64 contains numbered lines (base64 UTF-8)
+
+- fs.search
+  Requires: workspace, path (file)
+  Params: query (required, substring)
+  Result: details_b64 contains matching lines with line numbers
+
+- fs.write
+  Requires: workspace, path
+  Requires user confirmation
+  Payload: content_b64 (preferred for multi-line) or content (small plain text only)
+
+- fs.patch
+  Requires: workspace, path
+  Requires user confirmation
+  Payload: patch_b64 (unified diff, base64 UTF-8)
+  Note: patching is strict; context must match exactly
+
+- fs.delete
+  Requires: workspace, path
+  Requires user confirmation
+
+Recommended workflow:
+1) operator.getInterfaceSpec
+2) fs.search
+3) fs.readSlice
+4) fs.patch (very small, single hunk)

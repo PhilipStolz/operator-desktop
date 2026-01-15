@@ -1,22 +1,15 @@
 # Operator
 
-Operator is a cross-platform desktop application (Electron + TypeScript) that helps users **safely execute local actions suggested by web-based LLM chats** — without using any official provider APIs.
+Operator is a cross-platform desktop application (Electron + TypeScript) that embeds a web-based LLM chat (e.g. ChatGPT) and lets the LLM suggest **controlled local actions**.
 
-Operator is **human-in-the-loop**:
-
-- LLMs propose actions in strict `OPERATOR_CMD` blocks
-- Operator parses + validates
-- the user approves or rejects
-- Operator executes within a user-selected workspace and returns an `OPERATOR_RESULT` block
-
----
+Core idea: **human-in-the-loop** execution. The LLM proposes actions in strict text blocks, the user explicitly approves/rejects, Operator executes inside a user-selected workspace, and returns results.
 
 ## Goals
 
-- Provide a built-in browser to access web-based chats (e.g. ChatGPT) **as-is**
-- Offer a local “Operator Panel” for:
-  - pasting chat output
-  - parsing commands
+- Use web-based chats **as-is** (no provider APIs required)
+- Provide an Operator Panel for:
+  - extracting chat text (plain text)
+  - scanning for commands
   - confirmations + audit log
   - workspace-scoped file operations
 - Run on Windows and Linux
@@ -27,28 +20,24 @@ Operator is **human-in-the-loop**:
 - No DOM scraping / no website-specific automation
 - No arbitrary code execution from the LLM (only controlled, explicitly approved actions)
 
----
-
 ## Safety model
 
-- All operations are scoped to a user-selected **workspace root**
+- All file operations are scoped to a user-selected **workspace root**
 - Writes and deletes require explicit user approval (default)
 - Path traversal is blocked (no `../` escaping)
 - Actions are logged (audit log)
 - Destructive ops should be reversible (trash / snapshots)
 
----
+## Command protocol (v1)
 
-## Command protocol
-
-LLMs must express executable actions **only** inside `OPERATOR_CMD` blocks.
+Executable actions must appear **only** inside `OPERATOR_CMD` blocks:
 
 ```text
 OPERATOR_CMD
 version: 1
-id: 2026-01-14T12:04:10Z-002
+id: example-001
 action: fs.list
-path: ./projects
+path: .
 END_OPERATOR_CMD
 ```
 
@@ -56,44 +45,63 @@ Operator answers with `OPERATOR_RESULT` blocks:
 
 ```text
 OPERATOR_RESULT
-id: 2026-01-14T12:04:10Z-002
+id: example-001
 ok: true
 summary: Listed directory.
 details_b64: ...
 END_OPERATOR_RESULT
 ```
 
-Planned actions (non-exhaustive): `fs.read`, `fs.write`, `fs.list`, `fs.delete`, …
+### Interface discovery (important)
 
----
+He app is self-describing. The first step for an LLM is:
+
+```text
+OPERATOR_CMD
+version: 1
+id: iface-001
+action: operator.getInterfaceSpec
+END_OPERATOR_CMD
+```
+
+The returned `details_b64` contains the canonical interface specification (base64 UTF-8).
+
+### Token-efficient workflow
+
+To avoid large context and patch failures:
+
+1. `operator.getInterfaceSpec`
+2 `fs.search` to find the relevant location
+2. `fs.readSlice` to fetch exact context (line range)
+3. `fs.patch` with a very small single-hunk diff
 
 ## Architecture (current)
 
-- **Main process (Electron):** hardened embedded browser + navigation allowlist
-- **Renderer:** currently a minimal shell page; the web chat UI is loaded in the same window
-- **No provider APIs, no scraping** (copy/paste workflow is the baseline)
-
----
+- **Main process (Electron):**
+  - hardened embedded browser + navigation allowlist
+  - workspace sandbox for file ops (list/read/write/patch/delete)
+  - strict scanner for `OPERATOR_CMD` blocks (DoS guards: max chars/lines)
+- **Renderer: (Operator Panel):**
+  - controls for Extract + Scan
+  - command inbox with selection + run controls
+  - confirmation UI for destructive ops
 
 ## Configuration
 
 ### Start URL
 
-By default Operator opens ChatGPT.
-
-Set `OPERATOR_START_URL` to override:
+By default Operator opens ChatGPT. Override via `OPERATOR_START_URL`:
 
 ```bash
 # PowerShell
 $env:OPERATOR_START_URL="https://chat.openai.com/"
 ```
 
+
 ```bash
 # bash
 export OPERATOR_START_URL="https://chat.openai.com/"
 ```
-
----
 
 ## Development
 
@@ -109,26 +117,12 @@ npm install
 npm run dev
 ```
 
-(If your repo uses different scripts, adjust accordingly in `package.json`.)
-
 ### Build (example)
 
 ```bash
 npm run build
 ```
 
----
-
-## Roadmap
-
-- Operator Panel UI (sidebar / inbox)
-- `OPERATOR_CMD` parser + validator (versioned protocol)
-- Workspace selection + scoped file ops
-- Confirmations + audit log
-- Optional: split web chat into a `BrowserView` for a cleaner Operator UI shell
-
----
-
 ## License
 
-See `LICENSE`.
+See `LICENSE `.

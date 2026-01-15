@@ -1,179 +1,69 @@
 PROJEKTKONTEXT – OPERATOR (AKTUELLER STAND)
 
-Projektname:
-Operator
+Ziel des Projekts
+Operator ist eine Electron-Desktop-App, die einen Web-LLM-Chat (z
+ B. ChatGPT im BrowserView) einbettet und es dem LLM permittiert, kontrollierte lokale Aktionen vorzuschlagen, die der User explizit bestätigt.
+Keine Provider-APIs, keine automatisches DOM-Scraping – stattdessen Plain-Text-Extraktion + explizites Command-Protokoll.
 
-Repository:
-operator-desktop
-
-ZIEL
-Operator ist eine plattformübergreifende Desktop-Anwendung (Windows & Linux) auf Basis von Electron + TypeScript, später React im Renderer.
-
-Operator fungiert als sichere, human-in-the-loop Middleware zwischen:
-- Web-basierten LLM-Chats (z. B. ChatGPT, DeepSeek, Claude im Browser)
-- lokalen Aktionen auf dem Rechner des Nutzers
-
-Operator nutzt KEINE offiziellen APIs der LLM-Anbieter.
-
----
-
-GRUNDPRINZIP (NON-NEGOTIABLE, AKTUALISIERT)
-- Das LLM läuft ausschließlich im Webbrowser (embedded in Electron).
-- Keine „Agent“-Autonomie: Jede lokale Aktion erfordert eine explizite Bestätigung durch den Nutzer.
-- Keine Website-Interaktion/Automatisierung (klicken, tippen, senden, navigieren) durch Operator.
-- **NEU:** Operator darf den Webchat **lesend** in eine Plain-Text-Repräsentation überführen („Chat Extraction“),
-  um darin OPERATOR_CMD-Blöcke automatisch zu erkennen.
-- Website-/Provider-spezifische Logik ist **nur** für die **lesende Extraktion** erlaubt und muss strikt begrenzt sein
-  (read-only, keine Netzwerkzugriffe, keine Seitennavigation, keine Persistenz außerhalb Operator).
-- LLM-generierter Code darf **niemals ungeprüft** ausgeführt werden. Vorschläge des LLM dienen nur als Input
-  für einen Review-/Freigabeprozess (durch Nutzer/Entwickler), bevor er als Extractor gespeichert/aktiviert wird.
-
-Human-in-the-loop bleibt zwingend:
-- Nutzer bestätigt (a) jede lokale Aktion und (b) jede Installation/Aktualisierung eines Extractors.
-- Ergebnisse werden weiterhin manuell in den Webchat zurückkopiert (oder zumindest vom Nutzer kontrolliert).
-
----
-
-AKTUELLER TECHNISCHER STAND
-
-Electron Main Process:
-- BrowserWindow mit festem App-Namen: „Operator“
-- Festgenagelter Fenstertitel (page-title-updated wird unterdrückt)
-- Eigenes App-Icon (assets/icons/win/OperatorIcon.png)
-- Quelldatei für App-Icon (assets/branding/OperatorIcon.svg)
-- Externe Links (window.open) werden im Systembrowser geöffnet
-- Navigation-Lockdown per Domain-Whitelist (ALLOWED_HOSTS)
-- Nicht erlaubte Navigation wird blockiert und extern geöffnet
-
-Security Defaults:
-- nodeIntegration: false
-- contextIsolation: true
-- sandbox: true
-
-Start-URL:
-- Konfigurierbar über OPERATOR_START_URL (Environment Variable)
-
----
-
-NAVIGATION & SICHERHEIT
-
-Whitelist-Ansatz:
-- Nur explizit erlaubte HTTPS-Hosts dürfen im Embedded Browser geladen werden
-- Beispiele:
-  - chat.openai.com
-  - chatgpt.com
-  - auth.openai.com
-  - openai.com
-
-Alles andere:
-- wird NICHT in der App geöffnet
-- sondern im externen Systembrowser
-
----
-
-DESIGN-ZIEL (NEXT STEPS)
-
-Outside-In-Entwicklung:
-1. Stabile Operator-Shell etablieren
-2. Webchat als eingebettete Komponente (BrowserView / WebContents)
-3. Sichtbares Branding (Operator ≠ Browser)
-4. Danach: Operator-spezifische UI (Sidebar / Command Inbox)
-5. **NEU:** Chat Extraction Layer (Plain Text) + automatische OPERATOR_CMD-Erkennung
-6. Danach: sichere lokale Aktionen + Audit-Log + Workspace-Root
-
----
-
-CHAT EXTRACTION LAYER (NEU – KERNBAUSTEIN)
-
-Ziel:
-- Aus dem eingebetteten Webchat wird regelmäßig oder auf Knopfdruck eine Plain-Text-Repräsentation erzeugt.
-- Darin werden OPERATOR_CMD-Blöcke robust erkannt (auch bei Formatierungsvarianten).
-
-Erlaubte Extraktionswege (Priorität):
-A) User-gestützt (bevorzugt):
-   - Nutzer nutzt im Webchat „Copy / Export / Copy conversation“-Funktionen und fügt Text in Operator ein.
-   - Operator kann zusätzlich den Clipboard-Inhalt (nach Nutzeraktion) einlesen.
-
-B) Read-only Provider-Extractor (optional, pro Host):
-   - Ein „Extractor-Modul“ liest aus dem DOM/Accessibility-Tree **nur** den sichtbaren Chat-Text aus.
-   - Keine Eingaben, keine Klicks, keine Navigation, keine Netzwerkzugriffe.
-   - Läuft in isoliertem Kontext (kein Node, kein eval, kein dynamic import) und mit strengem Timeout.
-   - Ergebnis ist Plain Text + Metadaten (z. B. message boundaries), niemals Roh-DOM oder Tokens.
-
-Extractor-Lifecycle:
-- Extractor ist pro Provider/Host versioniert und lokal gespeichert.
-- Aktivierung/Update erfordert explizite Nutzerfreigabe.
-- Jeder Extractor ist gehasht/signiert (mindestens Hash-Pinning), damit Änderungen nachvollziehbar sind.
-- Bei Fehlern: Fallback auf A) (User-gestützt) + klare In-App-Anleitung.
-
-LLM als Hilfe (NEU, aber sicher):
-- Das LLM darf Vorschläge machen, wie ein Extractor aussehen könnte.
-- Operator führt diese Vorschläge **nicht** direkt aus.
-- Stattdessen: Review-Workflow (Diff-Ansicht, statische Checks, Testlauf im „Dry Run“, dann Freigabe).
-- Ziel: Schnelle Anpassung bei UI-Änderungen des Providers, ohne das Sicherheitsmodell zu brechen.
-
----
-
-OPERATOR TEXTPROTOKOLL (KERNFEATURE – NOCH NICHT IMPLEMENTIERT)
-
-Befehle vom LLM (als Klartext im Chat, werden durch Chat Extraction erkannt):
-
+Kernprinzip
+LLM schläkt Aktionen ausschließlich in expliziten Textblöcken vor:
 OPERATOR_CMD
-version: 1
-id: <uuid>
-action: fs.read | fs.write | fs.list | fs.delete | ...
-path: <relativer pfad>
-(optionale argumente)
+… 
 END_OPERATOR_CMD
 
-Antwort von Operator:
-
+Operator:
+- extrahiert den Webchat als Plain Text
+- scannt nach OPERATOR_CMD
+- validiert strikt
+- zeigt Commands in einer Inbox
+- führt sie nur nach User-Bestätigung aus
+- antwortet mit:
 OPERATOR_RESULT
-id: <uuid>
-ok: true | false
-summary: <kurze beschreibung>
-details_b64: <optional>
+… 
 END_OPERATOR_RESULT
 
----
+Self-describing Interface (wichtig)
+Damit LLMs die Syntax nicht “raten“, muss ein LLC IMMER zerst die kanonische Schnittstellen-Spezifikation abfragen:
+OPERATOR_CMD
+version: 1
+id: iface-001
+action: operator.getInterfaceSpec
+END_OPERATOR_CMD
 
-COMMAND INBOX (NEU – GEPLANTE UI/LOGIK)
+Die Spec kommt als base64 UTF-8 unter details_b64 zurück und ist die verbindliche Quelle für:
+- Marker
+- Pflichtfelder
+- verfügbare Actions
+- Payload-Regeln (content_b64, patch_b64)
+- Limits und Beispiele
 
-- Operator zeigt erkannte OPERATOR_CMD-Blöcke in einer „Command Inbox“.
-- Jeder Command hat Status: erkannt → validiert → wartet auf Bestätigung → ausgeführt → Ergebnis bereit.
-- Validierung umfasst:
-  - Protokoll-Version
-  - Schema/Typen
-  - Workspace-Root + Path-Traversal-Schutz
-  - „Risk Level“ (read vs write vs delete)
-- Ausführung nur nach Nutzerbestätigung.
+Aktueller Stand (funktional)
+Implementiert (Auszug):
+- harte Navigation-Allowlist
+- Plain-Text-Extraktion via executeJavaScript
+- Scanner für OPERATOR_CMD (Marker allein auf eigener Zeile, DoS-Limits)
+- Workspace-Sandbox:
+  - fs.list
+  - fs.read
+  - fs.readSlice (line-based slices, token-sparend)
+  - fs.search (substring grep, token-sparend)
+  - fs.write (mit Bestätigung)
+  - fs.delete (mit Bestätigung)
+  - fs.patch (strikter Unified-Diff-Applier, single-file, mit Bestätigung)
+- operator.getInterfaceSpec (kein Workspace, kein path)
+- dedupe nach id (keep last)
+- Operator Panel UI: Extract + Scan, Inbox, Run/Selection
 
----
+Wichtiges Detail: Patch-Applier ist strikt
+- Kontextzeilen müssen byte-genau passen
+- Schon kieinste Abwechung –> Context mismatch
+Empfohlener Workflow: fs.search –– fs.readSlice –– very small fs.patch
 
-SICHERHEITSMODELL (ZUKÜNFTIG, ERWEITERT)
+Lessons Learned
+- UI/Markdown kann Commands unbrauchbar machen: Commands müssen als Plain-Text-Block KOPIERBARL sein
+- Mehrzeilige Inhalte nie als “content:“ (plain) senden, sondern über content_b64 / patch_b64
+- Große Dateien nicht vollständig lesen (fs.read) wenn ehs nicht nötig ist; lieber fs.search + fs.readSlice
 
-Workspace & Files:
-- Nutzer wählt ein Workspace-Root-Verzeichnis
-- Alle Dateioperationen müssen innerhalb dieses Roots liegen
-- Schutz gegen Path Traversal (..)
-- Schreib- und Löschaktionen erfordern explizite Bestätigung
-- Destruktive Aktionen sind reversibel (Trash / Backups)
-- Vollständiger Audit-Log aller Aktionen
-
-Extractor-Sicherheit:
-- Provider-spezifische Extractors sind read-only und sandboxed.
-- Keine fremden Domains, keine Netzwerkzugriffe.
-- Kein Zugriff auf lokale Dateien/OS.
-- Strikte Timeouts und Größenlimits (DoS-Schutz).
-- Hash-/Signaturprüfung + Audit-Log für Install/Update.
-
----
-
-WICHTIGE LEITPLANKEN FÜR CHATGPT / LLM (AKTUALISIERT)
-
-- Keine API-Vorschläge (LLM-Anbieter-APIs werden nicht genutzt).
-- Keine Website-Automatisierung (Klicken/Tippen/Senden/Navigieren) durch Operator.
-- Website-spezifische Logik nur für read-only Chat Extraction und nur nach Review/Freigabe.
-- LLM-Code ist Vorschlag, nicht ausführbarer Auftrag: Operator prüft, der Nutzer bestätigt.
-- Alle lokalen Aktionen immer human-in-the-loop.
-- Fokus auf Sicherheit, Nachvollziehbarkeit, Einfachheit.
+Nächste sinnvolle Verbesserungen (optional)
+- UI: details_b64 automatisch decodiert zeigen/kopieren
+- zerückführung lese-Helfer (z. B. fs.stat / fs.readMeta mit lineCount + hash)

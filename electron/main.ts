@@ -198,7 +198,7 @@ function scanForCommands(plainText: string): { commands: OperatorCmd[]; warnings
           `Ignored OPERATOR_CMD block (missing ${[
             !id ? "id" : null,
             !action ? "action" : null,
-            !p ? "path" : null,
+            needsPath && !p ? "path" : null,
           ].filter(Boolean).join(", ")}).`
         );
       } else {
@@ -275,7 +275,7 @@ function resolveInWorkspace(relPath: string): { ok: boolean; absPath?: string; r
 
 function riskLevel(action?: string): "read" | "write" | "delete" | "unknown" {
   if (!action) return "unknown";
-  if (action === "fs.read" || action === "fs.list") return "read";
+  if (action === "fs.read" || action === "fs.list" || action === "fs.readSlice" || action === "fs.search") return "read";
   if (action === "fs.write") return "write";
   if (action === "fs.delete") return "delete";
   if (action === "fs.patch") return "write";
@@ -334,6 +334,71 @@ async function executeFsCommand(win: BrowserWindow, cmd: OperatorCmd): Promise<O
       const data = await fs.readFile(absPath, "utf-8");
       return { id, ok: true, summary: "Read file", details_b64: b64(data) };
     }
+
+    if (action === "fs.readSlice") {
+      const startRaw = (cmd as any).start ?? (cmd as any).line ?? (cmd as any).from;
+      const linesRaw = (cmd as any).lines ?? (cmd as any).count ?? (cmd as any).len;
+
+      const startLine = Math.max(1, Number(startRaw ?? 1));
+      const maxLines = 400;
+      const takeLines = Math.max(1, Math.min(maxLines, Number(linesRaw ?? 120)));
+
+      if (!Number.isFinite(startLine) || !Number.isFinite(takeLines)) {
+        return { id, ok: false, summary: "Invalid readSlice: start/lines must be numbers" };
+      }
+
+      const data = await fs.readFile(absPath, "utf-8");
+      const fileLines = data.split(/\r?\n/);
+
+      const startIdx = Math.min(fileLines.length, Math.max(0, startLine - 1));
+      const endIdx = Math.min(fileLines.length, startIdx + takeLines);
+
+      const out: string[] = [];
+      out.push(`# ${relPath}`);
+      out.push(`# lines ${startIdx + 1}-${endIdx} of ${fileLines.length}`);
+      out.push("");
+
+      for (let i = startIdx; i < endIdx; i++) {
+        const n = String(i + 1).padStart(6, " ");
+        out.push(`${n}: ${fileLines[i] ?? ""}`);
+      }
+
+      return { id, ok: true, summary: `Read slice (${startIdx + 1}-${endIdx})`, details_b64: b64(out.join("\n")) };
+    }
+
+    if (action === "fs.search") {
+      const q1 = typeof (cmd as any).query === "string" ? (cmd as any).query : "";
+      const q2 = typeof (cmd as any).q === "string" ? (cmd as any).q : "";
+      const query = (q1 || q2).trim();
+      if (!query) return { id, ok: false, summary: "Invalid search: missing query" };
+
+      const data = await fs.readFile(absPath, "utf-8");
+      const fileLines = data.split(/\r?\n/);
+
+      const maxMatches = 50;
+      const matches: Array<{ line: number; text: string }> = [];
+
+      for (let i = 0; i < fileLines.length; i++) {
+        if (fileLines[i].includes(query)) {
+          matches.push({ line: i + 1, text: fileLines[i] });
+          if (matches.length >= maxMatches) break;
+        }
+      }
+
+      const out: string[] = [];
+      out.push(`# search in ${relPath}`);
+      out.push(`# query: ${query}`);
+      out.push(`# matches: ${matches.length}${matches.length === maxMatches ? " (truncated)" : ""}`);
+      out.push("");
+
+      for (const m of matches) {
+        const n = String(m.line).padStart(6, " ");
+        out.push(`${n}: ${m.text}`);
+      }
+
+      return { id, ok: true, summary: `Search found ${matches.length} matches`, details_b64: b64(out.join("\n")) };
+    }
+
 
     if (action === "fs.write") {
       let content = "";
@@ -626,13 +691,31 @@ function createWindow() {
 
     const safeCmd: OperatorCmd = { ...cmd, version: v, id, action, path: p };
 
-    if (!workspaceRoot) {
+    if (action === "operator.getInterfaceSpec") {
+      const spec = await readInterfaceSpec();
+      if (!spec.ok) {
+        const r: OperatorResult = { id, ok: false, summary: `Failed to read interface spec: ${spec.error}` };
+        return { result: r, resultText: formatOperatorResult(r) };
+      }
+      const r: OperatorResult = { id, ok: true, summary: "Interface spec", details_b64: b64(spec.text) };
+      return { result: r, resultText: formatOperatorResult(r) };
+    }
+
+    const isFs = typeof action === "string" && action.startsWith("fs.");
+
+    if (isFs && !workspaceRoot) {
       const r: OperatorResult = { id, ok: false, summary: "Workspace not set. Choose workspace first." };
       return { result: r, resultText: formatOperatorResult(r) };
     }
 
-    const r = await executeFsCommand(win, safeCmd);
+    if (isFs) {
+      const r = await executeFsCommand(win, safeCmd);
+      return { result: r, resultText: formatOperatorResult(r) };
+    }
+
+    const r: OperatorResult = { id, ok: false, summary: `Unknown action: ${action ?? ""}` };
     return { result: r, resultText: formatOperatorResult(r) };
+
   });
 
   return win;
