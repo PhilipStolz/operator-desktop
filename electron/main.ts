@@ -322,7 +322,17 @@ async function executeFsCommand(win: BrowserWindow, cmd: OperatorCmd): Promise<O
     }
 
     if (action === "fs.write") {
-      const content = typeof cmd.content === "string" ? cmd.content : "";
+      let content = "";
+      if (typeof cmd.content_b64 === "string" && cmd.content_b64.trim()) {
+        try {
+          content = Buffer.from(String(cmd.content_b64).trim(), "base64").toString("utf-8");
+        } catch {
+          return { id, ok: false, summary: "Invalid content_b64 (base64 decode failed)" };
+        }
+      } else {
+        content = typeof cmd.content === "string" ? cmd.content : "";
+      }
+
       // Ensure parent exists
       await fs.mkdir(path.dirname(absPath), { recursive: true });
       await fs.writeFile(absPath, content, "utf-8");
@@ -384,7 +394,7 @@ function createWindow() {
   hardenWebContents(win.webContents);
 
   // Load Operator UI (stays loaded)
-  win.loadFile(path.join(app.getAppPath(), "renderer", "index.html")).catch(() => {});
+  win.loadFile(path.join(app.getAppPath(), "renderer", "index.html")).catch(() => { });
 
   // Create BrowserView for Webchat
   const view = new BrowserView({

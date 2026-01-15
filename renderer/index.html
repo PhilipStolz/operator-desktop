@@ -1,77 +1,195 @@
 <!doctype html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Operator</title>
-    <style>
-      body { margin: 0; font-family: sans-serif; }
-      .sidebar {
-        position: fixed;
-        left: 0; top: 0; bottom: 0;
-        width: 360px;
-        border-right: 1px solid #ddd;
-        padding: 12px;
-        box-sizing: border-box;
-        overflow: auto;
-        background: #fff;
-      }
-      .contentHint {
-        margin-left: 360px;
-        padding: 8px 12px;
-        color: #666;
-        font-size: 12px;
-        user-select: none;
-      }
-      button { padding: 8px 10px; margin: 4px 0; cursor: pointer; }
-      .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-      .small { font-size: 12px; color: #666; }
-      .error { color: #b00020; }
-      .cmd { border: 1px solid #eee; padding: 8px; margin: 8px 0; border-radius: 6px; }
-      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; white-space: pre-wrap; }
-      textarea { width: 100%; height: 140px; box-sizing: border-box; }
-      hr { border: none; border-top: 1px solid #eee; margin: 12px 0; }
-      .pill { display: inline-block; padding: 2px 6px; border: 1px solid #ddd; border-radius: 999px; font-size: 12px; }
-    </style>
-  </head>
-  <body>
-    <div class="sidebar">
-      <h2 style="margin: 0 0 8px;">Operator</h2>
 
-      <div class="row">
-        <button id="btnWorkspace">Choose Workspace</button>
-        <span id="workspace" class="pill">Workspace: (not set)</span>
-      </div>
+<head>
+  <meta charset="utf-8" />
+  <title>Operator</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif
+    }
 
-      <div class="row" style="margin-top: 8px;">
-        <button id="btnScanClipboard">Scan Clipboard</button>
-        <button id="btnExtract">Extract & Scan</button>
-        <button id="btnClear">Clear</button>
-      </div>
+    .sidebar {
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 360px;
+      border-right: 1px solid #ddd;
+      padding: 12px;
+      box-sizing: border-box;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow: hidden
+    }
 
-      <div id="status" class="small"></div>
-      <div id="warnings" class="small error"></div>
+    .contentHint {
+      margin-left: 360px;
+      padding: 8px 12px;
+      color: #666;
+      font-size: 12px;
+      user-select: none
+    }
 
-      <h3>Command Inbox</h3>
-      <div id="inbox"></div>
+    button {
+      padding: 8px 10px;
+      margin: 0;
+      cursor: pointer
+    }
 
-      <h3>Last Result</h3>
-      <textarea id="result" readonly></textarea>
-      <div class="row">
-        <button id="btnCopyResult">Copy Result</button>
-        <span id="copyStatus" class="small"></span>
-      </div>
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap
+    }
 
-      <hr />
-      <div class="small">
-        Webchat läuft rechts (BrowserView). Operator interagiert nicht mit der Website (kein Klicken/Tippen),
-        sondern liest nur Text (Extraction) und führt lokale Aktionen erst nach Bestätigung aus.
-      </div>
+    .small {
+      font-size: 12px;
+      color: #666
+    }
+
+    .error {
+      color: #b00020
+    }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      white-space: pre-wrap
+    }
+
+    textarea {
+      width: 100%;
+      height: 140px;
+      box-sizing: border-box
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 6px;
+      border: 1px solid #ddd;
+      border-radius: 999px;
+      font-size: 12px
+    }
+
+    .sectionTitle {
+      margin: 0;
+      font-size: 14px
+    }
+
+    .inboxPane {
+      flex: 1 1 auto;
+      min-height: 120px;
+      overflow: auto;
+      border: 1px solid #eee;
+      border-radius: 8px;
+      padding: 8px
+    }
+
+    .cmd {
+      border: 1px solid #eee;
+      padding: 8px;
+      margin: 8px 0;
+      border-radius: 6px
+    }
+
+    .cmdHeader {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px
+    }
+
+    .cmdMeta {
+      margin-top: 4px
+    }
+
+    .statusPill {
+      display: inline-block;
+      padding: 2px 6px;
+      border: 1px solid #ddd;
+      border-radius: 999px;
+      font-size: 12px;
+      color: #333;
+      white-space: nowrap
+    }
+
+    .cmdActions {
+      margin-top: 8px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center
+    }
+
+    .lastResultPane {
+      flex: 0 0 auto;
+      border-top: 1px solid #eee;
+      padding-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px
+    }
+
+    .mutedBox {
+      border: 1px solid #eee;
+      border-radius: 8px;
+      padding: 8px;
+      background: #fafafa
+    }
+
+    input[type=checkbox] {
+      transform: translateY(1px)
+    }
+
+    label.chk {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+      font-size: 12px;
+      color: #333;
+      user-select: none
+    }
+  </style>
+</head>
+
+<body>
+  <div class="sidebar">
+    <div>
+      <h2 style="margin:0 0 8px;">Operator</h2>
+      <div class="row"><button id="btnWorkspace">Choose Workspace</button><span id="workspace" class="pill">Workspace:
+          (not set)</span></div>
+      <div class="row" style="margin-top:8px;"><button id="btnScanClipboard">Scan Clipboard</button><button
+          id="btnExtract">Extract & Scan</button><button id="btnClear">Clear</button></div>
+      <div id="status" class="small" style="margin-top:6px;"></div>
+      <div id="warnings" class="small error" style="margin-top:4px;"></div>
     </div>
-
-    <div class="contentHint">
-      Webchat rechts im Fenster (BrowserView). Sidebar bleibt Operator.
+    <div class="mutedBox">
+      <div class="row" style="justify-content:space-between;width:100%;">
+        <div>
+          <div class="sectionTitle">Command Inbox</div>
+          <div class="small">Select commands and run as a batch.</div>
+        </div>
+      </div>
+      <div class="row" style="margin-top:8px;"><button id="btnSelectAll">Select all</button><button
+          id="btnSelectNone">Select none</button><button id="btnRunSelected">Run selected</button><button
+          id="btnRunAll">Run all</button><label class="chk"><input id="chkStopOnFail" type="checkbox" checked /> stop on
+          fail</label></div>
     </div>
+    <div id="inbox" class="inboxPane"></div>
+    <div class="lastResultPane">
+      <div class="sectionTitle">Last Result</div><textarea id="result" readonly></textarea>
+      <div class="row"><button id="btnCopyResult">Copy Result</button><span id="copyStatus" class="small"></span></div>
+      <div class="small">Webchat läuft rechts (BrowserView). Operator liest nur Text und führt lokale Aktionen nur nach
+        Bestätigung aus.</div>
+    </div>
+  </div>
+  <div class="contentHint">Webchat rechts im Fenster (BrowserView). Sidebar bleibt Operator.</div>
+  <script src="./renderer.js"></script>
+</body>
 
-    <script src="./renderer.js"></script>
-  </body>
 </html>
