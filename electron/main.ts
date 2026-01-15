@@ -102,6 +102,18 @@ function b64(s: string) {
   return Buffer.from(s, "utf-8").toString("base64");
 }
 
+async function readInterfaceSpec(): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
+  try {
+    const specPath = getAssetPath("operator_interface_spec_v1.txt");
+    const text = await fs.readFile(specPath, "utf-8");
+    const limited = text.length > 200_000 ? text.slice(0, 200_000) : text;
+    return { ok: true, text: limited };
+  } catch (e: any) {
+    return { ok: false, error: String(e?.message ?? e) };
+  }
+}
+
+
 // --- Command parsing (Plain Text -> OPERATOR_CMD blocks) ---
 
 const START_MARK = "OPERATOR_CMD";
@@ -179,8 +191,9 @@ function scanForCommands(plainText: string): { commands: OperatorCmd[]; warnings
       const id = cmd.id ? String(cmd.id).trim() : "";
       const action = cmd.action ? String(cmd.action).trim() : "";
       const p = cmd.path ? String(cmd.path).trim() : "";
+      const needsPath = action.startsWith("fs.");
 
-      if (!id || !action || !p) {
+      if (!id || !action || (needsPath && !p)) {
         warnings.push(
           `Ignored OPERATOR_CMD block (missing ${[
             !id ? "id" : null,
@@ -192,7 +205,7 @@ function scanForCommands(plainText: string): { commands: OperatorCmd[]; warnings
         // normalize typed fields
         cmd.id = id;
         cmd.action = action;
-        cmd.path = p;
+        if (needsPath) cmd.path = p;
         if (cmd.version === undefined) cmd.version = 1;
 
         commands.push(cmd);
