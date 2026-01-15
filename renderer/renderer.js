@@ -12,6 +12,8 @@ const inboxEl = $("inbox");
 const resultEl = $("result");
 const btnCopyResult = $("btnCopyResult");
 const copyStatusEl = $("copyStatus");
+const btnCopyBootstrap = $("btnCopyBootstrap");
+
 
 let commands = [];
 let lastResultText = "";
@@ -170,6 +172,26 @@ btnClear.onclick = () => {
   copyStatusEl.textContent = "";
   renderInbox();
 };
+
+btnCopyBootstrap.onclick = async () => {
+  setStatus("Loading bootstrap prompt…");
+  try {
+    const res = await window.operator.getBootstrapPrompt();
+    const text = res?.text || "";
+    if (!text.trim()) {
+      setStatus("Bootstrap prompt is empty (missing file?).");
+      return;
+    }
+    await window.operator.copyToClipboard(text);
+    setStatus("Bootstrap prompt copied. Paste it into the new chat.");
+    copyStatusEl.textContent = "Copied bootstrap prompt.";
+    setTimeout(() => (copyStatusEl.textContent = ""), 1200);
+  } catch (e) {
+    setStatus("Failed to copy bootstrap prompt.");
+    setWarnings([String(e)]);
+  }
+};
+
 
 btnCopyResult.onclick = async () => {
   if (!lastResultText) {

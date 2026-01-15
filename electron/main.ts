@@ -265,6 +265,7 @@ function riskLevel(action?: string): "read" | "write" | "delete" | "unknown" {
   if (action === "fs.read" || action === "fs.list") return "read";
   if (action === "fs.write") return "write";
   if (action === "fs.delete") return "delete";
+  if (action === "fs.patch") return "write";
   return "unknown";
 }
 
@@ -339,6 +340,25 @@ async function executeFsCommand(win: BrowserWindow, cmd: OperatorCmd): Promise<O
       return { id, ok: true, summary: "Wrote file" };
     }
 
+    if (action === "fs.patch") {
+      const patchB64 = typeof cmd.patch_b64 === "string" ? cmd.patch_b64.trim() : "";
+      if (!patchB64) return { id, ok: false, summary: "Invalid patch: missing patch_b64" };
+
+      let patchText = "";
+      try {
+        patchText = Buffer.from(patchB64, "base64").toString("utf-8");
+      } catch {
+        return { id, ok: false, summary: "Invalid patch_b64 (base64 decode failed)" };
+      }
+
+      // Apply a very small, strict unified-diff patcher (single-file)
+      const res = await applyUnifiedPatchSingleFile(absPath, patchText);
+      if (!res.ok) return { id, ok: false, summary: `Patch failed: ${res.error}` };
+
+      return { id, ok: true, summary: "Patched file" };
+    }
+
+
     if (action === "fs.delete") {
       // Prefer trash for reversibility
       try {
@@ -366,6 +386,89 @@ function formatOperatorResult(r: OperatorResult): string {
   lines.push("END_OPERATOR_RESULT");
   return lines.join("\n");
 }
+
+async function applyUnifiedPatchSingleFile(
+  absPath: string,
+  patchText: string
+): Promise<{ ok: boolean; error?: string }> {
+  // Minimal unified diff applier:
+  // - expects patch for exactly one file
+  // - supports @@ -a,b +c,d @@ hunks
+  // - strict line matching
+  try {
+    const original = await fs.readFile(absPath, "utf-8");
+    const origLines = original.split(/\r?\n/);
+
+    const lines = patchText.split(/\r?\n/);
+
+    // Find first hunk
+    let i = 0;
+    while (i < lines.length && !lines[i].startsWith("@@")) i++;
+    if (i >= lines.length) return { ok: false, error: "No hunks (@@ ...) found" };
+
+    let out: string[] = [];
+    let origIndex = 0;
+
+    while (i < lines.length) {
+      const header = lines[i];
+      if (!header.startsWith("@@")) { i++; continue; }
+
+      const m = header.match(/^@@\s+-(\d+)(?:,(\d+))?\s+\+(\d+)(?:,(\d+))?\s+@@/);
+      if (!m) return { ok: false, error: "Invalid hunk header" };
+
+      const oldStart = Number(m[1]) - 1; // 0-based
+      // copy unchanged lines before hunk
+      while (origIndex < oldStart) {
+        out.push(origLines[origIndex++]);
+      }
+
+      i++; // move into hunk body
+      while (i < lines.length) {
+        const l = lines[i];
+
+        if (l.startsWith("@@")) break;              // next hunk
+        if (l.startsWith("diff ") || l.startsWith("---") || l.startsWith("+++")) { i++; continue; }
+
+        const tag = l.slice(0, 1);
+        const text = l.slice(1);
+
+        if (tag === " ") {
+          // context line must match
+          if (origLines[origIndex] !== text) {
+            return { ok: false, error: `Context mismatch at line ${origIndex + 1}` };
+          }
+          out.push(origLines[origIndex]);
+          origIndex++;
+        } else if (tag === "-") {
+          // removed line must match
+          if (origLines[origIndex] !== text) {
+            return { ok: false, error: `Remove mismatch at line ${origIndex + 1}` };
+          }
+          origIndex++;
+        } else if (tag === "+") {
+          out.push(text);
+        } else if (tag === "\\") {
+          // "\ No newline at end of file" — ignore
+        } else {
+          return { ok: false, error: `Invalid hunk line: ${l}` };
+        }
+
+        i++;
+      }
+    }
+
+    // copy remaining lines
+    while (origIndex < origLines.length) {
+      out.push(origLines[origIndex++]);
+    }
+
+    await fs.writeFile(absPath, out.join("\n"), "utf-8");
+    return { ok: true };
+  } catch (e: any) {
+    return { ok: false, error: String(e?.message ?? e) };
+  }
+}
+
 
 // --- Window + BrowserView ---
 
@@ -451,6 +554,18 @@ function createWindow() {
   ipcMain.handle("operator:copy", async (_evt, { text }: { text: string }) => {
     clipboard.writeText(String(text ?? ""));
     return { ok: true };
+  });
+
+  ipcMain.handle("operator:getBootstrapPrompt", async () => {
+    try {
+      const p = path.join(app.getAppPath(), "operator_llm_bootstrap.txt");
+      const text = await fs.readFile(p, "utf-8");
+      // DoS guard
+      const limited = text.length > 200_000 ? text.slice(0, 200_000) : text;
+      return { ok: true, text: limited };
+    } catch (e: any) {
+      return { ok: false, text: "", error: String(e?.message ?? e) };
+    }
   });
 
   ipcMain.handle("operator:extract", async () => {

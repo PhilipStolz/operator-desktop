@@ -28,6 +28,8 @@ contextBridge.exposeInMainWorld("operator", {
 
   readClipboard: () => ipcRenderer.invoke("operator:readClipboard"),
 
+  getBootstrapPrompt: () => ipcRenderer.invoke("operator:getBootstrapPrompt"),
+
 });
 
 export {};
