@@ -1,0 +1,96 @@
+Operator Interface Specification (version: 2)
+
+HARD RULES
+1. When outputting OPERATOR_CMD blocks, output ONLY plain text (no markdown, no bullet lists, no indentation-based formatting, no surrounding prose).
+2. Marker lines MUST be exactly and MUST be alone on their own line: OPERATOR_CMD, END_OPERATOR_CMD, OPERATOR_RESULT, END_OPERATOR_RESULT.
+3. Inside OPERATOR_CMD blocks, ONLY lines of the form "key: value" are allowed (one key-value per line; keys are case-sensitive).
+4. OPERATOR_CMD blocks MUST NOT be nested. If START appears before END, the block is invalid.
+5. Multi-line payloads MUST NEVER be sent inline. Use base64 UTF-8 fields: content_b64, patch_b64, edits_b64.
+6. The plain "content" field MAY be used ONLY for very small single-line text and MUST NOT contain line breaks.
+7. Every OPERATOR_CMD MUST include: version: 1, id: <string>, action: <string>.
+8. The command id MUST be echoed verbatim in the corresponding OPERATOR_RESULT.
+9. Actions starting with "fs." REQUIRE a path field. Actions not starting with "fs." MUST NOT include a path field.
+10. Do NOT guess file contents. Read before modifying. Do not issue fs.patch or fs.applyEdits without reading relevant context first.
+11. fs.patch is strict unified diff patching; hunks and context must match exactly or the command fails.
+
+MARKERS (each marker must be on its own line)
+OPERATOR_CMD
+END_OPERATOR_CMD
+OPERATOR_RESULT
+END_OPERATOR_RESULT
+
+OPERATOR_CMD FORMAT
+OPERATOR_CMD
+version: 1
+id: <string>
+action: <string>
+(optional additional key: value lines)
+END_OPERATOR_CMD
+
+OPERATOR_RESULT FORMAT
+OPERATOR_RESULT
+id: <same id as command>
+ok: true|false
+summary: <short single-line summary>
+details_b64: <optional base64 UTF-8 payload>
+END_OPERATOR_RESULT
+
+ACTIONS
+
+operator.getInterfaceSpec
+Required: version, id, action
+No path allowed
+Result: details_b64 contains this interface specification (base64 UTF-8)
+
+FILESYSTEM ACTIONS (&s.*)
+All fs.* actions operate strictly within the selected workspace root.
+Write/edit/patch/delete actions require explicit user confirmation.
+
+fs.list
+Requires: path (directory)
+Result: details_b64 contains directory entries, one per line
+
+fs.read
+Requires: path (file)
+Result: details_b64 contains full file content (base64 UTF-8)
+
+fs.readSlice
+Requires: path (file)
+Params: start (1-based line, default 1); lines (default 120, max 400)
+Result: details_b64 contains numbered lines
+
+fs.search
+Requires: path (file)
+Params: query (required substring)
+Result: details_b64 contains matching lines with line numbers
+
+ft.write
+Requires: path
+Requires user confirmation
+Payload: content_b64 (preferred, base64 UTF-8, multi-line allowed) OR content (single-line only)
+Behavior: overwrites or creates the file
+
+fs.patch
+Requires: path
+Requires user confirmation
+Payload: patch_b64 (base64 UTF-8 unified diff)
+Behavior: strict unified diff for a single file; supports @@ -a,b +c,d @@ hunks; context must match exactly
+
+fs.applyEdits
+Requires: path
+Requires user confirmation
+Payload: edits_b64 (base64 UTF-8 JSON)
+Decoded JSON format: {"version":1,"strict":true,"edits":[...]}
+Edit objects: insertAfter, insertBefore, replaceFirst, replaceAll, replaceRange (see the documentation in this spec)
+Strict semantics: first failure aborts and no changes are written
+
+fs.delete
+Requires: path
+Requires user confirmation
+Behavior: deletes or trashes the path
+
+RECOMMENDED WORKFLOW
+1) operator.getInterfaceSpec
+2) fs.search
+3) fs.readSlice
+4) fs.applyEdits (preferred) or fs.patch (single-hunk, minimal context)

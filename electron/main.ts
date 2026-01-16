@@ -98,13 +98,39 @@ type OperatorResult = {
   details_b64?: string;
 };
 
+type ApplyEdit =
+  | {
+    op: "insertAfter" | "insertBefore";
+    anchor: string;
+    occurrence?: number;
+    text: string;
+  }
+  | {
+    op: "replaceFirst" | "replaceAll";
+    find: string;
+    text: string;
+  }
+  | {
+    op: "replaceRange";
+    startLine: number;
+    endLine: number;
+    text: string;
+  };
+
+type ApplyEditsPayload = {
+  version: number;
+  strict: boolean;
+  edits: ApplyEdit[];
+};
+
+
 function b64(s: string) {
   return Buffer.from(s, "utf-8").toString("base64");
 }
 
 async function readInterfaceSpec(): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
   try {
-    const specPath = getAssetPath("operator_interface_spec_v1.txt");
+    const specPath = getAssetPath("operator_interface_spec.txt");
     const text = await fs.readFile(specPath, "utf-8");
     const limited = text.length > 200_000 ? text.slice(0, 200_000) : text;
     return { ok: true, text: limited };
@@ -436,6 +462,31 @@ async function executeFsCommand(win: BrowserWindow, cmd: OperatorCmd): Promise<O
       return { id, ok: true, summary: "Patched file" };
     }
 
+    if (action === "fs.applyEdits") {
+      const b64 = typeof cmd.edits_b64 === "string" ? cmd.edits_b64.trim() : "";
+      if (!b64) return { id, ok: false, summary: "Missing edits_b64" };
+
+      let payload: ApplyEditsPayload;
+      try {
+        payload = JSON.parse(Buffer.from(b64, "base64").toString("utf-8"));
+      } catch {
+        return { id, ok: false, summary: "Invalid edits_b64 JSON" };
+      }
+
+      if (!payload || payload.version !== 1 || !Array.isArray(payload.edits)) {
+        return { id, ok: false, summary: "Invalid edits payload" };
+      }
+
+      const original = await fs.readFile(absPath, "utf-8");
+      const res = applyEditsToText(original, payload);
+      if (!res.ok) {
+        return { id, ok: false, summary: `ApplyEdits failed: ${res.error}` };
+      }
+
+      await fs.writeFile(absPath, res.text, "utf-8");
+      return { id, ok: true, summary: "Applied edits" };
+    }
+
 
     if (action === "fs.delete") {
       // Prefer trash for reversibility
@@ -464,6 +515,90 @@ function formatOperatorResult(r: OperatorResult): string {
   lines.push("END_OPERATOR_RESULT");
   return lines.join("\n");
 }
+
+function applyEditsToText(
+  original: string,
+  payload: ApplyEditsPayload
+): { ok: true; text: string } | { ok: false; error: string } {
+  let text = original;
+
+  for (let i = 0; i < payload.edits.length; i++) {
+    const e = payload.edits[i];
+
+    if (e.op === "insertAfter" || e.op === "insertBefore") {
+      if (!e.anchor) return { ok: false, error: `Edit ${i}: empty anchor` };
+
+      const occ = Math.max(1, e.occurrence ?? 1);
+      let idx = -1;
+      let from = 0;
+
+      for (let k = 0; k < occ; k++) {
+        idx = text.indexOf(e.anchor, from);
+        if (idx === -1) break;
+        from = idx + e.anchor.length;
+      }
+
+      if (idx === -1)
+        return { ok: false, error: `Edit ${i}: anchor not found` };
+
+      const insertPos =
+        e.op === "insertAfter" ? idx + e.anchor.length : idx;
+
+      text =
+        text.slice(0, insertPos) +
+        e.text +
+        text.slice(insertPos);
+      continue;
+    }
+
+    if (e.op === "replaceFirst") {
+      const first = text.indexOf(e.find);
+      if (first === -1)
+        return { ok: false, error: `Edit ${i}: find not found` };
+
+      const second = text.indexOf(e.find, first + e.find.length);
+      if (second !== -1)
+        return { ok: false, error: `Edit ${i}: multiple matches` };
+
+      text =
+        text.slice(0, first) +
+        e.text +
+        text.slice(first + e.find.length);
+      continue;
+    }
+
+    if (e.op === "replaceAll") {
+      if (!text.includes(e.find))
+        return { ok: false, error: `Edit ${i}: no matches` };
+      text = text.split(e.find).join(e.text);
+      continue;
+    }
+
+    if (e.op === "replaceRange") {
+      const lines = text.split(/\r?\n/);
+      if (
+        e.startLine < 1 ||
+        e.endLine < e.startLine ||
+        e.endLine > lines.length
+      ) {
+        return { ok: false, error: `Edit ${i}: invalid range` };
+      }
+
+      lines.splice(
+        e.startLine - 1,
+        e.endLine - e.startLine + 1,
+        ...e.text.split(/\r?\n/)
+      );
+      text = lines.join("\n");
+      continue;
+    }
+
+    return { ok: false, error: `Edit ${i}: unknown op` };
+  }
+
+  return { ok: true, text };
+}
+
 
 async function applyUnifiedPatchSingleFile(
   absPath: string,
