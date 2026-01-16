@@ -116,6 +116,16 @@
       color: #333;
       user-select: none
     }
+
+    #copyStatus {
+      display: inline-block;
+      min-width: 240px;
+      min-height: 16px;
+      line-height: 16px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
   </style>
 </head>
 
@@ -138,7 +148,9 @@
           <div class="small">Select commands and run as a batch.</div>
         </div>
       </div>
-      <div class="row" style="margin-top:8px;"><button id="btnSelectAll">Select all</button><button id="btnSelectNone">Select none</button><button id="btnRunSelected">Run selected</button><button id="btnRunAll">Run all</button><label class="chk"><input id="chkStopOnFail" type="checkbox" checked /> stop on
+      <div class="row" style="margin-top:8px;"><button id="btnSelectAll">Select all</button><button
+          id="btnSelectNone">Select none</button><button id="btnRunSelected">Run selected</button><button
+          id="btnRunAll">Run all</button><label class="chk"><input id="chkStopOnFail" type="checkbox" checked /> stop on
           fail</label></div>
     </div>
 

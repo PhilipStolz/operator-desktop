@@ -46,23 +46,21 @@ function escapeHtml(s) {
 }
 
 function decodeDetailsB64FromResultText(resultText) {
-  // Find the last OPERATOR_RESULT block and decode its details_b64 (if present).
-  // Returns { ok: boolean, decodedText?: string, error?: string }
   try {
     const text = String(resultText || "");
-    const idx = text.lastIndexOf("OPERATOR_RESULT");
-    if (idx < 0) return { ok: false, error: "No OPERATOR_RESULT block found." };
 
-    const tail = text.slice(idx);
-    const m = tail.match(/\n(?:details_b64:\\s*)([^\\n\\r]+)/);
-    if (!m) return { ok: false, error: "No details_b64 field found." };
+    // Find LAST details_b64 anywhere (no OPERATOR_RESULT/line assumptions).
+    // Captures the base64 token right after "details_b64:" ignoring whitespace.
+    const matches = Array.from(text.matchAll(/details_b64:\s*([A-Za-z0-9+/=]+)/g));
+    if (!matches.length) return { ok: false, error: "No details_b64 field found." };
 
-    const b64 = (m[1] || "").trim();
+    const b64 = (matches[matches.length - 1][1] || "").trim();
     if (!b64) return { ok: false, error: "details_b64 is empty." };
 
     const bin = atob(b64);
     const bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+
     const decodedText = new TextDecoder("utf-8").decode(bytes);
     return { ok: true, decodedText };
   } catch (e) {
@@ -227,12 +225,15 @@ btnCopyResult.onclick = async () => {
 };
 
 btnCopyDecoded.onclick = async () => {
-  const decoded = decodeDetailsB64FromResultText(lastResultText);
+  const sourceText = resultEl.value || lastResultText || "";
+  const decoded = decodeDetailsB64FromResultText(sourceText);
+
   if (!decoded.ok) {
     copyStatusEl.textContent = decoded.error || "Nothing to decode.";
     setTimeout(() => (copyStatusEl.textContent = ""), 1600);
     return;
   }
+
   await window.operator.copyToClipboard(decoded.decodedText);
   copyStatusEl.textContent = "Copied decoded details_b64.";
   setTimeout(() => (copyStatusEl.textContent = ""), 1200);

@@ -2,8 +2,8 @@ Operator Interface Specification (version: 1)
 
 HARD RULES
 1. When you output OPERATOR_CMD blocks, output ONLY plain text. DO NOT use markdown. DO NOT use bullet lists. DO NOT use indentation-based formatting.
-6. Marker lines must be exactly:
-   OPERATOR_CMD
+2. Marker lines must be exactly:
+  OPERATOR_CMD
   END_OPERATOR_CMD
   OPERATOR_RESULT
   END_OPERATOR_RESULT
@@ -35,40 +35,39 @@ Actions:
 
 - operator.getInterfaceSpec
   Required: version, id, action
-  No workspace required
   No path required
   Result: details_b64 contains this spec (base64 UTF-8)
 
 - fs.list
-  Requires: workspace, path (dir)
+  Requires: path (dir)
 
 - fs.read
-  Requires: workspace, path (file)
+  Requires: path (file)
   Result: details_b64 contains full file content (base64 UTF-8)
 
 - fs.readSlice
-  Requires: workspace, path (file)
+  Requires: path (file)
   Params: start (1-based line, default 1), lines (default 120, max 400)
   Result: details_b64 contains numbered lines (base64 UTF-8)
 
 - fs.search
-  Requires: workspace, path (file)
+  Requires: path (file)
   Params: query (required, substring)
   Result: details_b64 contains matching lines with line numbers
 
 - fs.write
-  Requires: workspace, path
+  Requires: path
   Requires user confirmation
   Payload: content_b64 (preferred for multi-line) or content (small plain text only)
 
 - fs.patch
-  Requires: workspace, path
+  Requires: path
   Requires user confirmation
   Payload: patch_b64 (unified diff, base64 UTF-8)
   Note: patching is strict; context must match exactly
 
 - fs.delete
-  Requires: workspace, path
+  Requires: path
   Requires user confirmation
 
 Recommended workflow:

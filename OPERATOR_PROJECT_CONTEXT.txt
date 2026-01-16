@@ -1,69 +1,81 @@
-PROJEKTKONTEXT – OPERATOR (AKTUELLER STAND)
+PROJECT: Operator
 
-Ziel des Projekts
-Operator ist eine Electron-Desktop-App, die einen Web-LLM-Chat (z
- B. ChatGPT im BrowserView) einbettet und es dem LLM permittiert, kontrollierte lokale Aktionen vorzuschlagen, die der User explizit bestätigt.
-Keine Provider-APIs, keine automatisches DOM-Scraping – stattdessen Plain-Text-Extraktion + explizites Command-Protokoll.
+Operator is a cross-platform desktop application built with Electron and TypeScript.
+It hosts a web-based chat (ChatGPT) inside a BrowserView and safely executes explicitly
+defined local commands extracted from chat output.
 
-Kernprinzip
-LLM schläkt Aktionen ausschließlich in expliziten Textblöcken vor:
+CORE GOALS
+- Deterministic, machine-readable command execution
+- Strict separation of concerns (renderer / preload / main)
+- Zero ambiguity between UI text and executable instructions
+- Security by explicit allowlisting and protocol discipline
+
+ARCHITECTURE
+- electron/main.ts
+  Owns BrowserWindow + BrowserView
+  Implements IPC handlers
+  Executes filesystem actions and command execution
+- electron/preload.ts
+  contextBridge exposing window.operator API
+  No logic, only forwarding and validation
+- renderer/renderer.js
+  UI logic
+  Command inbox
+  Result display
+  Decoding and copying of details_b64 payloads
+
+COMMAND / RESULT PROTOCOL
+
+Markers (must be exact, alone on their own line):
 OPERATOR_CMD
-… 
 END_OPERATOR_CMD
-
-Operator:
-- extrahiert den Webchat als Plain Text
-- scannt nach OPERATOR_CMD
-- validiert strikt
-- zeigt Commands in einer Inbox
-- führt sie nur nach User-Bestätigung aus
-- antwortet mit:
 OPERATOR_RESULT
-… 
 END_OPERATOR_RESULT
 
-Self-describing Interface (wichtig)
-Damit LLMs die Syntax nicht “raten“, muss ein LLC IMMER zerst die kanonische Schnittstellen-Spezifikation abfragen:
-OPERATOR_CMD
-version: 1
-id: iface-001
-action: operator.getInterfaceSpec
-END_OPERATOR_CMD
+Inside OPERATOR_CMD:
+- Plain text only
+- One key-value pair per line
+- Format: key: value
+- Required keys: version, id, action
+- Multi-line content MUST be base64:
+  - content_b64 (text)
+  - patch_b64 (unified diff)
 
-Die Spec kommt als base64 UTF-8 unter details_b64 zurück und ist die verbindliche Quelle für:
-- Marker
-- Pflichtfelder
-- verfügbare Actions
-- Payload-Regeln (content_b64, patch_b64)
-- Limits und Beispiele
+Inside OPERATOR_RESULT:
+- id must match command id
+- ok: true | false
+- summary: one-line human-readable summary
+- details_b64: optional, base64 UTF-8 payload
 
-Aktueller Stand (funktional)
-Implementiert (Auszug):
-- harte Navigation-Allowlist
-- Plain-Text-Extraktion via executeJavaScript
-- Scanner für OPERATOR_CMD (Marker allein auf eigener Zeile, DoS-Limits)
-- Workspace-Sandbox:
-  - fs.list
-  - fs.read
-  - fs.readSlice (line-based slices, token-sparend)
-  - fs.search (substring grep, token-sparend)
-  - fs.write (mit Bestätigung)
-  - fs.delete (mit Bestätigung)
-  - fs.patch (strikter Unified-Diff-Applier, single-file, mit Bestätigung)
-- operator.getInterfaceSpec (kein Workspace, kein path)
-- dedupe nach id (keep last)
-- Operator Panel UI: Extract + Scan, Inbox, Run/Selection
+ABSOLUTE RULES
+1) Never mix markdown with OPERATOR_CMD or OPERATOR_RESULT
+2) Never send multi-line text without base64
+3) Never guess file contents
+4) Always read before patching
+5) Patches must be minimal (single hunk, exact context)
+6) UI text is NOT a protocol – only the markers are
 
-Wichtiges Detail: Patch-Applier ist strikt
-- Kontextzeilen müssen byte-genau passen
-- Schon kieinste Abwechung –> Context mismatch
-Empfohlener Workflow: fs.search –– fs.readSlice –– very small fs.patch
+INTERFACE SPEC
+operator.getInterfaceSpec returns the full, authoritative interface specification
+as details_b64 (UTF-8 Base64).
 
-Lessons Learned
-- UI/Markdown kann Commands unbrauchbar machen: Commands müssen als Plain-Text-Block KOPIERBARL sein
-- Mehrzeilige Inhalte nie als “content:“ (plain) senden, sondern über content_b64 / patch_b64
-- Große Dateien nicht vollständig lesen (fs.read) wenn ehs nicht nötig ist; lieber fs.search + fs.readSlice
+This spec is the single source of truth.
+If IPC or behavior is unclear, call getInterfaceSpec first.
 
-Nächste sinnvolle Verbesserungen (optional)
-- UI: details_b64 automatisch decodiert zeigen/kopieren
-- zerückführung lese-Helfer (z. B. fs.stat / fs.readMeta mit lineCount + hash)
+CURRENT STATUS
+- Renderer successfully decodes details_b64 from OPERATOR_RESULT
+- Copy decoded details_b64 works reliably
+- Layout does not jump on error messages
+- Previous bug cause: overly fragile regex and line-based parsing
+
+WORKFLOW
+1) fs.search to locate code
+2) fs.readSlice for minimal context
+3) fs.patch with patch_b64
+4) Verify via execution and OPERATOR_RESULT
+
+PROJECT PHILOSOPHY
+Precision over convenience.
+Explicitness over magic.
+Small diffs over big rewrites.
+Machines first, humans second.
