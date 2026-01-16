@@ -97,44 +97,6 @@
       border-radius: 6px
     }
 
-    .cmdHeader {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 8px
-    }
-
-    .cmdMeta {
-      margin-top: 4px
-    }
-
-    .statusPill {
-      display: inline-block;
-      padding: 2px 6px;
-      border: 1px solid #ddd;
-      border-radius: 999px;
-      font-size: 12px;
-      color: #333;
-      white-space: nowrap
-    }
-
-    .cmdActions {
-      margin-top: 8px;
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      align-items: center
-    }
-
-    .lastResultPane {
-      flex: 0 0 auto;
-      border-top: 1px solid #eee;
-      padding-top: 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px
-    }
-
     .mutedBox {
       border: 1px solid #eee;
       border-radius: 8px;
@@ -164,10 +126,11 @@
       <div class="row"><button id="btnWorkspace">Choose Workspace</button><span id="workspace" class="pill">Workspace:
           (not set)</span></div>
       <div class="row" style="margin-top:8px;"><button id="btnScanClipboard">Scan Clipboard</button><button
-          id="btnExtract">Extract & Scan</button><button id="btnClear">Clear</button></div>
+          id="btnExtract">Extract &amp; Scan</button><button id="btnClear">Clear</button></div>
       <div id="status" class="small" style="margin-top:6px;"></div>
       <div id="warnings" class="small error" style="margin-top:4px;"></div>
     </div>
+
     <div class="mutedBox">
       <div class="row" style="justify-content:space-between;width:100%;">
         <div>
@@ -175,16 +138,17 @@
           <div class="small">Select commands and run as a batch.</div>
         </div>
       </div>
-      <div class="row" style="margin-top:8px;"><button id="btnSelectAll">Select all</button><button
-          id="btnSelectNone">Select none</button><button id="btnRunSelected">Run selected</button><button
-          id="btnRunAll">Run all</button><label class="chk"><input id="chkStopOnFail" type="checkbox" checked /> stop on
+      <div class="row" style="margin-top:8px;"><button id="btnSelectAll">Select all</button><button id="btnSelectNone">Select none</button><button id="btnRunSelected">Run selected</button><button id="btnRunAll">Run all</button><label class="chk"><input id="chkStopOnFail" type="checkbox" checked /> stop on
           fail</label></div>
     </div>
+
     <div id="inbox" class="inboxPane"></div>
+
     <div class="lastResultPane">
       <div class="sectionTitle">Last Result</div><textarea id="result" readonly></textarea>
       <div class="row">
         <button id="btnCopyResult">Copy Result</button>
+        <button id="btnCopyDecoded">Copy decoded details_b64</button>
         <button id="btnCopyBootstrap">Copy LLM Bootstrap Prompt</button>
         <span id="copyStatus" class="small"></span>
       </div>
@@ -192,6 +156,7 @@
         Bestätigung aus.</div>
     </div>
   </div>
+
   <div class="contentHint">Webchat rechts im Fenster (BrowserView). Sidebar bleibt Operator.</div>
   <script src="./renderer.js"></script>
 </body>

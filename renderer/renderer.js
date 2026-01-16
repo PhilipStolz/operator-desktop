@@ -11,9 +11,15 @@ const warningsEl = $("warnings");
 const inboxEl = $("inbox");
 const resultEl = $("result");
 const btnCopyResult = $("btnCopyResult");
+const btnCopyDecoded = $("btnCopyDecoded");
 const copyStatusEl = $("copyStatus");
 const btnCopyBootstrap = $("btnCopyBootstrap");
 
+const btnSelectAll = $("btnSelectAll");
+const btnSelectNone = $("btnSelectNone");
+const btnRunSelected = $("btnRunSelected");
+const btnRunAll = $("btnRunAll");
+const chkStopOnFail = $("chkStopOnFail");
 
 let commands = [];
 let lastResultText = "";
@@ -28,6 +34,40 @@ function setWarnings(warns) {
     return;
   }
   warningsEl.textContent = warns.join("  •  ");
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function decodeDetailsB64FromResultText(resultText) {
+  // Find the last OPERATOR_RESULT block and decode its details_b64 (if present).
+  // Returns { ok: boolean, decodedText?: string, error?: string }
+  try {
+    const text = String(resultText || "");
+    const idx = text.lastIndexOf("OPERATOR_RESULT");
+    if (idx < 0) return { ok: false, error: "No OPERATOR_RESULT block found." };
+
+    const tail = text.slice(idx);
+    const m = tail.match(/\n(?:details_b64:\\s*)([^\\n\\r]+)/);
+    if (!m) return { ok: false, error: "No details_b64 field found." };
+
+    const b64 = (m[1] || "").trim();
+    if (!b64) return { ok: false, error: "details_b64 is empty." };
+
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const decodedText = new TextDecoder("utf-8").decode(bytes);
+    return { ok: true, decodedText };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
 }
 
 function renderInbox() {
@@ -82,22 +122,11 @@ function renderInbox() {
 
     row.appendChild(btnExec);
     row.appendChild(btnDrop);
-
     div.appendChild(header);
     div.appendChild(args);
     div.appendChild(row);
-
     inboxEl.appendChild(div);
   }
-}
-
-function escapeHtml(s) {
-  return String(s)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
 }
 
 async function refreshWorkspacePill() {
@@ -127,11 +156,9 @@ btnScanClipboard.onclick = async () => {
     const clip = await window.operator.readClipboard();
     const text = clip?.text || "";
     setStatus(`Scanning clipboard… (${text.length.toLocaleString()} chars)`);
-
     const scan = await window.operator.scan(text);
     commands = scan?.commands || [];
     setWarnings(scan?.warnings || []);
-
     renderInbox();
     setStatus(`Scan done. Commands: ${commands.length}`);
   } catch (e) {
@@ -140,7 +167,6 @@ btnScanClipboard.onclick = async () => {
   }
 };
 
-
 btnExtract.onclick = async () => {
   setWarnings([]);
   setStatus("Extracting…");
@@ -148,12 +174,10 @@ btnExtract.onclick = async () => {
   try {
     const extracted = await window.operator.extract();
     const text = extracted?.text || "";
-    setStatus(`Scanning… (${text.length.toLocaleString()} chars)`);
-
+    setStatus(`Scanning§ (${text.length.toLocaleString()} chars)`);
     const scan = await window.operator.scan(text);
     commands = scan?.commands || [];
     setWarnings(scan?.warnings || []);
-
     renderInbox();
     setStatus(`Scan done. Commands: ${commands.length}`);
   } catch (e) {
@@ -192,7 +216,6 @@ btnCopyBootstrap.onclick = async () => {
   }
 };
 
-
 btnCopyResult.onclick = async () => {
   if (!lastResultText) {
     copyStatusEl.textContent = "No result to copy.";
@@ -200,6 +223,18 @@ btnCopyResult.onclick = async () => {
   }
   await window.operator.copyToClipboard(lastResultText);
   copyStatusEl.textContent = "Copied.";
+  setTimeout(() => (copyStatusEl.textContent = ""), 1200);
+};
+
+btnCopyDecoded.onclick = async () => {
+  const decoded = decodeDetailsB64FromResultText(lastResultText);
+  if (!decoded.ok) {
+    copyStatusEl.textContent = decoded.error || "Nothing to decode.";
+    setTimeout(() => (copyStatusEl.textContent = ""), 1600);
+    return;
+  }
+  await window.operator.copyToClipboard(decoded.decodedText);
+  copyStatusEl.textContent = "Copied decoded details_b64.";
   setTimeout(() => (copyStatusEl.textContent = ""), 1200);
 };
 
