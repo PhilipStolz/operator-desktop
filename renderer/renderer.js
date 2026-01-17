@@ -23,6 +23,8 @@ const chkStopOnFail = $("chkStopOnFail");
 
 let commands = [];
 let lastResultText = "";
+let activeCommand = null;
+
 
 const EXECUTED_KEY = "operator.executedIds.v1";
 let executedIds = new Set();
@@ -112,6 +114,11 @@ function renderInbox() {
     const executed = !!(cmd.id && executedIds.has(cmd.id));
     const div = document.createElement("div");
     div.className = "cmd";
+    div.onclick = () => {
+      activeCommand = cmd;
+      setStatus(`Selected: ${cmd.id || cmd.action || "(command)"}`);
+    };
+
 
     const header = document.createElement("div");
     header.innerHTML = `
@@ -132,7 +139,8 @@ function renderInbox() {
 
     const btnExec = document.createElement("button");
     btnExec.textContent = "Execute";
-    btnExec.onclick = async () => {
+    btnExec.onclick = async (ev) => {
+      if (ev && ev.stopPropagation) ev.stopPropagation();
       setStatus("Executing…");
       try {
         const res = await window.operator.execute(cmd);
@@ -154,7 +162,8 @@ function renderInbox() {
 
     const btnDrop = document.createElement("button");
     btnDrop.textContent = "Dismiss";
-    btnDrop.onclick = () => {
+    btnDrop.onclick = (ev) => {
+      if (ev && ev.stopPropagation) ev.stopPropagation();
       commands = commands.filter((c) => c !== cmd);
       renderInbox();
     };
