@@ -24,6 +24,38 @@ const chkStopOnFail = $("chkStopOnFail");
 let commands = [];
 let lastResultText = "";
 
+const EXECUTED_KEY = "operator.executedIds.v1";
+let executedIds = new Set();
+
+function loadExecutedIds() {
+  try {
+    const raw = localStorage.getItem(EXECUTED_KEY);
+    if (!raw) { executedIds = new Set(); return; }
+    const arr = JSON.parse(raw);
+    if (Array.isArray(arr)) executedIds = new Set(arr.map(String));
+    else executedIds = new Set();
+  } catch {
+    executedIds = new Set();
+  }
+}
+
+function saveExecutedIds() {
+  try {
+    localStorage.setItem(EXECUTED_KEY, JSON.stringify([...executedIds]));
+  } catch {}
+}
+
+const btnResetExecuted = $("btnResetExecuted");
+if (btnResetExecuted) {
+  btnResetExecuted.onclick = () => {
+    executedIds = new Set();
+    saveExecutedIds();
+    renderInbox();
+    setStatus("Executed cache reset.");
+  };
+}
+
+
 function setStatus(msg) {
   statusEl.textContent = msg || "";
 }
@@ -77,6 +109,7 @@ function renderInbox() {
   }
 
   for (const cmd of commands) {
+    const executed = !!(cmd.id && executedIds.has(cmd.id));
     const div = document.createElement("div");
     div.className = "cmd";
 
@@ -84,6 +117,7 @@ function renderInbox() {
     header.innerHTML = `
       <div><strong>${escapeHtml(cmd.action || "(no action)")}</strong></div>
       <div class="small">id: ${escapeHtml(cmd.id || "(no id)")}</div>
+          <div class="small">status: ${executed ? "executed" : "not run"}</div>
       <div class="small">path: <span class="mono">${escapeHtml(cmd.path || "(no path)")}</span></div>
     `;
 
@@ -104,6 +138,13 @@ function renderInbox() {
         const res = await window.operator.execute(cmd);
         lastResultText = res?.resultText || "";
         resultEl.value = lastResultText;
+        // Mark command as executed (by Id) on success
+        if (res?.result?.ok && cmd.id) {
+          executedIds.add(String(cmd.id));
+          saveExecutedIds();
+          renderInbox();
+        }
+
         setStatus(res?.result?.ok ? "Done." : "Failed (see result).");
       } catch (e) {
         setStatus("Execution error.");
@@ -141,6 +182,7 @@ btnWorkspace.onclick = async () => {
   setStatus("Choosing workspace…");
   const res = await window.operator.chooseWorkspace();
   await refreshWorkspacePill();
+  loadExecutedIds();
   setStatus(res?.ok ? "Workspace set." : "Workspace not changed.");
 };
 
