@@ -92,20 +92,73 @@
 
     .cmd {
       border: 1px solid #eee;
-      padding: 8px;
-      margin: 8px 0;
-      border-radius: 6px
+      padding: 4px 6px;
+      margin: 4px 0;
+      border-radius: 6px;
+    }
+
+    .cmdCompact .cmdLine {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .cmdCompact .cmdLeft {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .cmdCompact .cmdAction {
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .cmdCompact .cmdMeta {
+      font-size: 11px;
+      color: #666;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 260px;
+    }
+
+    .cmdCompact .cmdRight {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .cmdCompact .cmdStatus {
+      font-size: 11px;
+      line-height: 1;
+    }
+
+    .cmdCompact .cmdBtn {
+      padding: 2px 6px;
+      font-size: 11px;
+    }
+
+    .cmd.active {
+      outline: 2px solid #ddd;
+    }
+
+    .cmd.executed {
+      opacity: 0.75;
     }
 
     .mutedBox {
       border: 1px solid #eee;
       border-radius: 8px;
       padding: 8px;
-      background: #fafafa
+      background: #fafafa;
     }
 
     input[type=checkbox] {
-      transform: translateY(1px)
+      transform: translateY(1px);
     }
 
     label.chk {
@@ -114,7 +167,7 @@
       align-items: center;
       font-size: 12px;
       color: #333;
-      user-select: none
+      user-select: none;
     }
 
     #copyStatus {
@@ -126,6 +179,60 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
+
+    /* Modal (command details) */
+    .modalOverlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      box-sizing: border-box;
+      background: rgba(0, 0, 0, 0.35);
+    }
+
+    .modalOverlay.open {
+      display: flex;
+    }
+
+    .modal {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      width: min(900px, 100%);
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    }
+
+    (.modalHeader {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 12px;
+        border-bottom: 1px solid #eee;
+      }
+
+      (.modalBody {
+          padding: 12px;
+          overflow: auto;
+        }
+
+        .modalBody pre {
+          margin: 0;
+        }
+
+        .modalFooter {
+          display: flex;
+          justify-content: flex-end;
+          gap: 8px;
+          padding: 10px 12px;
+          border-top: 1px solid #eee;
+          flex-wrap: wrap;
+        }
   </style>
 </head>
 
@@ -150,7 +257,8 @@
       </div>
       <div class="row" style="margin-top:8px;"><button id="btnSelectAll">Select all</button><button
           id="btnSelectNone">Select none</button><button id="btnRunSelected">Run selected</button><button
-          id="btnRunAll">Run all</button><button id="btnResetExecuted">Reset executed</button><label class="chk"><input id="chkStopOnFail" type="checkbox" checked /> stop on
+          id="btnRunAll">Run all</button><button id="btnResetExecuted">Reset executed</button><label class="chk"><input
+            id="chkStopOnFail" type="checkbox" checked /> stop on
           fail</label></div>
     </div>
 
@@ -170,6 +278,22 @@
   </div>
 
   <div class="contentHint">Webchat rechts im Fenster (BrowserView). Sidebar bleibt Operator.</div>
+
+  <div id="cmdModalOverlay" class="modalOverlay" aria-hidden="true">
+    <div class="modal">
+      <div class="modalHeader">
+        <div id="cmdModalTitle" class="sectionTitle">Command</div>
+        <button id="cmdModalClose">Close</button>
+      </div>
+      <div class="modalBody">
+        <pre id="cmdModalJson" class="mono"></pre>
+      </div>
+      <div class="modalFooter">
+        <button id="cmdModalExecute">Execute</button>
+        <button id="cmdModalDismiss">Dismiss</button>
+      </div>
+    </div>
+  </div>
   <script src="./renderer.js"></script>
 </body>
 
