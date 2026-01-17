@@ -1,4 +1,4 @@
-Operator Interface Specification (version: 2)
+Operator Interface Specification (version: 3)
 
 HARD RULES
 1. When outputting OPERATOR_CMD blocks, output ONLY plain text (no markdown, no bullet lists, no indentation-based formatting, no surrounding prose).
@@ -10,8 +10,9 @@ HARD RULES
 7. Every OPERATOR_CMD MUST include: version: 1, id: <string>, action: <string>.
 8. The command id MUST be echoed verbatim in the corresponding OPERATOR_RESULT.
 9. Actions starting with "fs." REQUIRE a path field. Actions not starting with "fs." MUST NOT include a path field.
-10. Do NOT guess file contents. Read before modifying. Do not issue fs.patch or fs.applyEdits without reading relevant context first.
-11. fs.patch is strict unified diff patching; hunks and context must match exactly or the command fails.
+10. Workspace is NOT part of OPERATOR_CMD. Do NOT include workspace/workspaceRoot (or any equivalent) as a command field. Workspace is selected in the app UI and stored as state.
+11. Do NOT guess file contents. Read before modifying. Do not issue fs.patch or fs.applyEdits without reading relevant context first.
+12. fs.patch is strict unified diff patching; hunks and context must match exactly or the command fails.
 
 MARKERS (each marker must be on its own line)
 OPERATOR_CMD
@@ -42,9 +43,10 @@ Required: version, id, action
 No path allowed
 Result: details_b64 contains this interface specification (base64 UTF-8)
 
-FILESYSTEM ACTIONS (&s.*)
-All fs.* actions operate strictly within the selected workspace root.
+FILESYSTEM ACTIONS (fs.*)
+All fs.* actions operate strictly within the currently selected workspace root.
 Write/edit/patch/delete actions require explicit user confirmation.
+Paths are always interpreted as relative to the workspace root.
 
 fs.list
 Requires: path (directory)
@@ -81,8 +83,11 @@ Requires: path
 Requires user confirmation
 Payload: edits_b64 (base64 UTF-8 JSON)
 Decoded JSON format: {"version":1,"edits":[...]}
-Edit objects (op): insertAfter, insertBefore, replaceFirst, replaceAll, replaceRange. For insert*: anchor (string), text (string), optional occurrence (number>=1). For replace*: find (string), text (string). For replaceRange: startLine (1-based), endLine (1-based), text (string).
-Strict semantics: first failure aborts and no changes are written
+Edit objects (op): insertAfter, insertBefore, replaceFirst, replaceAll, replaceRange.
+For insert*: anchor (string), text (string), optional occurrence (number>=1).
+For replace*: find (string), text (string).
+For replaceRange: startLine (1-based), endLine (1-based), text (string).
+Strict semantics: first failure aborts and no changes are written.
 
 fs.delete
 Requires: path
@@ -90,7 +95,7 @@ Requires user confirmation
 Behavior: deletes or trashes the path
 
 RECOMMENDED WORKFLOW
-1) operator.getInterfaceSpec
+1) operator.getInterfaceSpec (once at the start of a session)
 2) fs.search
 3) fs.readSlice
 4) fs.applyEdits (preferred) or fs.patch (single-hunk, minimal context)
