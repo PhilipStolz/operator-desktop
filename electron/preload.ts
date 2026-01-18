@@ -35,6 +35,7 @@ contextBridge.exposeInMainWorld("operator", {
 
   getBootstrapPrompt: () => ipcRenderer.invoke("operator:getBootstrapPrompt"),
   getSmokeTestPrompt: () => ipcRenderer.invoke("operator:getSmokeTestPrompt"),
+  setSidebarWidth: (width: number) => ipcRenderer.invoke("operator:setSidebarWidth", { width }),
 
 });
 

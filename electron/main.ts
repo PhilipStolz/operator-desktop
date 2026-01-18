@@ -705,7 +705,7 @@ function createWindow() {
     view.webContents.loadURL(activeProfile.startUrl);
   }
 
-  const sidebarWidth = 360;
+  let sidebarWidth = 360;
 
   function layout() {
     const [w, h] = win.getContentSize();
@@ -716,6 +716,15 @@ function createWindow() {
       height: h,
     });
     view.setAutoResize({ width: true, height: true });
+  }
+
+  function setSidebarWidth(width: number) {
+    const next = Math.max(260, Math.min(720, Math.floor(Number(width) || sidebarWidth)));
+    if (next !== sidebarWidth) {
+      sidebarWidth = next;
+      layout();
+    }
+    return sidebarWidth;
   }
 
   layout();
@@ -732,6 +741,11 @@ function createWindow() {
 
   ipcMain.handle("operator:getWorkspace", async () => {
     return { workspaceRoot };
+  });
+
+  ipcMain.handle("operator:setSidebarWidth", async (_evt, { width }: { width: number }) => {
+    const next = setSidebarWidth(width);
+    return { ok: true, width: next };
   });
 
   ipcMain.handle("operator:chooseWorkspace", async () => {

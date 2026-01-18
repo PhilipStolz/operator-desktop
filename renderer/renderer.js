@@ -18,11 +18,28 @@ const btnCopySmokeTest = $("btnCopySmokeTest");
 const llmProfileSelect = $("llmProfile");
 const templateSelect = $("templateSelect");
 const btnInsertTemplate = $("btnInsertTemplate");
+const base64Box = $("base64Box");
+const base64Body = $("base64Body");
+const btnToggleBase64 = $("btnToggleBase64");
 const base64Input = $("base64Input");
 const base64Output = $("base64Output");
 const btnBase64Encode = $("btnBase64Encode");
 const btnBase64EncodeJson = $("btnBase64EncodeJson");
 const btnBase64Copy = $("btnBase64Copy");
+const chkAutoScan = $("chkAutoScan");
+const autoScanInterval = $("autoScanInterval");
+const sidebarResizeHandle = $("sidebarResizeHandle");
+const inboxResizeHandle = $("inboxResizeHandle");
+const cmdModalOverlay = $("cmdModalOverlay");
+const cmdModalTitle = $("cmdModalTitle");
+const cmdModalClose = $("cmdModalClose");
+const cmdModalJson = $("cmdModalJson");
+const cmdModalDecoded = $("cmdModalDecoded");
+const cmdModalDecodedSection = $("cmdModalDecodedSection");
+const cmdModalStatus = $("cmdModalStatus");
+const cmdModalExecute = $("cmdModalExecute");
+const cmdModalDismiss = $("cmdModalDismiss");
+const cmdModalToggleDecoded = $("cmdModalToggleDecoded");
 
 const btnSelectAll = $("btnSelectAll");
 const btnSelectNone = $("btnSelectNone");
@@ -38,6 +55,21 @@ let pendingFocusKey = null;
 
 const EXECUTED_KEY = "operator.executedIds.v1";
 let executedIds = new Set();
+
+const AUTO_SCAN_KEY = "operator.autoScan.v1";
+const AUTO_SCAN_INTERVAL_KEY = "operator.autoScanIntervalMs.v1";
+let autoScanTimer = null;
+let autoScanPaused = false;
+let scanInFlight = false;
+let inboxResizing = false;
+
+const SIDEBAR_WIDTH_KEY = "operator.sidebarWidth.v1";
+const INBOX_HEIGHT_KEY = "operator.inboxHeight.v1";
+const BASE64_COLLAPSED_KEY = "operator.base64Collapsed.v1";
+
+let modalCmd = null;
+let modalKey = null;
+let modalDecodedVisible = false;
 
 function loadExecutedIds() {
   try {
@@ -58,6 +90,190 @@ function saveExecutedIds() {
   try {
     localStorage.setItem(EXECUTED_KEY, JSON.stringify([...executedIds]));
   } catch {}
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function setCssVar(name, value) {
+  document.documentElement.style.setProperty(name, value);
+}
+
+function applySidebarWidth(width) {
+  const clamped = clamp(Math.floor(width), 260, 720);
+  setCssVar("--sidebar-width", `${clamped}px`);
+  if (sidebarResizeHandle) sidebarResizeHandle.style.left = `${clamped - 3}px`;
+  if (window.operator && window.operator.setSidebarWidth) {
+    window.operator.setSidebarWidth(clamped);
+  }
+  try {
+    localStorage.setItem(SIDEBAR_WIDTH_KEY, String(clamped));
+  } catch {}
+}
+
+function applyInboxHeight(height) {
+  const clamped = clamp(Math.floor(height), 120, 600);
+  setCssVar("--inbox-height", `${clamped}px`);
+  try {
+    localStorage.setItem(INBOX_HEIGHT_KEY, String(clamped));
+  } catch {}
+}
+
+function loadLayoutSettings() {
+  try {
+    const width = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
+    if (Number.isFinite(width)) applySidebarWidth(width);
+    else applySidebarWidth(360);
+  } catch {
+    applySidebarWidth(360);
+  }
+
+  try {
+    const height = Number(localStorage.getItem(INBOX_HEIGHT_KEY));
+    if (Number.isFinite(height)) applyInboxHeight(height);
+    else applyInboxHeight(220);
+  } catch {
+    applyInboxHeight(220);
+  }
+}
+
+function setBase64Collapsed(collapsed) {
+  if (!base64Box || !btnToggleBase64) return;
+  base64Box.classList.toggle("collapsed", collapsed);
+  btnToggleBase64.textContent = collapsed ? "Show" : "Hide";
+  try {
+    localStorage.setItem(BASE64_COLLAPSED_KEY, collapsed ? "true" : "false");
+  } catch {}
+}
+
+function loadBase64Collapsed() {
+  try {
+    const collapsed = localStorage.getItem(BASE64_COLLAPSED_KEY);
+    if (collapsed === null) {
+      setBase64Collapsed(true);
+    } else {
+      setBase64Collapsed(collapsed === "true");
+    }
+  } catch {
+    setBase64Collapsed(true);
+  }
+}
+
+function isInboxInteracting() {
+  if (!inboxEl) return false;
+  if (cmdModalOverlay && cmdModalOverlay.classList.contains("open")) return true;
+  if (inboxResizing) return true;
+  const active = document.activeElement;
+  const hasFocus = active ? inboxEl.contains(active) : false;
+  const hovering = typeof inboxEl.matches === "function" ? inboxEl.matches(":hover") : false;
+  return hasFocus || hovering;
+}
+
+function setAutoScanPaused(paused) {
+  if (autoScanPaused === paused) return;
+  autoScanPaused = paused;
+  if (paused) setStatus("Auto scan paused (inbox interaction).");
+}
+
+function getAutoScanIntervalMs() {
+  const raw = autoScanInterval ? Number(autoScanInterval.value) : NaN;
+  if (!Number.isFinite(raw)) return 3000;
+  return Math.max(1000, Math.floor(raw));
+}
+
+function saveAutoScanSettings() {
+  try {
+    if (chkAutoScan) localStorage.setItem(AUTO_SCAN_KEY, chkAutoScan.checked ? "true" : "false");
+    if (autoScanInterval) localStorage.setItem(AUTO_SCAN_INTERVAL_KEY, String(getAutoScanIntervalMs()));
+  } catch {}
+}
+
+function loadAutoScanSettings() {
+  try {
+    const enabled = localStorage.getItem(AUTO_SCAN_KEY) === "true";
+    if (chkAutoScan) chkAutoScan.checked = enabled;
+    const intervalRaw = Number(localStorage.getItem(AUTO_SCAN_INTERVAL_KEY));
+    if (autoScanInterval && Number.isFinite(intervalRaw)) {
+      const options = Array.from(autoScanInterval.options || []);
+      const match = options.find((opt) => Number(opt.value) === intervalRaw);
+      if (match) autoScanInterval.value = match.value;
+    }
+  } catch {}
+}
+
+function stopAutoScan() {
+  if (autoScanTimer) clearInterval(autoScanTimer);
+  autoScanTimer = null;
+  setAutoScanPaused(false);
+}
+
+function startAutoScan() {
+  stopAutoScan();
+  const interval = getAutoScanIntervalMs();
+  autoScanTimer = setInterval(() => {
+    void maybeAutoScan();
+  }, interval);
+  void maybeAutoScan();
+}
+
+function setupSidebarResize() {
+  if (!sidebarResizeHandle) return;
+  let dragging = false;
+
+  const onMove = (ev) => {
+    if (!dragging) return;
+    applySidebarWidth(ev.clientX);
+  };
+
+  const onUp = () => {
+    if (!dragging) return;
+    dragging = false;
+    document.body.style.userSelect = "";
+    window.removeEventListener("mousemove", onMove);
+    window.removeEventListener("mouseup", onUp);
+  };
+
+  sidebarResizeHandle.addEventListener("mousedown", (ev) => {
+    dragging = true;
+    document.body.style.userSelect = "none";
+    applySidebarWidth(ev.clientX);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  });
+}
+
+function setupInboxResize() {
+  if (!inboxResizeHandle || !inboxEl) return;
+  let dragging = false;
+  let startY = 0;
+  let startHeight = 0;
+
+  const onMove = (ev) => {
+    if (!dragging) return;
+    const next = startHeight + (ev.clientY - startY);
+    applyInboxHeight(next);
+  };
+
+  const onUp = () => {
+    if (!dragging) return;
+    dragging = false;
+    inboxResizing = false;
+    document.body.style.userSelect = "";
+    window.removeEventListener("mousemove", onMove);
+    window.removeEventListener("mouseup", onUp);
+  };
+
+  inboxResizeHandle.addEventListener("mousedown", (ev) => {
+    dragging = true;
+    inboxResizing = true;
+    document.body.style.userSelect = "none";
+    startY = ev.clientY;
+    const current = getComputedStyle(inboxEl).height;
+    startHeight = Number.parseFloat(current) || 220;
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  });
 }
 
 function commandKey(cmd, index) {
@@ -137,6 +353,28 @@ function escapeHtml(s) {
     .replaceAll("'", "&#039;");
 }
 
+function iconSvg(kind) {
+  if (kind === "details") {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5c7 0 10 7 10 7s-3 7-10 7-10-7-10-7 3-7 10-7Zm0 2c-4.8 0-7.5 4.2-7.9 5 .4.8 3.1 5 7.9 5s7.5-4.2 7.9-5c-.4-.8-3.1-5-7.9-5Zm0 2.5A2.5 2.5 0 1 1 9.5 12 2.5 2.5 0 0 1 12 9.5Z"/></svg>`;
+  }
+  if (kind === "execute") {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 5v14l12-7-12-7Z"/></svg>`;
+  }
+  if (kind === "dismiss") {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.4 5l12.6 12.6-1.4 1.4L5 6.4 6.4 5Zm12.6 1.4L6.4 19l-1.4-1.4L17.6 5l1.4 1.4Z"/></svg>`;
+  }
+  return "";
+}
+
+function createIconButton(kind, title) {
+  const btn = document.createElement("button");
+  btn.className = "cmdBtn";
+  btn.title = title;
+  btn.setAttribute("aria-label", title);
+  btn.innerHTML = iconSvg(kind);
+  return btn;
+}
+
 function decodeDetailsB64FromResultText(resultText) {
   try {
     const text = String(resultText || "");
@@ -167,6 +405,73 @@ function toBase64(text) {
     binary += String.fromCharCode(bytes[i]);
   }
   return btoa(binary);
+}
+
+function decodeBase64Value(value) {
+  try {
+    const trimmed = String(value || "").trim();
+    if (!trimmed) return { ok: false, error: "empty" };
+    const bin = atob(trimmed);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const decodedText = new TextDecoder("utf-8").decode(bytes);
+    return { ok: true, decodedText };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
+function decodeBase64Fields(cmd) {
+  if (!cmd || typeof cmd !== "object") return "";
+  const lines = [];
+  for (const [key, value] of Object.entries(cmd)) {
+    if (!key.endsWith("_b64") || typeof value !== "string") continue;
+    const res = decodeBase64Value(value);
+    lines.push(`${key}:`);
+    lines.push(res.ok ? res.decodedText : `<<decode failed: ${res.error}>>`);
+    lines.push("");
+  }
+  return lines.join("\n").trimEnd();
+}
+
+function setModalDecodedVisibility(visible) {
+  modalDecodedVisible = visible;
+  if (cmdModalDecodedSection) cmdModalDecodedSection.style.display = visible ? "block" : "none";
+  else if (cmdModalDecoded) cmdModalDecoded.style.display = visible ? "block" : "none";
+  if (cmdModalToggleDecoded) cmdModalToggleDecoded.textContent = visible ? "Hide decoded" : "Show decoded";
+}
+
+function openCommandModal(cmd, key) {
+  if (!cmdModalOverlay || !cmdModalJson || !cmdModalTitle) return;
+  modalCmd = cmd;
+  modalKey = key;
+  const executed = cmd?.id && executedIds.has(String(cmd.id));
+  if (cmd && (cmd.action || cmd.id)) {
+    const action = cmd.action || "(no action)";
+    cmdModalTitle.textContent = cmd.id ? `Command: ${action} (${cmd.id})` : `Command: ${action}`;
+  } else {
+    cmdModalTitle.textContent = "Command";
+  }
+  if (cmdModalStatus) {
+    cmdModalStatus.textContent = `Status: ${executed ? "executed" : "not run"}`;
+  }
+  cmdModalJson.textContent = JSON.stringify(cmd, null, 2);
+  if (cmdModalDecoded) {
+    const decoded = decodeBase64Fields(cmd);
+    cmdModalDecoded.textContent = decoded ? decoded : "(no base64 fields)";
+  }
+  setModalDecodedVisibility(false);
+  cmdModalOverlay.classList.add("open");
+  cmdModalOverlay.setAttribute("aria-hidden", "false");
+}
+
+function closeCommandModal() {
+  if (!cmdModalOverlay) return;
+  cmdModalOverlay.classList.remove("open");
+  cmdModalOverlay.setAttribute("aria-hidden", "true");
+  modalCmd = null;
+  modalKey = null;
+  setModalDecodedVisibility(false);
 }
 
 const TEMPLATES = {
@@ -238,18 +543,25 @@ function renderInbox() {
     const executed = !!(cmd.id && executedIds.has(cmd.id));
     const selected = isSelected(key);
     const div = document.createElement("div");
-    const classes = ["cmd"];
-    if (executed) classes.push("executed");
+    const statusClass = executed ? "executed" : "pending";
+    const classes = ["cmd", "cmdCompact", statusClass];
     if (selected) classes.push("active");
     div.className = classes.join(" ");
-    div.onclick = () => {
+    div.onclick = (ev) => {
+      const tag = ev?.target?.tagName;
+      if (tag === "BUTTON" || tag === "INPUT") return;
+      const next = !isSelected(key);
+      setSelected(key, next);
+      div.classList.toggle("active", next);
       setStatus(`Selected: ${cmd.id || cmd.action || "(command)"}`);
     };
 
-    const header = document.createElement("div");
+    const line = document.createElement("div");
+    line.className = "cmdLine";
 
-    const titleRow = document.createElement("div");
-    titleRow.className = "row";
+    const left = document.createElement("div");
+    left.className = "cmdLeft";
+
     const selectBox = document.createElement("input");
     selectBox.type = "checkbox";
     selectBox.checked = selected;
@@ -259,46 +571,48 @@ function renderInbox() {
       if (selectBox.checked) div.classList.add("active");
       else div.classList.remove("active");
     };
+
+    const statusIcon = document.createElement("span");
+    statusIcon.className = `cmdStatusIcon ${executed ? "executed" : "pending"}`;
+    statusIcon.title = executed ? "Executed" : "Not run";
+
+    const selectCol = document.createElement("div");
+    selectCol.className = "cmdSelectCol";
+    selectCol.appendChild(selectBox);
+    selectCol.appendChild(statusIcon);
+    const textWrap = document.createElement("div");
+    textWrap.className = "cmdLeftText";
+
+    const idText = document.createElement("div");
+    idText.className = "cmdId";
+    idText.textContent = cmd.id || "(no id)";
+
     const title = document.createElement("div");
-    title.innerHTML = `<strong>${escapeHtml(cmd.action || "(no action)")}</strong>`;
-    titleRow.appendChild(selectBox);
-    titleRow.appendChild(title);
-    header.appendChild(titleRow);
+    title.className = "cmdMeta";
+    title.textContent = cmd.action || "(no action)";
 
-    const idLine = document.createElement("div");
-    idLine.className = "small";
-    idLine.textContent = `id: ${cmd.id || "(no id)"}`;
+    textWrap.appendChild(idText);
+    textWrap.appendChild(title);
 
-    const statusLine = document.createElement("div");
-    statusLine.className = "small";
-    statusLine.textContent = `status: ${executed ? "executed" : "not run"}`;
+    left.appendChild(selectCol);
+    left.appendChild(textWrap);
 
-    const pathLine = document.createElement("div");
-    pathLine.className = "small";
-    pathLine.innerHTML = `path: <span class="mono">${escapeHtml(cmd.path || "(no path)")}</span>`;
+    const right = document.createElement("div");
+    right.className = "cmdRight";
 
-    header.appendChild(idLine);
-    header.appendChild(statusLine);
-    header.appendChild(pathLine);
+    const btnDetails = createIconButton("details", "Details");
+    btnDetails.onclick = (ev) => {
+      if (ev && ev.stopPropagation) ev.stopPropagation();
+      openCommandModal(cmd, key);
+    };
 
-    const args = document.createElement("div");
-    args.className = "mono";
-    args.style.marginTop = "6px";
-    args.textContent = JSON.stringify(cmd, null, 2);
-
-    const row = document.createElement("div");
-    row.className = "row";
-    row.style.marginTop = "8px";
-
-    const btnExec = document.createElement("button");
-    btnExec.textContent = "Execute";
+    const btnExec = createIconButton("execute", "Execute");
     btnExec.onclick = async (ev) => {
       if (ev && ev.stopPropagation) ev.stopPropagation();
       await runCommands([{ cmd, key }]);
     };
 
-    const btnDrop = document.createElement("button");
-    btnDrop.textContent = "Dismiss";
+    const btnDrop = createIconButton("dismiss", "Dismiss");
     btnDrop.onclick = (ev) => {
       if (ev && ev.stopPropagation) ev.stopPropagation();
       commands = commands.filter((c) => c !== cmd);
@@ -306,11 +620,13 @@ function renderInbox() {
       renderInbox();
     };
 
-    row.appendChild(btnExec);
-    row.appendChild(btnDrop);
-    div.appendChild(header);
-    div.appendChild(args);
-    div.appendChild(row);
+    right.appendChild(btnDetails);
+    right.appendChild(btnExec);
+    right.appendChild(btnDrop);
+
+    line.appendChild(left);
+    line.appendChild(right);
+    div.appendChild(line);
     inboxEl.appendChild(div);
 
     if (pendingFocusKey && key === pendingFocusKey) {
@@ -318,6 +634,79 @@ function renderInbox() {
       if (div.scrollIntoView) div.scrollIntoView({ block: "nearest" });
     }
   }
+}
+
+async function applyScanResults(scan, auto) {
+  if (auto && isInboxInteracting()) {
+    setAutoScanPaused(true);
+    return;
+  }
+
+  setAutoScanPaused(false);
+  commands = scan?.commands || [];
+  selectFocusAfterScan();
+  setWarnings(scan?.warnings || []);
+  renderInbox();
+  setStatus(`Scan done. Commands: ${commands.length}`);
+}
+
+async function scanFromExtract(auto) {
+  if (scanInFlight) {
+    if (!auto) setStatus("Scan already in progress.");
+    return;
+  }
+  if (auto && isInboxInteracting()) {
+    setAutoScanPaused(true);
+    return;
+  }
+
+  scanInFlight = true;
+  try {
+    if (!auto) setWarnings([]);
+    setStatus(auto ? "Auto extracting..." : "Extracting...");
+
+    const extracted = await window.operator.extract();
+    const text = extracted?.text || "";
+    setStatus(`${auto ? "Auto scanning" : "Scanning"}... (${text.length.toLocaleString()} chars)`);
+
+    const scan = await window.operator.scan(text);
+    await applyScanResults(scan, auto);
+  } catch (e) {
+    setStatus(auto ? "Auto extraction failed." : "Extraction failed.");
+    setWarnings([String(e)]);
+  } finally {
+    scanInFlight = false;
+  }
+}
+
+async function scanClipboard() {
+  if (scanInFlight) {
+    setStatus("Scan already in progress.");
+    return;
+  }
+
+  scanInFlight = true;
+  setWarnings([]);
+  setStatus("Reading clipboard...");
+
+  try {
+    const clip = await window.operator.readClipboard();
+    const text = clip?.text || "";
+    setStatus(`Scanning clipboard... (${text.length.toLocaleString()} chars)`);
+    const scan = await window.operator.scan(text);
+    await applyScanResults(scan, false);
+  } catch (e) {
+    setStatus("Clipboard scan failed.");
+    setWarnings([String(e)]);
+  } finally {
+    scanInFlight = false;
+  }
+}
+
+async function maybeAutoScan() {
+  if (!chkAutoScan || !chkAutoScan.checked) return;
+  if (scanInFlight) return;
+  await scanFromExtract(true);
 }
 
 function listCommandEntries() {
@@ -472,44 +861,70 @@ btnWorkspace.onclick = async () => {
 const btnScanClipboard = $("btnScanClipboard");
 
 btnScanClipboard.onclick = async () => {
-  setWarnings([]);
-  setStatus("Reading clipboard...");
-
-  try {
-    const clip = await window.operator.readClipboard();
-    const text = clip?.text || "";
-    setStatus(`Scanning clipboard... (${text.length.toLocaleString()} chars)`);
-    const scan = await window.operator.scan(text);
-    commands = scan?.commands || [];
-    selectFocusAfterScan();
-    setWarnings(scan?.warnings || []);
-    renderInbox();
-    setStatus(`Scan done. Commands: ${commands.length}`);
-  } catch (e) {
-    setStatus("Clipboard scan failed.");
-    setWarnings([String(e)]);
-  }
+  await scanClipboard();
 };
 
 btnExtract.onclick = async () => {
-  setWarnings([]);
-  setStatus("Extracting...");
-
-  try {
-    const extracted = await window.operator.extract();
-    const text = extracted?.text || "";
-    setStatus(`Scanning... (${text.length.toLocaleString()} chars)`);
-    const scan = await window.operator.scan(text);
-    commands = scan?.commands || [];
-    selectFocusAfterScan();
-    setWarnings(scan?.warnings || []);
-    renderInbox();
-    setStatus(`Scan done. Commands: ${commands.length}`);
-  } catch (e) {
-    setStatus("Extraction failed.");
-    setWarnings([String(e)]);
-  }
+  await scanFromExtract(false);
 };
+
+if (chkAutoScan) {
+  chkAutoScan.onchange = () => {
+    saveAutoScanSettings();
+    if (chkAutoScan.checked) startAutoScan();
+    else stopAutoScan();
+  };
+}
+
+if (autoScanInterval) {
+  autoScanInterval.onchange = () => {
+    saveAutoScanSettings();
+    if (chkAutoScan && chkAutoScan.checked) startAutoScan();
+  };
+}
+
+if (btnToggleBase64 && base64Box) {
+  btnToggleBase64.onclick = () => {
+    const collapsed = base64Box.classList.contains("collapsed");
+    setBase64Collapsed(!collapsed);
+  };
+}
+
+if (cmdModalClose) {
+  cmdModalClose.onclick = () => {
+    closeCommandModal();
+  };
+}
+
+if (cmdModalOverlay) {
+  cmdModalOverlay.onclick = (ev) => {
+    if (ev.target === cmdModalOverlay) closeCommandModal();
+  };
+}
+
+if (cmdModalToggleDecoded) {
+  cmdModalToggleDecoded.onclick = () => {
+    setModalDecodedVisibility(!modalDecodedVisible);
+  };
+}
+
+if (cmdModalExecute) {
+  cmdModalExecute.onclick = async () => {
+    if (!modalCmd) return;
+    await runCommands([{ cmd: modalCmd, key: modalKey || "" }]);
+    closeCommandModal();
+  };
+}
+
+if (cmdModalDismiss) {
+  cmdModalDismiss.onclick = () => {
+    if (!modalCmd) return;
+    commands = commands.filter((c) => c !== modalCmd);
+    if (modalKey) selectedKeys.delete(modalKey);
+    closeCommandModal();
+    renderInbox();
+  };
+}
 
 btnClear.onclick = () => {
   commands = [];
@@ -645,5 +1060,11 @@ btnCopyDecoded.onclick = async () => {
   await refreshWorkspacePill();
   loadExecutedIds();
   await loadLlmProfiles();
+  loadLayoutSettings();
+  setupSidebarResize();
+  setupInboxResize();
+  loadBase64Collapsed();
+  loadAutoScanSettings();
+  if (chkAutoScan && chkAutoScan.checked) startAutoScan();
   renderInbox();
 })();

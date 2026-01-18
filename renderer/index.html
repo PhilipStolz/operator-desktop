@@ -5,6 +5,10 @@
   <meta charset="utf-8" />
   <title>Operator</title>
   <style>
+    :root {
+      --sidebar-width: 360px;
+      --inbox-height: 220px;
+    }
     body {
       margin: 0;
       font-family: sans-serif
@@ -15,7 +19,7 @@
       left: 0;
       top: 0;
       bottom: 0;
-      width: 360px;
+      width: var(--sidebar-width);
       border-right: 1px solid #ddd;
       padding: 12px;
       box-sizing: border-box;
@@ -28,7 +32,7 @@
     }
 
     .contentHint {
-      margin-left: 360px;
+      margin-left: var(--sidebar-width);
       padding: 8px 12px;
       color: #666;
       font-size: 12px;
@@ -87,8 +91,8 @@
     }
 
     .inboxPane {
-      flex: 1 1 auto;
-      min-height: 120px;
+      flex: 0 0 auto;
+      height: var(--inbox-height);
       overflow: auto;
       border: 1px solid #eee;
       border-radius: 8px;
@@ -107,18 +111,35 @@
       align-items: center;
       justify-content: space-between;
       gap: 8px;
+      flex-wrap: nowrap;
     }
 
     .cmdCompact .cmdLeft {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    .cmdCompact .cmdLeftText {
       display: flex;
       flex-direction: column;
       gap: 2px;
       min-width: 0;
     }
 
+    .cmdCompact .cmdId {
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
     .cmdCompact .cmdAction {
       font-size: 12px;
       font-weight: 600;
+      white-space: nowrap;
+      flex: 0 0 auto;
     }
 
     .cmdCompact .cmdMeta {
@@ -127,7 +148,9 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 260px;
+      max-width: 100%;
+      min-width: 0;
+      flex: 1 1 auto;
     }
 
     .cmdCompact .cmdRight {
@@ -143,8 +166,51 @@
     }
 
     .cmdCompact .cmdBtn {
-      padding: 2px 6px;
-      font-size: 11px;
+      padding: 2px;
+      width: 24px;
+      height: 24px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cmdCompact .cmdBtn svg {
+      width: 14px;
+      height: 14px;
+      display: block;
+    }
+
+    .cmdSelectCol {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      flex: 0 0 auto;
+    }
+
+    .cmdStatusIcon {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .cmdStatusIcon.executed {
+      background: #2f8f59;
+      border: 1px solid #1f6b3b;
+    }
+
+    .cmdStatusIcon.pending {
+      background: #d78b10;
+      border: 1px solid #a26100;
+    }
+
+    .cmd.executed {
+      background: #f4fbf7;
+    }
+
+    .cmd.pending {
+      background: #fff7e0;
     }
 
     .cmd.active {
@@ -153,15 +219,15 @@
       outline: 2px solid rgba(11, 87, 208, 0.35);
     }
 
-    .cmd.executed {
-      opacity: 0.75;
-    }
-
     .mutedBox {
       border: 1px solid #eee;
       border-radius: 8px;
       padding: 8px;
       background: #fafafa;
+    }
+
+    #base64Box.collapsed #base64Body {
+      display: none;
     }
 
     input[type=checkbox] {
@@ -190,13 +256,17 @@
     /* Modal (command details) */
     .modalOverlay {
       position: fixed;
-      inset: 0;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      width: var(--sidebar-width);
       display: none;
       align-items: center;
       justify-content: center;
       padding: 16px;
       box-sizing: border-box;
       background: rgba(0, 0, 0, 0.35);
+      z-index: 1000;
     }
 
     .modalOverlay.open {
@@ -207,10 +277,12 @@
       background: #fff;
       border: 1px solid #ddd;
       border-radius: 12px;
-      width: min(900px, 100%);
+      width: 100%;
+      max-width: 900px;
       max-height: 85vh;
       display: flex;
       flex-direction: column;
+      box-sizing: border-box;
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
     }
 
@@ -232,6 +304,22 @@
       margin: 0;
     }
 
+    .modalSectionTitle {
+      margin: 0 0 6px;
+      font-size: 12px;
+      color: #666;
+    }
+
+    .modalSection {
+      margin-bottom: 12px;
+    }
+
+    .modalMeta {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 10px;
+    }
+
     .modalFooter {
       display: flex;
       justify-content: flex-end;
@@ -239,6 +327,29 @@
       padding: 10px 12px;
       border-top: 1px solid #eee;
       flex-wrap: wrap;
+    }
+
+    .resizeHandle {
+      background: transparent;
+      z-index: 10;
+    }
+
+    .resizeHandle.vertical {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: calc(var(--sidebar-width) - 3px);
+      width: 6px;
+      cursor: ew-resize;
+      background: #eee;
+    }
+
+    .resizeHandle.horizontal {
+      position: relative;
+      height: 6px;
+      cursor: ns-resize;
+      width: 100%;
+      background: #eee;
     }
   </style>
 </head>
@@ -260,6 +371,19 @@
         <button id="btnExtract">Extract &amp; Scan</button>
         <button id="btnClear">Clear</button>
       </div>
+      <div class="row" style="margin-top:6px;">
+        <label class="chk">
+          <input id="chkAutoScan" type="checkbox" /> auto extract &amp; scan
+        </label>
+        <label class="small" for="autoScanInterval">interval</label>
+        <select id="autoScanInterval">
+          <option value="2000">2s</option>
+          <option value="3000" selected>3s</option>
+          <option value="5000">5s</option>
+          <option value="10000">10s</option>
+        </select>
+      </div>
+      <div class="small">Auto pauses while you interact with Command Inbox.</div>
       <div id="status" class="small" style="margin-top:6px;"></div>
       <div id="warnings" class="small error" style="margin-top:4px;"></div>
     </div>
@@ -287,6 +411,7 @@
     </div>
 
     <div id="inbox" class="inboxPane"></div>
+    <div id="inboxResizeHandle" class="resizeHandle horizontal"></div>
 
     <div class="mutedBox">
       <div class="sectionTitle">Templates</div>
@@ -304,16 +429,21 @@
       <div class="small" style="margin-top:6px;">Copies a valid OPERATOR_CMD skeleton to clipboard.</div>
     </div>
 
-    <div class="mutedBox">
-      <div class="sectionTitle">Base64 Helper</div>
-      <div class="small" style="margin-top:6px;">Text or JSON to base64 (UTF-8).</div>
-      <textarea id="base64Input" style="height:80px;" placeholder="Input text or JSON"></textarea>
-      <div class="row" style="margin-top:6px;">
-        <button id="btnBase64Encode">Encode</button>
-        <button id="btnBase64EncodeJson">Encode JSON</button>
-        <button id="btnBase64Copy">Copy output</button>
+    <div class="mutedBox collapsed" id="base64Box">
+      <div class="row" style="justify-content:space-between;width:100%;">
+        <div class="sectionTitle">Base64 Helper</div>
+        <button id="btnToggleBase64">Show</button>
       </div>
-      <textarea id="base64Output" style="height:80px;" readonly placeholder="Base64 output"></textarea>
+      <div id="base64Body">
+        <div class="small" style="margin-top:6px;">Text or JSON to base64 (UTF-8).</div>
+        <textarea id="base64Input" style="height:80px;" placeholder="Input text or JSON"></textarea>
+        <div class="row" style="margin-top:6px;">
+          <button id="btnBase64Encode">Encode</button>
+          <button id="btnBase64EncodeJson">Encode JSON</button>
+          <button id="btnBase64Copy">Copy output</button>
+        </div>
+        <textarea id="base64Output" style="height:80px;" readonly placeholder="Base64 output"></textarea>
+      </div>
     </div>
 
     <div class="lastResultPane">
@@ -332,6 +462,8 @@
 
   <div class="contentHint">Webchat rechts im Fenster (BrowserView). Sidebar bleibt Operator.</div>
 
+  <div id="sidebarResizeHandle" class="resizeHandle vertical" aria-hidden="true"></div>
+
   <div id="cmdModalOverlay" class="modalOverlay" aria-hidden="true">
     <div class="modal">
       <div class="modalHeader">
@@ -339,11 +471,20 @@
         <button id="cmdModalClose">Close</button>
       </div>
       <div class="modalBody">
-        <pre id="cmdModalJson" class="mono"></pre>
+        <div id="cmdModalStatus" class="modalMeta"></div>
+        <div class="modalSection">
+          <div class="modalSectionTitle">Command</div>
+          <pre id="cmdModalJson" class="mono"></pre>
+        </div>
+        <div class="modalSection" id="cmdModalDecodedSection">
+          <div class="modalSectionTitle">Decoded base64</div>
+          <pre id="cmdModalDecoded" class="mono"></pre>
+        </div>
       </div>
       <div class="modalFooter">
         <button id="cmdModalExecute">Execute</button>
         <button id="cmdModalDismiss">Dismiss</button>
+        <button id="cmdModalToggleDecoded">Show decoded</button>
       </div>
     </div>
   </div>
