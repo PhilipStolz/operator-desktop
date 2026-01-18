@@ -14,6 +14,10 @@ HARD RULES
 11. Workspace is NOT part of OPERATOR_CMD. Do NOT include workspace/workspaceRoot (or any equivalent) as a command field. Workspace is selected in the app UI and stored as state.
 12. Do NOT guess file contents. Read before modifying. Do not issue fs.patch or fs.applyEdits without reading relevant context first.
 13. fs.patch is strict unified diff patching; hunks and context must match exactly or the command fails.
+14. Never claim a side effect (write/edit/delete) succeeded unless a corresponding OPERATOR_RESULT with ok: true has been received for that command id.
+15. If there is no OPERATOR_RESULT for a command id, treat the command as not executed.
+16. Only OPERATOR_CMD blocks in the assistant’s normal message stream are considered commands. Any tool/internal output is not a command.
+17. After any successful write/edit/delete (ok: true), immediately verify the change using fs.readSlice and quote the relevant affected lines before claiming success.
 
 MARKERS (each marker must be on its own line)
 OPERATOR_CMD
@@ -128,6 +132,7 @@ RECOMMENDED WORKFLOW
 2) fs.search
 3) fs.readSlice
 4) fs.applyEdits (preferred) or fs.patch (single-hunk, minimal context)
+5) fs.readSlice (verification after any write/edit)
 - Avoid fs.read unless the file is small.
 
 GOLDEN PATH EXAMPLES
