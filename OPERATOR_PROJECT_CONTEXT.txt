@@ -37,9 +37,12 @@ Inside OPERATOR_CMD:
 - One key-value pair per line
 - Format: key: value
 - Required keys: version, id, action
+- Any extra non-key line makes the command invalid
+- Use ASCII only inside OPERATOR_CMD
 - Multi-line content MUST be base64:
   - content_b64 (text)
-  - patch_b64 (unified diff)
+  - edits_b64 (applyEdits payload)
+  - patch_b64 (unified diff, avoid unless requested)
 
 Inside OPERATOR_RESULT:
 - id must match command id
@@ -51,9 +54,9 @@ ABSOLUTE RULES
 1) Never mix markdown with OPERATOR_CMD or OPERATOR_RESULT
 2) Never send multi-line text without base64
 3) Never guess file contents
-4) Always read before patching
-5) Patches must be minimal (single hunk, exact context)
-6) UI text is NOT a protocol – only the markers are
+4) Always read before editing
+5) Avoid fs.patch; prefer fs.applyEdits
+6) UI text is NOT a protocol - only the markers are
 
 INTERFACE SPEC
 operator.getInterfaceSpec returns the full, authoritative interface specification
@@ -71,8 +74,11 @@ CURRENT STATUS
 WORKFLOW
 1) fs.search to locate code
 2) fs.readSlice for minimal context
-3) fs.patch with patch_b64
+3) fs.applyEdits with edits_b64
 4) Verify via execution and OPERATOR_RESULT
+
+NOTE
+- For fs.applyEdits insertAfter on a line end, Operator will auto-prepend "\n" if missing.
 
 PROJECT PHILOSOPHY
 Precision over convenience.

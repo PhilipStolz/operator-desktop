@@ -11,23 +11,60 @@ import {
 import * as path from "path";
 import * as fs from "fs/promises";
 import type { Event as ElectronEvent } from "electron";
+import {
+  DEFAULT_LLM_ID,
+  LLM_PROFILES,
+  type LLMId,
+  type LLMProfile,
+} from "./llmProfiles";
 
 const APP_NAME = "Operator";
-const START_URL = process.env.OPERATOR_START_URL ?? "https://chat.openai.com/";
+const MAX_READ_BYTES = 200_000;
+const EXTRACT_LIMIT_CHARS = 200_000;
 
-const ALLOWED_HOSTS = new Set([
-  "chat.openai.com",
-  "chatgpt.com",
-  "auth.openai.com",
-  "openai.com",
-  // optional: "chat.deepseek.com",
-]);
+function normalizeStartUrl(raw?: string): string | null {
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "https:") return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function isLlmId(value: string): value is LLMId {
+  return Object.prototype.hasOwnProperty.call(LLM_PROFILES, value);
+}
+
+function getProfile(id?: string | null): LLMProfile {
+  if (id && isLlmId(id)) return LLM_PROFILES[id];
+  return LLM_PROFILES[DEFAULT_LLM_ID];
+}
+
+function buildAllowedHosts(profile: LLMProfile, overrideUrl?: string | null): Set<string> {
+  const hosts = new Set(profile.allowedHosts);
+  if (!overrideUrl) return hosts;
+  try {
+    const url = new URL(overrideUrl);
+    hosts.add(url.hostname);
+  } catch {
+    // ignore invalid override
+  }
+  return hosts;
+}
+
+const START_URL_OVERRIDE = normalizeStartUrl(process.env.OPERATOR_START_URL);
+const ENV_LLM_ID = process.env.OPERATOR_LLM_ID;
+const INITIAL_LLM_ID: LLMId = isLlmId(ENV_LLM_ID ?? "") ? (ENV_LLM_ID as LLMId) : DEFAULT_LLM_ID;
+
+let allowedHosts = new Set<string>();
 
 function isAllowedUrl(rawUrl: string): boolean {
   try {
     const u = new URL(rawUrl);
     if (u.protocol !== "https:") return false;
-    return ALLOWED_HOSTS.has(u.hostname);
+    return allowedHosts.has(u.hostname);
   } catch {
     return false;
   }
@@ -54,7 +91,7 @@ function applyBranding(win: BrowserWindow) {
 }
 
 function hardenWebContents(wc: Electron.WebContents) {
-  // Popups / window.open -> extern öffnen
+  // Popups / window.open -> extern oeffnen
   wc.setWindowOpenHandler(({ url }) => {
     if (url.startsWith("https://")) {
       shell.openExternal(url);
@@ -149,6 +186,9 @@ const END_MARK = "END_OPERATOR_CMD";
 const MAX_BLOCK_CHARS = 50_000;   // max chars inside a single cmd block
 const MAX_BLOCK_LINES = 200;      // max lines inside a single cmd block
 
+const KEY_VALUE_RE = /^([a-zA-Z0-9_.-]+)\s*:\s*(.*)$/;
+const NON_ASCII_RE = /[^\x00-\x7F]/;
+
 function isMarkerLine(line: string, marker: string): boolean {
   // marker must be alone on its line (allow surrounding whitespace)
   return line.trim() === marker;
@@ -161,7 +201,7 @@ function parseKeyValueLines(lines: string[]): OperatorCmd {
     if (!line) continue;
 
     // Only accept simple key: value lines; ignore anything else
-    const m = line.match(/^([a-zA-Z0-9_.-]+)\s*:\s*(.*)$/);
+    const m = line.match(KEY_VALUE_RE);
     if (!m) continue;
 
     const key = m[1];
@@ -177,6 +217,32 @@ function parseKeyValueLines(lines: string[]): OperatorCmd {
     cmd[key] = value;
   }
   return cmd;
+}
+
+function allowedKeysForAction(action: string): Set<string> | null {
+  const base = ["version", "id", "action"];
+  const fsBase = [...base, "path"];
+
+  switch (action) {
+    case "operator.getInterfaceSpec":
+      return new Set(base);
+    case "fs.list":
+    case "fs.read":
+    case "fs.delete":
+      return new Set(fsBase);
+    case "fs.search":
+      return new Set([...fsBase, "query", "q"]);
+    case "fs.readSlice":
+      return new Set([...fsBase, "start", "line", "from", "lines", "count", "len"]);
+    case "fs.write":
+      return new Set([...fsBase, "content", "content_b64"]);
+    case "fs.patch":
+      return new Set([...fsBase, "patch_b64"]);
+    case "fs.applyEdits":
+      return new Set([...fsBase, "edits_b64"]);
+    default:
+      return null;
+  }
 }
 
 function scanForCommands(plainText: string): { commands: OperatorCmd[]; warnings: string[] } {
@@ -211,6 +277,25 @@ function scanForCommands(plainText: string): { commands: OperatorCmd[]; warnings
     // inBlock
     if (isMarkerLine(line, END_MARK)) {
       // finalize block
+      const hasNonAscii = buf.some((raw) => NON_ASCII_RE.test(raw));
+      if (hasNonAscii) {
+        warnings.push("Ignored OPERATOR_CMD block: non-ASCII characters detected in command block.");
+        resetBlock();
+        continue;
+      }
+
+      const invalidLines = buf.filter((raw) => {
+        const trimmed = raw.trim();
+        if (!trimmed) return false;
+        return !KEY_VALUE_RE.test(trimmed);
+      });
+
+      if (invalidLines.length > 0) {
+        warnings.push("Ignored OPERATOR_CMD block: non key-value lines detected. Use content_b64 for multi-line payloads.");
+        resetBlock();
+        continue;
+      }
+
       const cmd = parseKeyValueLines(buf);
 
       // Strict required fields to avoid false positives
@@ -228,6 +313,16 @@ function scanForCommands(plainText: string): { commands: OperatorCmd[]; warnings
           ].filter(Boolean).join(", ")}).`
         );
       } else {
+        const allowedKeys = allowedKeysForAction(action);
+        if (allowedKeys) {
+          const invalidKeys = Object.keys(cmd).filter((k) => !allowedKeys.has(k));
+          if (invalidKeys.length > 0) {
+            warnings.push(`Ignored OPERATOR_CMD block: invalid keys (${invalidKeys.join(", ")}).`);
+            resetBlock();
+            continue;
+          }
+        }
+
         // normalize typed fields
         cmd.id = id;
         cmd.action = action;
@@ -357,6 +452,14 @@ async function executeFsCommand(win: BrowserWindow, cmd: OperatorCmd): Promise<O
     }
 
     if (action === "fs.read") {
+      const stat = await fs.stat(absPath);
+      if (stat.size > MAX_READ_BYTES) {
+        return {
+          id,
+          ok: false,
+          summary: `File too large for fs.read (${stat.size} bytes). Use fs.readSlice.`,
+        };
+      }
       const data = await fs.readFile(absPath, "utf-8");
       return { id, ok: true, summary: "Read file", details_b64: b64(data) };
     }
@@ -544,9 +647,19 @@ function applyEditsToText(
       const insertPos =
         e.op === "insertAfter" ? idx + e.anchor.length : idx;
 
+      let insertText = e.text;
+      if (e.op === "insertAfter") {
+        const anchorLooksLine = !e.anchor.includes("\n");
+        const nextChar = text[insertPos];
+        const atLineEnd = nextChar === "\n" || nextChar === undefined;
+        if (anchorLooksLine && atLineEnd && !insertText.startsWith("\n")) {
+          insertText = `\n${insertText}`;
+        }
+      }
+
       text =
         text.slice(0, insertPos) +
-        e.text +
+        insertText +
         text.slice(insertPos);
       continue;
     }
@@ -661,7 +774,7 @@ async function applyUnifiedPatchSingleFile(
         } else if (tag === "+") {
           out.push(text);
         } else if (tag === "\\") {
-          // "\ No newline at end of file" — ignore
+          // "\ No newline at end of file" - ignore
         } else {
           return { ok: false, error: `Invalid hunk line: ${l}` };
         }
@@ -687,6 +800,12 @@ async function applyUnifiedPatchSingleFile(
 
 function createWindow() {
   app.setName(APP_NAME);
+
+  let activeProfileId = INITIAL_LLM_ID;
+  let startUrlOverride: string | null = START_URL_OVERRIDE;
+  let activeProfile = getProfile(activeProfileId);
+
+  allowedHosts = buildAllowedHosts(activeProfile, startUrlOverride);
 
   const win = new BrowserWindow({
     width: 1200,
@@ -726,6 +845,14 @@ function createWindow() {
 
   win.setBrowserView(view);
 
+  function setActiveProfile(id: LLMId) {
+    activeProfileId = id;
+    activeProfile = getProfile(activeProfileId);
+    startUrlOverride = null;
+    allowedHosts = buildAllowedHosts(activeProfile, null);
+    view.webContents.loadURL(activeProfile.startUrl);
+  }
+
   const sidebarWidth = 360;
 
   function layout() {
@@ -746,7 +873,8 @@ function createWindow() {
   hardenWebContents(view.webContents);
 
   // Load webchat
-  view.webContents.loadURL(START_URL);
+  const startUrl = startUrlOverride ?? activeProfile.startUrl;
+  view.webContents.loadURL(startUrl);
 
   // ---- IPC handlers ----
 
@@ -769,11 +897,50 @@ function createWindow() {
     return { ok: true };
   });
 
+  ipcMain.handle("operator:getLlmProfiles", async () => {
+    const profiles = Object.values(LLM_PROFILES).map((p) => ({ id: p.id, label: p.label }));
+    return { profiles };
+  });
+
+  ipcMain.handle("operator:getActiveLlmProfile", async () => {
+    return { id: activeProfile.id, label: activeProfile.label };
+  });
+
+  ipcMain.handle("operator:setLlmProfile", async (_evt, { id }: { id: string }) => {
+    if (!isLlmId(id)) return { ok: false, error: "Unknown LLM profile" };
+    setActiveProfile(id);
+    return { ok: true, id: activeProfile.id, label: activeProfile.label };
+  });
+
   ipcMain.handle("operator:getBootstrapPrompt", async () => {
     try {
-      const p = path.join(app.getAppPath(), "operator_llm_bootstrap.txt");
+      const profile = activeProfile;
+      const primary = profile.bootstrapPromptFile || "operator_llm_bootstrap.txt";
+      const fallback = "operator_llm_bootstrap.txt";
+      const candidates = primary === fallback ? [primary] : [primary, fallback];
+
+      let lastError = "";
+      for (const file of candidates) {
+        try {
+          const p = path.join(app.getAppPath(), file);
+          const text = await fs.readFile(p, "utf-8");
+          // DoS guard
+          const limited = text.length > 200_000 ? text.slice(0, 200_000) : text;
+          return { ok: true, text: limited, profileId: profile.id, profileLabel: profile.label };
+        } catch (e: any) {
+          lastError = String(e?.message ?? e);
+        }
+      }
+      return { ok: false, text: "", error: lastError, profileId: profile.id, profileLabel: profile.label };
+    } catch (e: any) {
+      return { ok: false, text: "", error: String(e?.message ?? e), profileId: activeProfile.id, profileLabel: activeProfile.label };
+    }
+  });
+
+  ipcMain.handle("operator:getSmokeTestPrompt", async () => {
+    try {
+      const p = path.join(app.getAppPath(), "operator_llm_smoketest.txt");
       const text = await fs.readFile(p, "utf-8");
-      // DoS guard
       const limited = text.length > 200_000 ? text.slice(0, 200_000) : text;
       return { ok: true, text: limited };
     } catch (e: any) {
@@ -792,16 +959,23 @@ function createWindow() {
 
     // true => userGesture (slightly safer and aligns with "on-demand extraction")
     const result = await view.webContents.executeJavaScript(extractorCode, true);
-    // Limit size (DoS guard)
+    // Limit size (DoS guard) and keep the tail to favor recent context.
     const text = typeof result?.text === "string" ? result.text : "";
-    const limited = text.length > 500_000 ? text.slice(0, 500_000) : text;
+    const limited = text.length > EXTRACT_LIMIT_CHARS
+      ? text.slice(text.length - EXTRACT_LIMIT_CHARS)
+      : text;
 
     return { text: limited, meta: result?.meta ?? null };
   });
 
   ipcMain.handle("operator:scan", async (_evt, { text }: { text: string }) => {
     const plain = String(text ?? "");
-    const { commands, warnings } = scanForCommands(plain);
+    const trimmed = plain.length > EXTRACT_LIMIT_CHARS;
+    const scanText = trimmed ? plain.slice(plain.length - EXTRACT_LIMIT_CHARS) : plain;
+    const { commands, warnings } = scanForCommands(scanText);
+    if (trimmed) {
+      warnings.unshift(`Scan input trimmed to last ${EXTRACT_LIMIT_CHARS} chars.`);
+    }
 
     // Basic dedupe by id (keep last occurrence)
     const byId = new Map<string, OperatorCmd>();

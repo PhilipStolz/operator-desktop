@@ -40,6 +40,10 @@
       cursor: pointer
     }
 
+    select {
+      padding: 6px 8px;
+    }
+
     .row {
       display: flex;
       gap: 8px;
@@ -207,32 +211,32 @@
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
     }
 
-    (.modalHeader {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        padding: 10px 12px;
-        border-bottom: 1px solid #eee;
-      }
+    .modalHeader {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid #eee;
+    }
 
-      (.modalBody {
-          padding: 12px;
-          overflow: auto;
-        }
+    .modalBody {
+      padding: 12px;
+      overflow: auto;
+    }
 
-        .modalBody pre {
-          margin: 0;
-        }
+    .modalBody pre {
+      margin: 0;
+    }
 
-        .modalFooter {
-          display: flex;
-          justify-content: flex-end;
-          gap: 8px;
-          padding: 10px 12px;
-          border-top: 1px solid #eee;
-          flex-wrap: wrap;
-        }
+    .modalFooter {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 10px 12px;
+      border-top: 1px solid #eee;
+      flex-wrap: wrap;
+    }
   </style>
 </head>
 
@@ -240,10 +244,19 @@
   <div class="sidebar">
     <div>
       <h2 style="margin:0 0 8px;">Operator</h2>
-      <div class="row"><button id="btnWorkspace">Choose Workspace</button><span id="workspace" class="pill">Workspace:
-          (not set)</span></div>
-      <div class="row" style="margin-top:8px;"><button id="btnScanClipboard">Scan Clipboard</button><button
-          id="btnExtract">Extract &amp; Scan</button><button id="btnClear">Clear</button></div>
+      <div class="row">
+        <button id="btnWorkspace">Choose Workspace</button>
+        <span id="workspace" class="pill">Workspace: (not set)</span>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <label class="small" for="llmProfile">LLM</label>
+        <select id="llmProfile"></select>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <button id="btnScanClipboard">Scan Clipboard</button>
+        <button id="btnExtract">Extract &amp; Scan</button>
+        <button id="btnClear">Clear</button>
+      </div>
       <div id="status" class="small" style="margin-top:6px;"></div>
       <div id="warnings" class="small error" style="margin-top:4px;"></div>
     </div>
@@ -255,25 +268,34 @@
           <div class="small">Select commands and run as a batch.</div>
         </div>
       </div>
-      <div class="row" style="margin-top:8px;"><button id="btnSelectAll">Select all</button><button
-          id="btnSelectNone">Select none</button><button id="btnRunSelected">Run selected</button><button
-          id="btnRunAll">Run all</button><button id="btnResetExecuted">Reset executed</button><label class="chk"><input
-            id="chkStopOnFail" type="checkbox" checked /> stop on
-          fail</label></div>
+      <div class="row" style="margin-top:8px;">
+        <button id="btnSelectAll">Select all</button>
+        <button id="btnSelectNone">Select none</button>
+        <button id="btnRunSelected">Run selected</button>
+        <button id="btnRunAll">Run all</button>
+        <button id="btnResetExecuted">Reset executed</button>
+        <label class="chk">
+          <input id="chkStopOnFail" type="checkbox" checked /> stop on fail
+        </label>
+        <label class="chk">
+          <input id="chkAutoCopy" type="checkbox" /> auto copy result
+        </label>
+      </div>
     </div>
 
     <div id="inbox" class="inboxPane"></div>
 
     <div class="lastResultPane">
-      <div class="sectionTitle">Last Result</div><textarea id="result" readonly></textarea>
+      <div class="sectionTitle">Last Result</div>
+      <textarea id="result" readonly></textarea>
       <div class="row">
         <button id="btnCopyResult">Copy Result</button>
         <button id="btnCopyDecoded">Copy decoded details_b64</button>
         <button id="btnCopyBootstrap">Copy LLM Bootstrap Prompt</button>
+        <button id="btnCopySmokeTest">Copy Smoke Test Task</button>
         <span id="copyStatus" class="small"></span>
       </div>
-      <div class="small">Webchat läuft rechts (BrowserView). Operator liest nur Text und führt lokale Aktionen nur nach
-        Bestätigung aus.</div>
+      <div class="small">Webchat laeuft rechts (BrowserView). Operator liest nur Text und fuehrt lokale Aktionen nur nach Bestaetigung aus.</div>
     </div>
   </div>
 

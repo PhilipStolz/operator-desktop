@@ -103,6 +103,27 @@ $env:OPERATOR_START_URL="https://chat.openai.com/"
 export OPERATOR_START_URL="https://chat.openai.com/"
 ```
 
+### LLM selection
+
+Operator ships with multiple LLM profiles (e.g. ChatGPT, DeepSeek). You can switch
+profiles in the UI using the LLM dropdown, or set a default via `OPERATOR_LLM_ID`:
+
+```bash
+# PowerShell
+$env:OPERATOR_LLM_ID="deepseek"
+```
+
+```bash
+# bash
+export OPERATOR_LLM_ID="deepseek"
+```
+
+### Bootstrap prompt
+
+The bootstrap prompt is loaded from `operator_llm_bootstrap.txt` by default. Profiles
+can point to different files via `electron/llmProfiles.ts`, but a single shared
+prompt is usually enough.
+
 ## Development
 
 ### Prereqs

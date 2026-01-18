@@ -28,7 +28,13 @@ contextBridge.exposeInMainWorld("operator", {
 
   readClipboard: () => ipcRenderer.invoke("operator:readClipboard"),
 
+  // LLM profiles
+  getLlmProfiles: () => ipcRenderer.invoke("operator:getLlmProfiles"),
+  getActiveLlmProfile: () => ipcRenderer.invoke("operator:getActiveLlmProfile"),
+  setLlmProfile: (id: string) => ipcRenderer.invoke("operator:setLlmProfile", { id }),
+
   getBootstrapPrompt: () => ipcRenderer.invoke("operator:getBootstrapPrompt"),
+  getSmokeTestPrompt: () => ipcRenderer.invoke("operator:getSmokeTestPrompt"),
 
 });
 

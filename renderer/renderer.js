@@ -14,17 +14,19 @@ const btnCopyResult = $("btnCopyResult");
 const btnCopyDecoded = $("btnCopyDecoded");
 const copyStatusEl = $("copyStatus");
 const btnCopyBootstrap = $("btnCopyBootstrap");
+const btnCopySmokeTest = $("btnCopySmokeTest");
+const llmProfileSelect = $("llmProfile");
 
 const btnSelectAll = $("btnSelectAll");
 const btnSelectNone = $("btnSelectNone");
 const btnRunSelected = $("btnRunSelected");
 const btnRunAll = $("btnRunAll");
 const chkStopOnFail = $("chkStopOnFail");
+const chkAutoCopy = $("chkAutoCopy");
 
 let commands = [];
 let lastResultText = "";
-let activeCommand = null;
-
+let selectedKeys = new Set();
 
 const EXECUTED_KEY = "operator.executedIds.v1";
 let executedIds = new Set();
@@ -32,7 +34,10 @@ let executedIds = new Set();
 function loadExecutedIds() {
   try {
     const raw = localStorage.getItem(EXECUTED_KEY);
-    if (!raw) { executedIds = new Set(); return; }
+    if (!raw) {
+      executedIds = new Set();
+      return;
+    }
     const arr = JSON.parse(raw);
     if (Array.isArray(arr)) executedIds = new Set(arr.map(String));
     else executedIds = new Set();
@@ -47,6 +52,20 @@ function saveExecutedIds() {
   } catch {}
 }
 
+function commandKey(cmd, index) {
+  if (cmd && cmd.id) return `id:${cmd.id}`;
+  return `idx:${index}`;
+}
+
+function isSelected(key) {
+  return selectedKeys.has(key);
+}
+
+function setSelected(key, value) {
+  if (value) selectedKeys.add(key);
+  else selectedKeys.delete(key);
+}
+
 const btnResetExecuted = $("btnResetExecuted");
 if (btnResetExecuted) {
   btnResetExecuted.onclick = () => {
@@ -57,7 +76,6 @@ if (btnResetExecuted) {
   };
 }
 
-
 function setStatus(msg) {
   statusEl.textContent = msg || "";
 }
@@ -67,7 +85,7 @@ function setWarnings(warns) {
     warningsEl.textContent = "";
     return;
   }
-  warningsEl.textContent = warns.join("  •  ");
+  warningsEl.textContent = warns.join(" | ");
 }
 
 function escapeHtml(s) {
@@ -110,23 +128,54 @@ function renderInbox() {
     return;
   }
 
-  for (const cmd of commands) {
+  for (let i = 0; i < commands.length; i++) {
+    const cmd = commands[i];
+    const key = commandKey(cmd, i);
     const executed = !!(cmd.id && executedIds.has(cmd.id));
+    const selected = isSelected(key);
     const div = document.createElement("div");
-    div.className = "cmd";
+    const classes = ["cmd"];
+    if (executed) classes.push("executed");
+    if (selected) classes.push("active");
+    div.className = classes.join(" ");
     div.onclick = () => {
-      activeCommand = cmd;
       setStatus(`Selected: ${cmd.id || cmd.action || "(command)"}`);
     };
 
-
     const header = document.createElement("div");
-    header.innerHTML = `
-      <div><strong>${escapeHtml(cmd.action || "(no action)")}</strong></div>
-      <div class="small">id: ${escapeHtml(cmd.id || "(no id)")}</div>
-          <div class="small">status: ${executed ? "executed" : "not run"}</div>
-      <div class="small">path: <span class="mono">${escapeHtml(cmd.path || "(no path)")}</span></div>
-    `;
+
+    const titleRow = document.createElement("div");
+    titleRow.className = "row";
+    const selectBox = document.createElement("input");
+    selectBox.type = "checkbox";
+    selectBox.checked = selected;
+    selectBox.onclick = (ev) => {
+      if (ev && ev.stopPropagation) ev.stopPropagation();
+      setSelected(key, selectBox.checked);
+      if (selectBox.checked) div.classList.add("active");
+      else div.classList.remove("active");
+    };
+    const title = document.createElement("div");
+    title.innerHTML = `<strong>${escapeHtml(cmd.action || "(no action)")}</strong>`;
+    titleRow.appendChild(selectBox);
+    titleRow.appendChild(title);
+    header.appendChild(titleRow);
+
+    const idLine = document.createElement("div");
+    idLine.className = "small";
+    idLine.textContent = `id: ${cmd.id || "(no id)"}`;
+
+    const statusLine = document.createElement("div");
+    statusLine.className = "small";
+    statusLine.textContent = `status: ${executed ? "executed" : "not run"}`;
+
+    const pathLine = document.createElement("div");
+    pathLine.className = "small";
+    pathLine.innerHTML = `path: <span class="mono">${escapeHtml(cmd.path || "(no path)")}</span>`;
+
+    header.appendChild(idLine);
+    header.appendChild(statusLine);
+    header.appendChild(pathLine);
 
     const args = document.createElement("div");
     args.className = "mono";
@@ -141,23 +190,7 @@ function renderInbox() {
     btnExec.textContent = "Execute";
     btnExec.onclick = async (ev) => {
       if (ev && ev.stopPropagation) ev.stopPropagation();
-      setStatus("Executing…");
-      try {
-        const res = await window.operator.execute(cmd);
-        lastResultText = res?.resultText || "";
-        resultEl.value = lastResultText;
-        // Mark command as executed (by Id) on success
-        if (res?.result?.ok && cmd.id) {
-          executedIds.add(String(cmd.id));
-          saveExecutedIds();
-          renderInbox();
-        }
-
-        setStatus(res?.result?.ok ? "Done." : "Failed (see result).");
-      } catch (e) {
-        setStatus("Execution error.");
-        resultEl.value = String(e);
-      }
+      await runCommands([{ cmd, key }]);
     };
 
     const btnDrop = document.createElement("button");
@@ -165,6 +198,7 @@ function renderInbox() {
     btnDrop.onclick = (ev) => {
       if (ev && ev.stopPropagation) ev.stopPropagation();
       commands = commands.filter((c) => c !== cmd);
+      selectedKeys.delete(key);
       renderInbox();
     };
 
@@ -177,6 +211,68 @@ function renderInbox() {
   }
 }
 
+function listCommandEntries() {
+  const entries = [];
+  for (let i = 0; i < commands.length; i++) {
+    const cmd = commands[i];
+    entries.push({ cmd, key: commandKey(cmd, i) });
+  }
+  return entries;
+}
+
+function getSelectedEntries() {
+  return listCommandEntries().filter((entry) => selectedKeys.has(entry.key));
+}
+
+async function executeCommand(cmd) {
+  try {
+    const res = await window.operator.execute(cmd);
+    const ok = !!res?.result?.ok;
+    if (ok && cmd.id) {
+      executedIds.add(String(cmd.id));
+      saveExecutedIds();
+    }
+    return { ok, resultText: res?.resultText || "" };
+  } catch (e) {
+    return { ok: false, resultText: String(e) };
+  }
+}
+
+async function runCommands(entries) {
+  if (!entries || entries.length === 0) {
+    setStatus("No commands selected.");
+    return;
+  }
+
+  const results = [];
+  let failed = false;
+
+  for (let i = 0; i < entries.length; i++) {
+    const { cmd } = entries[i];
+    setStatus(`Executing ${i + 1}/${entries.length}...`);
+    const res = await executeCommand(cmd);
+    if (res.resultText) results.push(res.resultText);
+    if (!res.ok) {
+      failed = true;
+      if (chkStopOnFail && chkStopOnFail.checked) break;
+    }
+  }
+
+  if (results.length > 0) {
+    const joined = results.join("\n\n");
+    lastResultText = joined;
+    resultEl.value = joined;
+    if (chkAutoCopy && chkAutoCopy.checked) {
+      await window.operator.copyToClipboard(joined);
+      copyStatusEl.textContent = "Copied.";
+      setTimeout(() => (copyStatusEl.textContent = ""), 1200);
+    }
+  }
+
+  renderInbox();
+  setStatus(failed ? "Done with failures." : "Done.");
+}
+
 async function refreshWorkspacePill() {
   try {
     const res = await window.operator.getWorkspace?.();
@@ -187,8 +283,77 @@ async function refreshWorkspacePill() {
   }
 }
 
+if (btnSelectAll) {
+  btnSelectAll.onclick = () => {
+    selectedKeys = new Set(listCommandEntries().map((entry) => entry.key));
+    renderInbox();
+    setStatus(`Selected: ${selectedKeys.size}`);
+  };
+}
+
+if (btnSelectNone) {
+  btnSelectNone.onclick = () => {
+    selectedKeys = new Set();
+    renderInbox();
+    setStatus("Selection cleared.");
+  };
+}
+
+if (btnRunSelected) {
+  btnRunSelected.onclick = async () => {
+    await runCommands(getSelectedEntries());
+  };
+}
+
+if (btnRunAll) {
+  btnRunAll.onclick = async () => {
+    await runCommands(listCommandEntries());
+  };
+}
+
+async function loadLlmProfiles() {
+  if (!llmProfileSelect || !window.operator.getLlmProfiles) return;
+  try {
+    const res = await window.operator.getLlmProfiles();
+    const profiles = Array.isArray(res?.profiles) ? res.profiles : [];
+
+    llmProfileSelect.innerHTML = "";
+    for (const profile of profiles) {
+      const option = document.createElement("option");
+      option.value = profile.id;
+      option.textContent = profile.label || profile.id;
+      llmProfileSelect.appendChild(option);
+    }
+
+    const active = await window.operator.getActiveLlmProfile?.();
+    if (active?.id) llmProfileSelect.value = active.id;
+  } catch (e) {
+    setWarnings([`Failed to load LLM profiles: ${String(e)}`]);
+  }
+}
+
+if (llmProfileSelect) {
+  llmProfileSelect.onchange = async () => {
+    const id = llmProfileSelect.value;
+    if (!id || !window.operator.setLlmProfile) return;
+    setStatus("Switching LLM...");
+    try {
+      const res = await window.operator.setLlmProfile(id);
+      if (res?.ok) {
+        const label = res?.label || id;
+        setStatus(`LLM set: ${label}.`);
+      } else {
+        setStatus(res?.error ? `Failed to set LLM: ${res.error}` : "Failed to set LLM.");
+      }
+    } catch (e) {
+      setStatus("Failed to set LLM.");
+      setWarnings([String(e)]);
+    }
+  };
+}
+
 btnWorkspace.onclick = async () => {
-  setStatus("Choosing workspace…");
+  setStatus("Choosing workspace...");
   const res = await window.operator.chooseWorkspace();
   await refreshWorkspacePill();
   loadExecutedIds();
@@ -199,14 +364,15 @@ const btnScanClipboard = $("btnScanClipboard");
 
 btnScanClipboard.onclick = async () => {
   setWarnings([]);
-  setStatus("Reading clipboard…");
+  setStatus("Reading clipboard...");
 
   try {
     const clip = await window.operator.readClipboard();
     const text = clip?.text || "";
-    setStatus(`Scanning clipboard… (${text.length.toLocaleString()} chars)`);
+    setStatus(`Scanning clipboard... (${text.length.toLocaleString()} chars)`);
     const scan = await window.operator.scan(text);
     commands = scan?.commands || [];
+    selectedKeys = new Set();
     setWarnings(scan?.warnings || []);
     renderInbox();
     setStatus(`Scan done. Commands: ${commands.length}`);
@@ -218,14 +384,15 @@ btnScanClipboard.onclick = async () => {
 
 btnExtract.onclick = async () => {
   setWarnings([]);
-  setStatus("Extracting…");
+  setStatus("Extracting...");
 
   try {
     const extracted = await window.operator.extract();
     const text = extracted?.text || "";
-    setStatus(`Scanning§ (${text.length.toLocaleString()} chars)`);
+    setStatus(`Scanning... (${text.length.toLocaleString()} chars)`);
     const scan = await window.operator.scan(text);
     commands = scan?.commands || [];
+    selectedKeys = new Set();
     setWarnings(scan?.warnings || []);
     renderInbox();
     setStatus(`Scan done. Commands: ${commands.length}`);
@@ -238,6 +405,7 @@ btnExtract.onclick = async () => {
 btnClear.onclick = () => {
   commands = [];
   lastResultText = "";
+  selectedKeys = new Set();
   inboxEl.innerHTML = "";
   resultEl.value = "";
   setWarnings([]);
@@ -247,7 +415,7 @@ btnClear.onclick = () => {
 };
 
 btnCopyBootstrap.onclick = async () => {
-  setStatus("Loading bootstrap prompt…");
+  setStatus("Loading bootstrap prompt...");
   try {
     const res = await window.operator.getBootstrapPrompt();
     const text = res?.text || "";
@@ -256,14 +424,36 @@ btnCopyBootstrap.onclick = async () => {
       return;
     }
     await window.operator.copyToClipboard(text);
-    setStatus("Bootstrap prompt copied. Paste it into the new chat.");
-    copyStatusEl.textContent = "Copied bootstrap prompt.";
+    const label = res?.profileLabel || res?.profileId || "";
+    setStatus(label ? `Bootstrap prompt copied (${label}). Paste it into the new chat.` : "Bootstrap prompt copied. Paste it into the new chat.");
+    copyStatusEl.textContent = label ? `Copied bootstrap prompt (${label}).` : "Copied bootstrap prompt.";
     setTimeout(() => (copyStatusEl.textContent = ""), 1200);
   } catch (e) {
     setStatus("Failed to copy bootstrap prompt.");
     setWarnings([String(e)]);
   }
 };
+
+if (btnCopySmokeTest) {
+  btnCopySmokeTest.onclick = async () => {
+    setStatus("Loading smoke test...");
+    try {
+      const res = await window.operator.getSmokeTestPrompt();
+      const text = res?.text || "";
+      if (!text.trim()) {
+        setStatus("Smoke test is empty (missing file?).");
+        return;
+      }
+      await window.operator.copyToClipboard(text);
+      setStatus("Smoke test copied. Paste it into the new chat.");
+      copyStatusEl.textContent = "Copied smoke test.";
+      setTimeout(() => (copyStatusEl.textContent = ""), 1200);
+    } catch (e) {
+      setStatus("Failed to copy smoke test.");
+      setWarnings([String(e)]);
+    }
+  };
+}
 
 btnCopyResult.onclick = async () => {
   if (!lastResultText) {
@@ -293,5 +483,7 @@ btnCopyDecoded.onclick = async () => {
 // boot
 (async () => {
   await refreshWorkspacePill();
+  loadExecutedIds();
+  await loadLlmProfiles();
   renderInbox();
 })();

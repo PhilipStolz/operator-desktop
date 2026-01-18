@@ -1,0 +1,5 @@
+1) Create "notes/plan.txt" with 5 short ASCII lines.
+2) Create "notes/checklist.txt" with 3 ASCII TODO lines.
+3) Create "config/app.json" with keys "name", "version", "features" (array).
+4) fs.readSlice "notes/plan.txt", then fs.applyEdits to append one more line.
+5) Delete "notes/checklist.txt".

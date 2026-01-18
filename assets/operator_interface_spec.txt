@@ -3,16 +3,17 @@ Operator Interface Specification (version: 3)
 HARD RULES
 1. When outputting OPERATOR_CMD blocks, output ONLY plain text (no markdown, no bullet lists, no indentation-based formatting, no surrounding prose).
 2. Marker lines MUST be exactly and MUST be alone on their own line: OPERATOR_CMD, END_OPERATOR_CMD, OPERATOR_RESULT, END_OPERATOR_RESULT.
-3. Inside OPERATOR_CMD blocks, ONLY lines of the form "key: value" are allowed (one key-value per line; keys are case-sensitive).
+3. Inside OPERATOR_CMD blocks, ONLY lines of the form "key: value" are allowed (one key-value per line; keys are case-sensitive). Any other non-empty line makes the command invalid.
 4. OPERATOR_CMD blocks MUST NOT be nested. If START appears before END, the block is invalid.
 5. Multi-line payloads MUST NEVER be sent inline. Use base64 UTF-8 fields: content_b64, patch_b64, edits_b64.
 6. The plain "content" field MAY be used ONLY for very small single-line text and MUST NOT contain line breaks.
-7. Every OPERATOR_CMD MUST include: version: 1, id: <string>, action: <string>.
-8. The command id MUST be echoed verbatim in the corresponding OPERATOR_RESULT.
-9. Actions starting with "fs." REQUIRE a path field. Actions not starting with "fs." MUST NOT include a path field.
-10. Workspace is NOT part of OPERATOR_CMD. Do NOT include workspace/workspaceRoot (or any equivalent) as a command field. Workspace is selected in the app UI and stored as state.
-11. Do NOT guess file contents. Read before modifying. Do not issue fs.patch or fs.applyEdits without reading relevant context first.
-12. fs.patch is strict unified diff patching; hunks and context must match exactly or the command fails.
+7. Use ASCII only inside OPERATOR_CMD blocks. Non-ASCII characters make the command invalid.
+8. Every OPERATOR_CMD MUST include: version: 1, id: <string>, action: <string>.
+9. The command id MUST be echoed verbatim in the corresponding OPERATOR_RESULT.
+10. Actions starting with "fs." REQUIRE a path field. Actions not starting with "fs." MUST NOT include a path field.
+11. Workspace is NOT part of OPERATOR_CMD. Do NOT include workspace/workspaceRoot (or any equivalent) as a command field. Workspace is selected in the app UI and stored as state.
+12. Do NOT guess file contents. Read before modifying. Do not issue fs.patch or fs.applyEdits without reading relevant context first.
+13. fs.patch is strict unified diff patching; hunks and context must match exactly or the command fails.
 
 MARKERS (each marker must be on its own line)
 OPERATOR_CMD
@@ -87,6 +88,7 @@ Edit objects (op): insertAfter, insertBefore, replaceFirst, replaceAll, replaceR
 For insert*: anchor (string), text (string), optional occurrence (number>=1).
 For replace*: find (string), text (string).
 For replaceRange: startLine (1-based), endLine (1-based), text (string).
+Behavior note: for insertAfter, if the anchor ends a line and text does not start with "\n", Operator will prepend "\n".
 Strict semantics: first failure aborts and no changes are written.
 
 fs.delete
@@ -99,3 +101,4 @@ RECOMMENDED WORKFLOW
 2) fs.search
 3) fs.readSlice
 4) fs.applyEdits (preferred) or fs.patch (single-hunk, minimal context)
+- Avoid fs.read unless the file is small.
