@@ -37,6 +37,33 @@ summary: <short single-line summary>
 details_b64: <optional base64 UTF-8 payload>
 END_OPERATOR_RESULT
 
+ERROR CODES (parser/validator)
+Invalid command summaries use:
+Invalid OPERATOR_CMD (ERR_...): <what to fix>
+
+Core errors:
+- ERR_MARKER_NOT_ALONE
+- ERR_MISSING_END_MARKER
+- ERR_NESTED_BLOCK
+- ERR_NON_KEY_VALUE_LINE
+- ERR_EMPTY_LINE_IN_CMD
+- ERR_NON_ASCII_IN_CMD
+- ERR_MISSING_REQUIRED_FIELDS
+- ERR_ACTION_REQUIRES_PATH
+- ERR_ACTION_FORBIDS_PATH
+- ERR_CONTENT_HAS_NEWLINES
+- ERR_INVALID_BASE64
+- ERR_SEARCH_PATH_IS_DIR
+
+Additional validation errors:
+- ERR_MISSING_QUERY
+- ERR_INVALID_READSLICE_PARAMS
+- ERR_MISSING_EDITS_B64
+- ERR_MISSING_PATCH_B64
+- ERR_INVALID_EDITS_JSON
+- ERR_UNKNOWN_ACTION
+- ERR_BLOCK_TOO_LARGE
+
 ACTIONS
 
 operator.getInterfaceSpec
@@ -102,3 +129,26 @@ RECOMMENDED WORKFLOW
 3) fs.readSlice
 4) fs.applyEdits (preferred) or fs.patch (single-hunk, minimal context)
 - Avoid fs.read unless the file is small.
+
+GOLDEN PATH EXAMPLES
+fs.write (content_b64):
+OPERATOR_CMD
+version: 1
+id: write-001
+action: fs.write
+path: notes/plan.txt
+content_b64: QWxwaGEKQmV0YQ==
+END_OPERATOR_CMD
+
+fs.applyEdits (edits_b64):
+OPERATOR_CMD
+version: 1
+id: edits-001
+action: fs.applyEdits
+path: notes/plan.txt
+edits_b64: eyJ2ZXJzaW9uIjoxLCJlZGl0cyI6W3sib3AiOiJpbnNlcnRBZnRlciIsImFuY2hvciI6IkJldGEiLCJ0ZXh0IjoiXG5HYW1tYSJ9XX0=
+END_OPERATOR_CMD
+
+COMMON MISTAKE EXAMPLE
+If content has multiple lines in "content", it will be rejected:
+Invalid OPERATOR_CMD (ERR_CONTENT_HAS_NEWLINES): content contains newline; use content_b64.

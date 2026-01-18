@@ -23,7 +23,8 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
-      overflow: hidden
+      overflow-x: hidden;
+      overflow-y: auto
     }
 
     .contentHint {
@@ -147,7 +148,9 @@
     }
 
     .cmd.active {
-      outline: 2px solid #ddd;
+      border-color: #0b57d0;
+      background: #eef4ff;
+      outline: 2px solid rgba(11, 87, 208, 0.35);
     }
 
     .cmd.executed {
@@ -284,6 +287,34 @@
     </div>
 
     <div id="inbox" class="inboxPane"></div>
+
+    <div class="mutedBox">
+      <div class="sectionTitle">Templates</div>
+      <div class="row" style="margin-top:8px;">
+        <select id="templateSelect">
+          <option value="operator.getInterfaceSpec">operator.getInterfaceSpec</option>
+          <option value="fs.list">fs.list</option>
+          <option value="fs.readSlice">fs.readSlice</option>
+          <option value="fs.search">fs.search</option>
+          <option value="fs.write">fs.write</option>
+          <option value="fs.applyEdits">fs.applyEdits</option>
+        </select>
+        <button id="btnInsertTemplate">Insert template</button>
+      </div>
+      <div class="small" style="margin-top:6px;">Copies a valid OPERATOR_CMD skeleton to clipboard.</div>
+    </div>
+
+    <div class="mutedBox">
+      <div class="sectionTitle">Base64 Helper</div>
+      <div class="small" style="margin-top:6px;">Text or JSON to base64 (UTF-8).</div>
+      <textarea id="base64Input" style="height:80px;" placeholder="Input text or JSON"></textarea>
+      <div class="row" style="margin-top:6px;">
+        <button id="btnBase64Encode">Encode</button>
+        <button id="btnBase64EncodeJson">Encode JSON</button>
+        <button id="btnBase64Copy">Copy output</button>
+      </div>
+      <textarea id="base64Output" style="height:80px;" readonly placeholder="Base64 output"></textarea>
+    </div>
 
     <div class="lastResultPane">
       <div class="sectionTitle">Last Result</div>

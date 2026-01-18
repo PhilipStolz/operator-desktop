@@ -52,6 +52,35 @@ details_b64: ...
 END_OPERATOR_RESULT
 ```
 
+### Golden path examples
+
+fs.write (content_b64):
+
+```text
+OPERATOR_CMD
+version: 1
+id: write-001
+action: fs.write
+path: notes/plan.txt
+content_b64: QWxwaGEKQmV0YQ==
+END_OPERATOR_CMD
+```
+
+fs.applyEdits (edits_b64):
+
+```text
+OPERATOR_CMD
+version: 1
+id: edits-001
+action: fs.applyEdits
+path: notes/plan.txt
+edits_b64: eyJ2ZXJzaW9uIjoxLCJlZGl0cyI6W3sib3AiOiJpbnNlcnRBZnRlciIsImFuY2hvciI6IkJldGEiLCJ0ZXh0IjoiXG5HYW1tYSJ9XX0=
+END_OPERATOR_CMD
+```
+
+If a command is invalid, Operator replies with a summary like:
+`Invalid OPERATOR_CMD (ERR_...): <what to fix>`
+
 ### Interface discovery (important)
 
 He app is self-describing. The first step for an LLM is:
@@ -71,9 +100,9 @@ The returned `details_b64` contains the canonical interface specification (base6
 To avoid large context and patch failures:
 
 1. `operator.getInterfaceSpec`
-2 `fs.search` to find the relevant location
-2. `fs.readSlice` to fetch exact context (line range)
-3. `fs.patch` with a very small single-hunk diff
+2. `fs.search` to find the relevant location
+3. `fs.readSlice` to fetch exact context (line range)
+4. `fs.applyEdits` for small, targeted changes
 
 ## Architecture (current)
 

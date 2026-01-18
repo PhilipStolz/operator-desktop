@@ -16,6 +16,13 @@ const copyStatusEl = $("copyStatus");
 const btnCopyBootstrap = $("btnCopyBootstrap");
 const btnCopySmokeTest = $("btnCopySmokeTest");
 const llmProfileSelect = $("llmProfile");
+const templateSelect = $("templateSelect");
+const btnInsertTemplate = $("btnInsertTemplate");
+const base64Input = $("base64Input");
+const base64Output = $("base64Output");
+const btnBase64Encode = $("btnBase64Encode");
+const btnBase64EncodeJson = $("btnBase64EncodeJson");
+const btnBase64Copy = $("btnBase64Copy");
 
 const btnSelectAll = $("btnSelectAll");
 const btnSelectNone = $("btnSelectNone");
@@ -27,6 +34,7 @@ const chkAutoCopy = $("chkAutoCopy");
 let commands = [];
 let lastResultText = "";
 let selectedKeys = new Set();
+let pendingFocusKey = null;
 
 const EXECUTED_KEY = "operator.executedIds.v1";
 let executedIds = new Set();
@@ -64,6 +72,38 @@ function isSelected(key) {
 function setSelected(key, value) {
   if (value) selectedKeys.add(key);
   else selectedKeys.delete(key);
+}
+
+function selectFocusAfterScan() {
+  if (!commands.length) {
+    selectedKeys = new Set();
+    pendingFocusKey = null;
+    return;
+  }
+
+  let lastExecutedIndex = -1;
+  for (let i = 0; i < commands.length; i++) {
+    const cmd = commands[i];
+    if (cmd && cmd.id && executedIds.has(String(cmd.id))) {
+      lastExecutedIndex = i;
+    }
+  }
+
+  let focusIndex = -1;
+  for (let i = commands.length - 1; i > lastExecutedIndex; i--) {
+    const cmd = commands[i];
+    const executed = cmd && cmd.id && executedIds.has(String(cmd.id));
+    if (!executed) {
+      focusIndex = i;
+      break;
+    }
+  }
+
+  if (focusIndex === -1) focusIndex = commands.length - 1;
+
+  const key = commandKey(commands[focusIndex], focusIndex);
+  selectedKeys = new Set([key]);
+  pendingFocusKey = key;
 }
 
 const btnResetExecuted = $("btnResetExecuted");
@@ -119,6 +159,70 @@ function decodeDetailsB64FromResultText(resultText) {
     return { ok: false, error: String(e) };
   }
 }
+
+function toBase64(text) {
+  const bytes = new TextEncoder().encode(text);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+const TEMPLATES = {
+  "operator.getInterfaceSpec": [
+    "OPERATOR_CMD",
+    "version: 1",
+    "id: iface-001",
+    "action: operator.getInterfaceSpec",
+    "END_OPERATOR_CMD",
+  ].join("\n"),
+  "fs.list": [
+    "OPERATOR_CMD",
+    "version: 1",
+    "id: list-001",
+    "action: fs.list",
+    "path: .",
+    "END_OPERATOR_CMD",
+  ].join("\n"),
+  "fs.readSlice": [
+    "OPERATOR_CMD",
+    "version: 1",
+    "id: readslice-001",
+    "action: fs.readSlice",
+    "path: path/to/file.txt",
+    "start: 1",
+    "lines: 120",
+    "END_OPERATOR_CMD",
+  ].join("\n"),
+  "fs.search": [
+    "OPERATOR_CMD",
+    "version: 1",
+    "id: search-001",
+    "action: fs.search",
+    "path: path/to/file.txt",
+    "query: TODO",
+    "END_OPERATOR_CMD",
+  ].join("\n"),
+  "fs.write": [
+    "OPERATOR_CMD",
+    "version: 1",
+    "id: write-001",
+    "action: fs.write",
+    "path: path/to/file.txt",
+    "content_b64: SGVsbG8=",
+    "END_OPERATOR_CMD",
+  ].join("\n"),
+  "fs.applyEdits": [
+    "OPERATOR_CMD",
+    "version: 1",
+    "id: applyedits-001",
+    "action: fs.applyEdits",
+    "path: path/to/file.txt",
+    "edits_b64: eyJ2ZXJzaW9uIjoxLCJlZGl0cyI6W119",
+    "END_OPERATOR_CMD",
+  ].join("\n"),
+};
 
 function renderInbox() {
   inboxEl.innerHTML = "";
@@ -208,6 +312,11 @@ function renderInbox() {
     div.appendChild(args);
     div.appendChild(row);
     inboxEl.appendChild(div);
+
+    if (pendingFocusKey && key === pendingFocusKey) {
+      pendingFocusKey = null;
+      if (div.scrollIntoView) div.scrollIntoView({ block: "nearest" });
+    }
   }
 }
 
@@ -372,7 +481,7 @@ btnScanClipboard.onclick = async () => {
     setStatus(`Scanning clipboard... (${text.length.toLocaleString()} chars)`);
     const scan = await window.operator.scan(text);
     commands = scan?.commands || [];
-    selectedKeys = new Set();
+    selectFocusAfterScan();
     setWarnings(scan?.warnings || []);
     renderInbox();
     setStatus(`Scan done. Commands: ${commands.length}`);
@@ -392,7 +501,7 @@ btnExtract.onclick = async () => {
     setStatus(`Scanning... (${text.length.toLocaleString()} chars)`);
     const scan = await window.operator.scan(text);
     commands = scan?.commands || [];
-    selectedKeys = new Set();
+    selectFocusAfterScan();
     setWarnings(scan?.warnings || []);
     renderInbox();
     setStatus(`Scan done. Commands: ${commands.length}`);
@@ -452,6 +561,57 @@ if (btnCopySmokeTest) {
       setStatus("Failed to copy smoke test.");
       setWarnings([String(e)]);
     }
+  };
+}
+
+if (btnInsertTemplate && templateSelect) {
+  btnInsertTemplate.onclick = async () => {
+    const key = templateSelect.value;
+    const text = TEMPLATES[key];
+    if (!text) {
+      setStatus("Unknown template.");
+      return;
+    }
+    await window.operator.copyToClipboard(text);
+    setStatus(`Template copied: ${key}.`);
+    copyStatusEl.textContent = "Copied template.";
+    setTimeout(() => (copyStatusEl.textContent = ""), 1200);
+  };
+}
+
+if (btnBase64Encode && base64Input && base64Output) {
+  btnBase64Encode.onclick = () => {
+    const input = base64Input.value || "";
+    base64Output.value = toBase64(input);
+    setStatus("Base64 encoded.");
+  };
+}
+
+if (btnBase64EncodeJson && base64Input && base64Output) {
+  btnBase64EncodeJson.onclick = () => {
+    const input = base64Input.value || "";
+    try {
+      const parsed = JSON.parse(input);
+      const normalized = JSON.stringify(parsed);
+      base64Output.value = toBase64(normalized);
+      setStatus("JSON encoded.");
+    } catch (e) {
+      setStatus("Invalid JSON.");
+      setWarnings([String(e)]);
+    }
+  };
+}
+
+if (btnBase64Copy && base64Output) {
+  btnBase64Copy.onclick = async () => {
+    const text = base64Output.value || "";
+    if (!text) {
+      copyStatusEl.textContent = "No base64 to copy.";
+      return;
+    }
+    await window.operator.copyToClipboard(text);
+    copyStatusEl.textContent = "Copied base64.";
+    setTimeout(() => (copyStatusEl.textContent = ""), 1200);
   };
 }
 

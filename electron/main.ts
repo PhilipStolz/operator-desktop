@@ -17,6 +17,15 @@ import {
   type LLMId,
   type LLMProfile,
 } from "./llmProfiles";
+import {
+  invalidCmdSummary,
+  scanForCommands,
+  validateCommandFields,
+  validateSearchPathIsFile,
+  unknownActionSummary,
+  type OperatorCmd,
+  type OperatorResult,
+} from "./operator_cmd";
 
 const APP_NAME = "Operator";
 const MAX_READ_BYTES = 200_000;
@@ -120,21 +129,6 @@ function hardenWebContents(wc: Electron.WebContents) {
   });
 }
 
-type OperatorCmd = {
-  version?: number;
-  id?: string;
-  action?: string;
-  path?: string;
-  [k: string]: any;
-};
-
-type OperatorResult = {
-  id?: string;
-  ok: boolean;
-  summary: string;
-  details_b64?: string;
-};
-
 type ApplyEdit =
   | {
     op: "insertAfter" | "insertBefore";
@@ -176,195 +170,6 @@ async function readInterfaceSpec(): Promise<{ ok: true; text: string } | { ok: f
   }
 }
 
-
-// --- Command parsing (Plain Text -> OPERATOR_CMD blocks) ---
-
-const START_MARK = "OPERATOR_CMD";
-const END_MARK = "END_OPERATOR_CMD";
-
-// Hard limits to prevent "spanning the whole chat"
-const MAX_BLOCK_CHARS = 50_000;   // max chars inside a single cmd block
-const MAX_BLOCK_LINES = 200;      // max lines inside a single cmd block
-
-const KEY_VALUE_RE = /^([a-zA-Z0-9_.-]+)\s*:\s*(.*)$/;
-const NON_ASCII_RE = /[^\x00-\x7F]/;
-
-function isMarkerLine(line: string, marker: string): boolean {
-  // marker must be alone on its line (allow surrounding whitespace)
-  return line.trim() === marker;
-}
-
-function parseKeyValueLines(lines: string[]): OperatorCmd {
-  const cmd: OperatorCmd = {};
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (!line) continue;
-
-    // Only accept simple key: value lines; ignore anything else
-    const m = line.match(KEY_VALUE_RE);
-    if (!m) continue;
-
-    const key = m[1];
-    let value: any = m[2];
-
-    // Basic typing
-    if (key === "version") {
-      const n = Number(value);
-      if (!Number.isNaN(n)) value = n;
-    } else if (value === "true") value = true;
-    else if (value === "false") value = false;
-
-    cmd[key] = value;
-  }
-  return cmd;
-}
-
-function allowedKeysForAction(action: string): Set<string> | null {
-  const base = ["version", "id", "action"];
-  const fsBase = [...base, "path"];
-
-  switch (action) {
-    case "operator.getInterfaceSpec":
-      return new Set(base);
-    case "fs.list":
-    case "fs.read":
-    case "fs.delete":
-      return new Set(fsBase);
-    case "fs.search":
-      return new Set([...fsBase, "query", "q"]);
-    case "fs.readSlice":
-      return new Set([...fsBase, "start", "line", "from", "lines", "count", "len"]);
-    case "fs.write":
-      return new Set([...fsBase, "content", "content_b64"]);
-    case "fs.patch":
-      return new Set([...fsBase, "patch_b64"]);
-    case "fs.applyEdits":
-      return new Set([...fsBase, "edits_b64"]);
-    default:
-      return null;
-  }
-}
-
-function scanForCommands(plainText: string): { commands: OperatorCmd[]; warnings: string[] } {
-  const warnings: string[] = [];
-  const commands: OperatorCmd[] = [];
-
-  const lines = plainText.split(/\r?\n/g);
-
-  let inBlock = false;
-  let buf: string[] = [];
-  let bufChars = 0;
-
-  function resetBlock(reason?: string) {
-    inBlock = false;
-    buf = [];
-    bufChars = 0;
-    if (reason) warnings.push(reason);
-  }
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-
-    if (!inBlock) {
-      if (isMarkerLine(line, START_MARK)) {
-        inBlock = true;
-        buf = [];
-        bufChars = 0;
-      }
-      continue;
-    }
-
-    // inBlock
-    if (isMarkerLine(line, END_MARK)) {
-      // finalize block
-      const hasNonAscii = buf.some((raw) => NON_ASCII_RE.test(raw));
-      if (hasNonAscii) {
-        warnings.push("Ignored OPERATOR_CMD block: non-ASCII characters detected in command block.");
-        resetBlock();
-        continue;
-      }
-
-      const invalidLines = buf.filter((raw) => {
-        const trimmed = raw.trim();
-        if (!trimmed) return false;
-        return !KEY_VALUE_RE.test(trimmed);
-      });
-
-      if (invalidLines.length > 0) {
-        warnings.push("Ignored OPERATOR_CMD block: non key-value lines detected. Use content_b64 for multi-line payloads.");
-        resetBlock();
-        continue;
-      }
-
-      const cmd = parseKeyValueLines(buf);
-
-      // Strict required fields to avoid false positives
-      const id = cmd.id ? String(cmd.id).trim() : "";
-      const action = cmd.action ? String(cmd.action).trim() : "";
-      const p = cmd.path ? String(cmd.path).trim() : "";
-      const needsPath = action.startsWith("fs.");
-
-      if (!id || !action || (needsPath && !p)) {
-        warnings.push(
-          `Ignored OPERATOR_CMD block (missing ${[
-            !id ? "id" : null,
-            !action ? "action" : null,
-            needsPath && !p ? "path" : null,
-          ].filter(Boolean).join(", ")}).`
-        );
-      } else {
-        const allowedKeys = allowedKeysForAction(action);
-        if (allowedKeys) {
-          const invalidKeys = Object.keys(cmd).filter((k) => !allowedKeys.has(k));
-          if (invalidKeys.length > 0) {
-            warnings.push(`Ignored OPERATOR_CMD block: invalid keys (${invalidKeys.join(", ")}).`);
-            resetBlock();
-            continue;
-          }
-        }
-
-        // normalize typed fields
-        cmd.id = id;
-        cmd.action = action;
-        if (needsPath) cmd.path = p;
-        if (cmd.version === undefined) cmd.version = 1;
-
-        commands.push(cmd);
-      }
-
-      resetBlock();
-      continue;
-    }
-
-    // still in block - collect with limits
-    buf.push(line);
-    bufChars += line.length + 1;
-
-    if (buf.length > MAX_BLOCK_LINES) {
-      resetBlock(`Aborted OPERATOR_CMD block: too many lines (>${MAX_BLOCK_LINES}).`);
-      continue;
-    }
-    if (bufChars > MAX_BLOCK_CHARS) {
-      resetBlock(`Aborted OPERATOR_CMD block: too many characters (>${MAX_BLOCK_CHARS}).`);
-      continue;
-    }
-
-    // If another START appears before END, reset to avoid nesting/spanning
-    if (isMarkerLine(line, START_MARK)) {
-      resetBlock("Aborted OPERATOR_CMD block: nested START marker found before END.");
-      // treat this line as a new start
-      inBlock = true;
-      buf = [];
-      bufChars = 0;
-    }
-  }
-
-  if (inBlock) {
-    warnings.push("Aborted OPERATOR_CMD block: reached end of text without END_OPERATOR_CMD.");
-  }
-
-  return { commands, warnings };
-}
 
 // --- Workspace + filesystem safety ---
 
@@ -421,7 +226,11 @@ async function executeFsCommand(win: BrowserWindow, cmd: OperatorCmd): Promise<O
   const relPath = cmd.path;
 
   if (!action || !relPath) {
-    return { id, ok: false, summary: "Invalid command: missing action/path" };
+    return {
+      id,
+      ok: false,
+      summary: invalidCmdSummary("ERR_MISSING_REQUIRED_FIELDS", "missing action/path."),
+    };
   }
 
   const resolved = resolveInWorkspace(relPath);
@@ -473,7 +282,11 @@ async function executeFsCommand(win: BrowserWindow, cmd: OperatorCmd): Promise<O
       const takeLines = Math.max(1, Math.min(maxLines, Number(linesRaw ?? 120)));
 
       if (!Number.isFinite(startLine) || !Number.isFinite(takeLines)) {
-        return { id, ok: false, summary: "Invalid readSlice: start/lines must be numbers" };
+        return {
+          id,
+          ok: false,
+          summary: invalidCmdSummary("ERR_INVALID_READSLICE_PARAMS", "start/lines must be numbers."),
+        };
       }
 
       const data = await fs.readFile(absPath, "utf-8");
@@ -499,7 +312,18 @@ async function executeFsCommand(win: BrowserWindow, cmd: OperatorCmd): Promise<O
       const q1 = typeof (cmd as any).query === "string" ? (cmd as any).query : "";
       const q2 = typeof (cmd as any).q === "string" ? (cmd as any).q : "";
       const query = (q1 || q2).trim();
-      if (!query) return { id, ok: false, summary: "Invalid search: missing query" };
+      if (!query) {
+        return {
+          id,
+          ok: false,
+          summary: invalidCmdSummary("ERR_MISSING_QUERY", "missing query; use query: <text>."),
+        };
+      }
+
+      const searchCheck = await validateSearchPathIsFile(absPath);
+      if (!searchCheck.ok) {
+        return { id, ok: false, summary: searchCheck.summary };
+      }
 
       const data = await fs.readFile(absPath, "utf-8");
       const fileLines = data.split(/\r?\n/);
@@ -535,7 +359,11 @@ async function executeFsCommand(win: BrowserWindow, cmd: OperatorCmd): Promise<O
         try {
           content = Buffer.from(String(cmd.content_b64).trim(), "base64").toString("utf-8");
         } catch {
-          return { id, ok: false, summary: "Invalid content_b64 (base64 decode failed)" };
+          return {
+            id,
+            ok: false,
+            summary: invalidCmdSummary("ERR_INVALID_BASE64", "field=content_b64 is not valid base64."),
+          };
         }
       } else {
         content = typeof cmd.content === "string" ? cmd.content : "";
@@ -549,13 +377,23 @@ async function executeFsCommand(win: BrowserWindow, cmd: OperatorCmd): Promise<O
 
     if (action === "fs.patch") {
       const patchB64 = typeof cmd.patch_b64 === "string" ? cmd.patch_b64.trim() : "";
-      if (!patchB64) return { id, ok: false, summary: "Invalid patch: missing patch_b64" };
+      if (!patchB64) {
+        return {
+          id,
+          ok: false,
+          summary: invalidCmdSummary("ERR_MISSING_PATCH_B64", "patch_b64 is required."),
+        };
+      }
 
       let patchText = "";
       try {
         patchText = Buffer.from(patchB64, "base64").toString("utf-8");
       } catch {
-        return { id, ok: false, summary: "Invalid patch_b64 (base64 decode failed)" };
+        return {
+          id,
+          ok: false,
+          summary: invalidCmdSummary("ERR_INVALID_BASE64", "field=patch_b64 is not valid base64."),
+        };
       }
 
       // Apply a very small, strict unified-diff patcher (single-file)
@@ -567,17 +405,31 @@ async function executeFsCommand(win: BrowserWindow, cmd: OperatorCmd): Promise<O
 
     if (action === "fs.applyEdits") {
       const b64 = typeof cmd.edits_b64 === "string" ? cmd.edits_b64.trim() : "";
-      if (!b64) return { id, ok: false, summary: "Missing edits_b64" };
+      if (!b64) {
+        return {
+          id,
+          ok: false,
+          summary: invalidCmdSummary("ERR_MISSING_EDITS_B64", "edits_b64 is required."),
+        };
+      }
 
       let payload: ApplyEditsPayload;
       try {
         payload = JSON.parse(Buffer.from(b64, "base64").toString("utf-8"));
       } catch {
-        return { id, ok: false, summary: "Invalid edits_b64 JSON" };
+        return {
+          id,
+          ok: false,
+          summary: invalidCmdSummary("ERR_INVALID_EDITS_JSON", "edits_b64 is not valid JSON."),
+        };
       }
 
       if (!payload || payload.version !== 1 || !Array.isArray(payload.edits)) {
-        return { id, ok: false, summary: "Invalid edits payload" };
+        return {
+          id,
+          ok: false,
+          summary: invalidCmdSummary("ERR_INVALID_EDITS_JSON", "edits_b64 payload is invalid."),
+        };
       }
 
       const original = await fs.readFile(absPath, "utf-8");
@@ -602,7 +454,7 @@ async function executeFsCommand(win: BrowserWindow, cmd: OperatorCmd): Promise<O
       }
     }
 
-    return { id, ok: false, summary: `Unknown action: ${action}` };
+    return { id, ok: false, summary: unknownActionSummary(action) };
   } catch (err: any) {
     return { id, ok: false, summary: `Error: ${String(err?.message ?? err)}` };
   }
@@ -977,28 +829,45 @@ function createWindow() {
       warnings.unshift(`Scan input trimmed to last ${EXTRACT_LIMIT_CHARS} chars.`);
     }
 
-    // Basic dedupe by id (keep last occurrence)
-    const byId = new Map<string, OperatorCmd>();
-    const noId: OperatorCmd[] = [];
+    // Dedupe by id while preserving order of last occurrence.
+    const deduped: Array<OperatorCmd | null> = [];
+    const seenIndex = new Map<string, number>();
 
     for (const c of commands) {
-      if (c.id) byId.set(c.id, c);
-      else noId.push(c);
+      if (c.id) {
+        const id = String(c.id);
+        const prevIndex = seenIndex.get(id);
+        if (prevIndex !== undefined) {
+          deduped[prevIndex] = null;
+        }
+        seenIndex.set(id, deduped.length);
+      }
+      deduped.push(c);
     }
 
-    const deduped = [...byId.values(), ...noId];
-
-    return { commands: deduped, warnings };
+    const finalCommands = deduped.filter((c): c is OperatorCmd => Boolean(c));
+    return { commands: finalCommands, warnings };
   });
 
   ipcMain.handle("operator:execute", async (_evt, { cmd }: { cmd: OperatorCmd }) => {
     // Validate minimal schema
-    const v = typeof cmd?.version === "number" ? cmd.version : Number(cmd?.version ?? 1);
     const id = cmd?.id ? String(cmd.id) : undefined;
     const action = cmd?.action ? String(cmd.action) : undefined;
     const p = cmd?.path ? String(cmd.path) : undefined;
 
-    const safeCmd: OperatorCmd = { ...cmd, version: v, id, action, path: p };
+    const rawCmd: OperatorCmd = { ...cmd, id, action, path: p };
+    const validation = validateCommandFields(rawCmd);
+    if (!validation.ok) {
+      const r: OperatorResult = {
+        id,
+        ok: false,
+        summary: invalidCmdSummary(validation.code, validation.detail),
+      };
+      return { result: r, resultText: formatOperatorResult(r) };
+    }
+
+    const v = typeof cmd?.version === "number" ? cmd.version : Number(cmd?.version ?? 1);
+    const safeCmd: OperatorCmd = { ...rawCmd, version: v };
 
     if (action === "operator.getInterfaceSpec") {
       const spec = await readInterfaceSpec();
@@ -1022,7 +891,11 @@ function createWindow() {
       return { result: r, resultText: formatOperatorResult(r) };
     }
 
-    const r: OperatorResult = { id, ok: false, summary: `Unknown action: ${action ?? ""}` };
+    const r: OperatorResult = {
+      id,
+      ok: false,
+      summary: unknownActionSummary(action),
+    };
     return { result: r, resultText: formatOperatorResult(r) };
 
   });
