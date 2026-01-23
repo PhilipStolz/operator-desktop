@@ -122,7 +122,7 @@ export function validateCommandFields(cmd: OperatorCmd): { ok: true } | { ok: fa
     }
   }
 
-  if (action === "fs.search") {
+  if (action === "fs.search" || action === "fs.searchTree") {
     const q1 = typeof (cmd as any).query === "string" ? (cmd as any).query : "";
     const q2 = typeof (cmd as any).q === "string" ? (cmd as any).q : "";
     if (!(q1 || q2).trim()) {

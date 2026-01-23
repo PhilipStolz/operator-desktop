@@ -31,6 +31,9 @@ const APP_NAME = "Operator";
 const MAX_READ_BYTES = 200_000;
 const MAX_READSLICE_BYTES = 2_000_000;
 const MAX_SEARCH_BYTES = 2_000_000;
+const MAX_SEARCHTREE_BYTES = 500_000;
+const MAX_SEARCHTREE_FILES = 300;
+const MAX_SEARCHTREE_MATCHES = 200;
 const EXTRACT_LIMIT_CHARS = 200_000;
 
 function normalizeStartUrl(raw?: string): string | null {
@@ -517,7 +520,7 @@ function resolveInWorkspace(relPath: string): { ok: boolean; absPath?: string; r
 
 function riskLevel(action?: string): "read" | "write" | "delete" | "unknown" {
   if (!action) return "unknown";
-  if (action === "fs.read" || action === "fs.list" || action === "fs.readSlice" || action === "fs.search" || action === "fs.readRegion" || action === "fs.listRegions") return "read";
+  if (action === "fs.read" || action === "fs.list" || action === "fs.readSlice" || action === "fs.search" || action === "fs.readRegion" || action === "fs.listRegions" || action === "fs.stat" || action === "fs.searchTree") return "read";
   if (action === "fs.write" || action === "fs.patch" || action === "fs.applyEdits" || action === "fs.replaceRegion" || action === "fs.deleteRegion" || action === "fs.insertRegion") return "write";
   if (action === "fs.delete") return "delete";
   return "unknown";
@@ -553,6 +556,8 @@ async function executeFsCommand(win: BrowserWindow, cmd: OperatorCmd): Promise<O
     return { id, ok: false, summary: `Workspace/path error: ${resolved.reason}` };
   }
   const absPath = resolved.absPath!;
+  const normalizeRel = (p: string) => normalizeRelPath(p.replace(/\\/g, "/"));
+  const toRelPath = (p: string) => normalizeRel(path.relative(workspaceRoot ?? "", p));
 
   const level = riskLevel(action);
 
@@ -586,6 +591,19 @@ async function executeFsCommand(win: BrowserWindow, cmd: OperatorCmd): Promise<O
       }
       const data = await fs.readFile(absPath, "utf-8");
       return { id, ok: true, summary: "Read file", details_b64: b64(data) };
+    }
+
+    if (action === "fs.stat") {
+      const stat = await fs.stat(absPath);
+      const payload = {
+        path: relPath,
+        size: stat.size,
+        isFile: stat.isFile(),
+        isDir: stat.isDirectory(),
+        mtimeMs: stat.mtimeMs,
+        ctimeMs: stat.ctimeMs,
+      };
+      return { id, ok: true, summary: "Stat", details_b64: b64(JSON.stringify(payload)) };
     }
 
     if (action === "fs.readSlice") {
@@ -683,6 +701,83 @@ async function executeFsCommand(win: BrowserWindow, cmd: OperatorCmd): Promise<O
       }
 
       return { id, ok: true, summary: `Search found ${matches.length} matches`, details_b64: b64(out.join("\n")) };
+    }
+
+    if (action === "fs.searchTree") {
+      const q1 = typeof (cmd as any).query === "string" ? (cmd as any).query : "";
+      const q2 = typeof (cmd as any).q === "string" ? (cmd as any).q : "";
+      const query = (q1 || q2).trim();
+      if (!query) {
+        return {
+          id,
+          ok: false,
+          summary: invalidCmdSummary("ERR_MISSING_QUERY", "missing query; use query: <text>."),
+        };
+      }
+
+      const stat = await fs.stat(absPath);
+      const matches: Array<{ path: string; line: number; text: string }> = [];
+      let filesScanned = 0;
+      let filesSkipped = 0;
+      let truncated = false;
+
+      const searchFile = async (filePath: string) => {
+        if (matches.length >= MAX_SEARCHTREE_MATCHES) {
+          truncated = true;
+          return;
+        }
+        const s = await fs.stat(filePath);
+        if (s.isDirectory()) return;
+        if (s.size > MAX_SEARCHTREE_BYTES) {
+          filesSkipped += 1;
+          return;
+        }
+        const data = await fs.readFile(filePath, "utf-8");
+        const lines = data.split(/\r?\n/);
+        for (let i = 0; i < lines.length; i++) {
+          if (lines[i].includes(query)) {
+            matches.push({ path: toRelPath(filePath), line: i + 1, text: lines[i] });
+            if (matches.length >= MAX_SEARCHTREE_MATCHES) {
+              truncated = true;
+              return;
+            }
+          }
+        }
+        filesScanned += 1;
+      };
+
+      const walkDir = async (dirPath: string) => {
+        if (filesScanned >= MAX_SEARCHTREE_FILES || truncated) return;
+        const entries = await fs.readdir(dirPath, { withFileTypes: true });
+        for (const entry of entries) {
+          if (filesScanned >= MAX_SEARCHTREE_FILES || truncated) return;
+          const full = path.join(dirPath, entry.name);
+          if (entry.isDirectory()) {
+            await walkDir(full);
+          } else {
+            await searchFile(full);
+          }
+        }
+      };
+
+      if (stat.isDirectory()) {
+        await walkDir(absPath);
+      } else {
+        await searchFile(absPath);
+      }
+
+      const out: string[] = [];
+      out.push(`# searchTree in ${relPath}`);
+      out.push(`# query: ${query}`);
+      out.push(`# matches: ${matches.length}${truncated ? " (truncated)" : ""}`);
+      out.push(`# files scanned: ${filesScanned}${filesSkipped ? ` (skipped: ${filesSkipped})` : ""}`);
+      out.push("");
+      for (const m of matches) {
+        const n = String(m.line).padStart(6, " ");
+        out.push(`${m.path}:${n}: ${m.text}`);
+      }
+
+      return { id, ok: true, summary: `SearchTree found ${matches.length} matches`, details_b64: b64(out.join("\n")) };
     }
 
     if (action === "fs.listRegions") {
@@ -1324,6 +1419,7 @@ function createWindow() {
         const prevIndex = seenIndex.get(id);
         if (prevIndex !== undefined) {
           deduped[prevIndex] = null;
+          warnings.push(`Duplicate command id: ${id}. Using last occurrence.`);
         }
         seenIndex.set(id, deduped.length);
       }

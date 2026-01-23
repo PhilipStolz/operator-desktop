@@ -449,15 +449,16 @@
     <div class="lastResultPane">
       <div class="sectionTitle">Last Result</div>
       <textarea id="result" readonly></textarea>
-      <div class="row">
-        <button id="btnCopyResult">Copy Result</button>
-        <button id="btnCopyDecoded">Copy decoded details_b64</button>
-        <button id="btnCopyBootstrap">Copy LLM Bootstrap Prompt</button>
-        <button id="btnCopySmokeTest">Copy Smoke Test Task</button>
-        <span id="copyStatus" class="small"></span>
+        <div class="row">
+          <button id="btnCopyResult">Copy Result</button>
+          <button id="btnCopyDecoded">Copy decoded details_b64</button>
+          <button id="btnCopyBootstrap">Copy LLM Bootstrap Prompt</button>
+          <button id="btnCopySmokeTest">Copy Smoke Test Task</button>
+          <span id="copyStatus" class="small"></span>
+        </div>
+        <div class="small">If fs.read fails due to size, Use fs.readSlice.</div>
+        <div class="small">Webchat laeuft rechts (BrowserView). Operator liest nur Text und fuehrt lokale Aktionen nur nach Bestaetigung aus.</div>
       </div>
-      <div class="small">Webchat laeuft rechts (BrowserView). Operator liest nur Text und fuehrt lokale Aktionen nur nach Bestaetigung aus.</div>
-    </div>
   </div>
 
   <div class="contentHint">Webchat rechts im Fenster (BrowserView). Sidebar bleibt Operator.</div>

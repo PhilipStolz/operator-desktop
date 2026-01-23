@@ -115,6 +115,7 @@ Result: details_b64 contains directory entries, one per line
 fs.read
 Requires: path (file)
 Result: details_b64 contains full file content (base64 UTF-8)
+Size limit: 200000 bytes.
 If file exceeds size limits, returns ok:false with summary:
 "File too large for fs.read (<bytes> bytes). Use fs.readSlice."
 
@@ -123,6 +124,7 @@ Requires: path (file)
 Params: start (1-based line, default 1); lines (default 120, max 400)
 Aliases: line/from for start; count/len for lines
 Result: details_b64 contains header lines starting with "#" plus numbered lines
+Size limit: 2000000 bytes.
 If file exceeds size limits, returns ERR_FILE_TOO_LARGE.
 
 fs.search
@@ -131,7 +133,20 @@ Params: query (required substring)
 Aliases: q
 Result: details_b64 contains header lines starting with "#" plus matching lines with line numbers
 Results are capped at 50 matches; header includes "(truncated)" when clipped.
+Size limit: 2000000 bytes.
 If file exceeds size limits, returns ERR_FILE_TOO_LARGE.
+
+fs.stat
+Requires: path
+Result: details_b64 contains JSON: {path,size,isFile,isDir,mtimeMs,ctimeMs}
+
+fs.searchTree
+Requires: path (file or directory)
+Params: query (required substring)
+Aliases: q
+Result: details_b64 contains header lines starting with "#" plus matches in the form "<path>:<line>: <text>"
+Limits: max 200 matches, max 300 files scanned, skip files over 500000 bytes.
+Results may be truncated.
 
 fs.listRegions
 Requires: path

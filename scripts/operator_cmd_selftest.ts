@@ -21,6 +21,12 @@ function assert(condition: boolean, label: string) {
   if (!condition) throw new Error(label);
 }
 
+async function loadRepoFile(relPath: string): Promise<string> {
+  const repoRoot = path.resolve(__dirname, "..");
+  const filePath = path.join(repoRoot, relPath);
+  return fs.readFile(filePath, "utf-8");
+}
+
 function expectSingleWarning(input: string, expected: string, label: string) {
   const res = scanForCommands(input);
   assertEqual(res.warnings.length, 1, `${label} warnings`);
@@ -245,6 +251,22 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "ERR_MISSING_QUERY (fs.searchTree)",
+    run: () => {
+      const cmd: OperatorCmd = {
+        version: 1,
+        id: "searchtree-missing-001",
+        action: "fs.searchTree",
+        path: "notes.txt",
+      };
+      const expected = invalidCmdSummary(
+        "ERR_MISSING_QUERY",
+        "missing query; use query: <text>."
+      );
+      expectValidation(cmd, expected, "ERR_MISSING_QUERY fs.searchTree");
+    },
+  },
+  {
     name: "ERR_INVALID_BASE64 (content_b64)",
     run: () => {
       const cmd: OperatorCmd = {
@@ -353,6 +375,40 @@ const tests: TestCase[] = [
     name: "ERR codes documented in spec",
     run: async () => {
       await assertSpecCoversErrCodes();
+    },
+  },
+  {
+    name: "fs.stat + fs.searchTree handlers, no fs.glob",
+    run: async () => {
+      const text = await loadRepoFile(path.join("electron", "main.ts"));
+      const hasFsStatHandler =
+        /action\s*===\s*["']fs\.stat["']/.test(text) ||
+        /case\s+["']fs\.stat["']/.test(text);
+      assert(hasFsStatHandler, "Expected fs.stat action handler in electron/main.ts");
+
+      const hasSearchTree =
+        /action\s*===\s*["']fs\.searchTree["']/.test(text) ||
+        /case\s+["']fs\.searchTree["']/.test(text);
+      assert(hasSearchTree, "Expected fs.searchTree action handler in electron/main.ts");
+
+      const hasGlob = /fs\.glob/.test(text);
+      assert(!hasGlob, "Did not expect fs.glob in electron/main.ts");
+    },
+  },
+  {
+    name: "Duplicate id warning in operator:scan",
+    run: async () => {
+      const text = await loadRepoFile(path.join("electron", "main.ts"));
+      assert(text.includes("Duplicate command id"), "Expected duplicate-id warning in operator:scan");
+    },
+  },
+  {
+    name: "fs.readSlice fallback hint in UI",
+    run: async () => {
+      const rendererJs = await loadRepoFile(path.join("renderer", "renderer.js"));
+      const rendererHtml = await loadRepoFile(path.join("renderer", "index.html"));
+      const hasHint = rendererJs.includes("Use fs.readSlice") || rendererHtml.includes("Use fs.readSlice");
+      assert(hasHint, "Expected UI hint to use fs.readSlice when fs.read is too large");
     },
   },
   {
