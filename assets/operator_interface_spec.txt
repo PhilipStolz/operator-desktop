@@ -2,13 +2,13 @@ Operator Interface Specification (version: 3)
 
 HARD RULES
 1. When outputting OPERATOR_CMD blocks, output ONLY plain text (no markdown, no bullet lists, no indentation-based formatting, no surrounding prose).
-2. Marker lines MUST be exactly and MUST be alone on their own line: OPERATOR_CMD, END_OPERATOR_CMD, OPERATOR_RESULT, END_OPERATOR_RESULT.
+2. Marker lines MUST be alone on their own line (surrounding whitespace allowed): OPERATOR_CMD, END_OPERATOR_CMD, OPERATOR_RESULT, END_OPERATOR_RESULT.
 3. Inside OPERATOR_CMD blocks, ONLY lines of the form "key: value" are allowed (one key-value per line; keys are case-sensitive). Any other non-empty line makes the command invalid.
 4. OPERATOR_CMD blocks MUST NOT be nested. If START appears before END, the block is invalid.
 5. Multi-line payloads MUST NEVER be sent inline. Use base64 UTF-8 fields: content_b64, patch_b64, edits_b64.
 6. The plain "content" field MAY be used ONLY for very small single-line text and MUST NOT contain line breaks.
 7. Use ASCII only inside OPERATOR_CMD blocks. Non-ASCII characters make the command invalid.
-8. Every OPERATOR_CMD MUST include: version: 1, id: <string>, action: <string>.
+8. Every OPERATOR_CMD MUST include: version: 1, id: <string>, action: <string>. version must be exactly 1.
 9. The command id MUST be echoed verbatim in the corresponding OPERATOR_RESULT.
 10. Actions starting with "fs." REQUIRE a path field. Actions not starting with "fs." MUST NOT include a path field.
 11. Workspace is NOT part of OPERATOR_CMD. Do NOT include workspace/workspaceRoot (or any equivalent) as a command field. Workspace is selected in the app UI and stored as state.
@@ -67,6 +67,23 @@ Additional validation errors:
 - ERR_INVALID_EDITS_JSON
 - ERR_UNKNOWN_ACTION
 - ERR_BLOCK_TOO_LARGE
+- ERR_UNSUPPORTED_VERSION
+- ERR_FILE_TOO_LARGE
+- ERR_MISSING_MARKER_ID
+- ERR_MISSING_CONTENT_B64
+- ERR_MISSING_WRITE_CONTENT
+- ERR_UNKNOWN_LANGUAGE
+- ERR_COMMENT_STYLE_REQUIRED
+- ERR_INVALID_COMMENT_STYLE
+- ERR_REGION_MARKER_NOT_FOUND
+- ERR_REGION_MARKER_NOT_UNIQUE
+- ERR_REGION_MARKER_ORDER
+- ERR_REGION_MARKER_MISMATCH
+- ERR_REGION_MARKER_ALREADY_EXISTS
+- ERR_MISSING_ANCHOR
+- ERR_ANCHOR_NOT_FOUND
+- ERR_INVALID_ANCHOR_OCCURRENCE
+- ERR_INVALID_INSERT_POSITION
 
 ACTIONS
 
@@ -74,6 +91,17 @@ operator.getInterfaceSpec
 Required: version, id, action
 No path allowed
 Result: details_b64 contains this interface specification (base64 UTF-8)
+
+operator.getCommentStyle
+Required: version, id, action
+No path allowed
+Optional: language (e.g., "ts", "python", "html")
+Result: details_b64 contains JSON describing comment styles.
+If language is provided, the payload is a single style object:
+- {"language":"<id>","type":"line","line_prefix":"//"}
+- {"language":"<id>","type":"block","block_start":"<!--","block_end":"-->"}
+The "language" field uses the resolved mapping key (e.g., "ts" for "typescript").
+If language is omitted, returns {"styles":[...]} with all supported default mappings.
 
 FILESYSTEM ACTIONS (fs.*)
 All fs.* actions operate strictly within the currently selected workspace root.
@@ -87,22 +115,93 @@ Result: details_b64 contains directory entries, one per line
 fs.read
 Requires: path (file)
 Result: details_b64 contains full file content (base64 UTF-8)
+If file exceeds size limits, returns ok:false with summary:
+"File too large for fs.read (<bytes> bytes). Use fs.readSlice."
 
 fs.readSlice
 Requires: path (file)
 Params: start (1-based line, default 1); lines (default 120, max 400)
-Result: details_b64 contains numbered lines
+Aliases: line/from for start; count/len for lines
+Result: details_b64 contains header lines starting with "#" plus numbered lines
+If file exceeds size limits, returns ERR_FILE_TOO_LARGE.
 
 fs.search
 Requires: path (file)
 Params: query (required substring)
-Result: details_b64 contains matching lines with line numbers
+Aliases: q
+Result: details_b64 contains header lines starting with "#" plus matching lines with line numbers
+Results are capped at 50 matches; header includes "(truncated)" when clipped.
+If file exceeds size limits, returns ERR_FILE_TOO_LARGE.
+
+fs.listRegions
+Requires: path
+Optional: comment_line_prefix or comment_block_start/comment_block_end or language
+Result: details_b64 contains JSON object {"regions":[...]} with marker_id and line ranges
+
+REGION MARKERS (for read/replace/delete region)
+Markers are comment lines inside files:
+- OPERATOR_BEGIN <marker_id>
+- OPERATOR_END <marker_id>
+
+The comment style defaults to a language mapping based on file extension.
+Overrides per command:
+- comment_line_prefix: <string>        (e.g., "//" or "#")
+- comment_block_start: <string>        (e.g., "/*" or "<!--")
+- comment_block_end: <string>          (e.g., "*/" or "-->")
+- language: <string>                   (explicit mapping; optional)
+
+Region rules and guidance:
+- marker_id should be unique per file; do not reuse the same marker_id.
+- Do not nest or overlap regions; keep markers paired and ordered.
+- Prefer regions for incremental edits in code/text files.
+- Use fs.listRegions to discover existing regions.
+- Use fs.insertRegion to create a new region around new content.
+- When comment style is unknown, call operator.getCommentStyle or pass explicit comment_* overrides.
+- Choose anchors that are stable and specific; if multiple matches exist, use occurrence.
+
+Examples:
+// OPERATOR_BEGIN section-1
+// OPERATOR_END section-1
+
+<!-- OPERATOR_BEGIN section-1 -->
+<!-- OPERATOR_END section-1 -->
+
+fs.readRegion
+Requires: path
+Requires: marker_id
+Optional: comment_line_prefix or comment_block_start/comment_block_end or language
+Result: details_b64 contains the content between markers (base64 UTF-8)
+
+fs.insertRegion
+Requires: path
+Requires: marker_id
+Requires: anchor
+Requires: content_b64 (base64 UTF-8)
+Optional: position: before|after (default after)
+Optional: occurrence: <number> (default 1)
+Optional: comment_line_prefix or comment_block_start/comment_block_end or language
+Behavior: inserts a new marker block near anchor and writes content between markers
+
+fs.replaceRegion
+Requires: path
+Requires: marker_id
+Requires: content_b64 (base64 UTF-8)
+Optional: comment_line_prefix or comment_block_start/comment_block_end or language
+Behavior: replaces lines between markers, preserves the marker lines
+
+fs.deleteRegion
+Requires: path
+Requires: marker_id
+Optional: comment_line_prefix or comment_block_start/comment_block_end or language
+Behavior: removes lines between markers, preserves the marker lines
 
 fs.write
 Requires: path
+Requires: content_b64 or content
 Requires user confirmation
 Payload: content_b64 (preferred, base64 UTF-8, multi-line allowed) OR content (single-line only)
 Behavior: overwrites or creates the file
+If payload is missing, returns ERR_MISSING_WRITE_CONTENT.
 
 fs.patch
 Requires: path
@@ -134,6 +233,17 @@ RECOMMENDED WORKFLOW
 4) fs.applyEdits (preferred) or fs.patch (single-hunk, minimal context)
 5) fs.readSlice (verification after any write/edit)
 - Avoid fs.read unless the file is small.
+- For incremental edits in code/text files, prefer regions:
+  a) fs.listRegions
+  b) fs.readRegion (when content is needed)
+  c) fs.insertRegion / fs.replaceRegion / fs.deleteRegion
+
+LLM GUIDANCE
+- Keep OPERATOR_CMD blocks short: max 200 lines and 50,000 chars inside a block.
+- Use unique ids per command; operator:scan deduplicates by id and keeps the last one.
+- Place OPERATOR_CMD blocks near the end of the message; only the last 200,000 chars are scanned.
+- Use fs.readSlice for large files; fs.read can fail with a size limit.
+- fs.search returns at most 50 matches; refine the query if results are truncated.
 
 GOLDEN PATH EXAMPLES
 fs.write (content_b64):

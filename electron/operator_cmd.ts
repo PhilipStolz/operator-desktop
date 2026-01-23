@@ -98,11 +98,28 @@ export function validateCommandFields(cmd: OperatorCmd): { ok: true } | { ok: fa
 
   const action = String(cmd.action);
   const pathValue = cmd.path ? String(cmd.path) : "";
-  if (action.startsWith("fs.") && !pathValue) {
+  const isFs = action.startsWith("fs.");
+  if (isFs && !pathValue) {
     return { ok: false, code: "ERR_ACTION_REQUIRES_PATH", detail: "fs.* actions require path." };
   }
-  if (action.startsWith("operator.") && pathValue) {
-    return { ok: false, code: "ERR_ACTION_FORBIDS_PATH", detail: "operator.* actions must not include path." };
+  if (!isFs && pathValue) {
+    const detail = action.startsWith("operator.")
+      ? "operator.* actions must not include path."
+      : "non-fs actions must not include path.";
+    return { ok: false, code: "ERR_ACTION_FORBIDS_PATH", detail };
+  }
+
+  const versionNum = Number(cmd.version);
+  if (!Number.isFinite(versionNum) || versionNum !== 1) {
+    return { ok: false, code: "ERR_UNSUPPORTED_VERSION", detail: "version must be 1." };
+  }
+
+  if (action === "fs.write") {
+    const hasContent = typeof cmd.content === "string";
+    const hasContentB64 = typeof cmd.content_b64 === "string";
+    if (!hasContent && !hasContentB64) {
+      return { ok: false, code: "ERR_MISSING_WRITE_CONTENT", detail: "fs.write requires content or content_b64." };
+    }
   }
 
   if (action === "fs.search") {
@@ -110,6 +127,54 @@ export function validateCommandFields(cmd: OperatorCmd): { ok: true } | { ok: fa
     const q2 = typeof (cmd as any).q === "string" ? (cmd as any).q : "";
     if (!(q1 || q2).trim()) {
       return { ok: false, code: "ERR_MISSING_QUERY", detail: "missing query; use query: <text>." };
+    }
+  }
+
+  const linePrefixRaw = typeof (cmd as any).comment_line_prefix === "string" ? String((cmd as any).comment_line_prefix) : "";
+  const blockStartRaw = typeof (cmd as any).comment_block_start === "string" ? String((cmd as any).comment_block_start) : "";
+  const blockEndRaw = typeof (cmd as any).comment_block_end === "string" ? String((cmd as any).comment_block_end) : "";
+  const hasLine = linePrefixRaw.trim().length > 0;
+  const hasBlockStart = blockStartRaw.trim().length > 0;
+  const hasBlockEnd = blockEndRaw.trim().length > 0;
+  if ((hasLine && (hasBlockStart || hasBlockEnd)) || (hasBlockStart && !hasBlockEnd) || (!hasBlockStart && hasBlockEnd)) {
+    return {
+      ok: false,
+      code: "ERR_INVALID_COMMENT_STYLE",
+      detail: "Use either comment_line_prefix or comment_block_start/comment_block_end.",
+    };
+  }
+  if (!hasLine && linePrefixRaw && !hasBlockStart && !hasBlockEnd) {
+    return {
+      ok: false,
+      code: "ERR_INVALID_COMMENT_STYLE",
+      detail: "comment_line_prefix must be non-empty.",
+    };
+  }
+
+  if (action === "fs.readRegion" || action === "fs.replaceRegion" || action === "fs.deleteRegion" || action === "fs.insertRegion") {
+    const markerId = typeof (cmd as any).marker_id === "string" ? String((cmd as any).marker_id).trim() : "";
+    if (!markerId) {
+      return { ok: false, code: "ERR_MISSING_MARKER_ID", detail: "marker_id is required." };
+    }
+    if (action === "fs.replaceRegion" && typeof (cmd as any).content_b64 !== "string") {
+      return { ok: false, code: "ERR_MISSING_CONTENT_B64", detail: "content_b64 is required." };
+    }
+    if (action === "fs.insertRegion") {
+      if (typeof (cmd as any).content_b64 !== "string") {
+        return { ok: false, code: "ERR_MISSING_CONTENT_B64", detail: "content_b64 is required." };
+      }
+      const anchor = typeof (cmd as any).anchor === "string" ? String((cmd as any).anchor).trim() : "";
+      if (!anchor) {
+        return { ok: false, code: "ERR_MISSING_ANCHOR", detail: "anchor is required." };
+      }
+      const occurrenceRaw = (cmd as any).occurrence;
+      if (occurrenceRaw !== undefined && !Number.isFinite(Number(occurrenceRaw))) {
+        return { ok: false, code: "ERR_INVALID_ANCHOR_OCCURRENCE", detail: "occurrence must be a number." };
+      }
+      const posRaw = typeof (cmd as any).position === "string" ? String((cmd as any).position).trim() : "";
+      if (posRaw && posRaw !== "before" && posRaw !== "after") {
+        return { ok: false, code: "ERR_INVALID_INSERT_POSITION", detail: "position must be 'before' or 'after'." };
+      }
     }
   }
 
@@ -250,8 +315,11 @@ export function scanForCommands(plainText: string): { commands: OperatorCmd[]; w
         continue;
       }
 
-      if (!needsPath && action.startsWith("operator.") && p) {
-        warnings.push(invalidCmdSummary("ERR_ACTION_FORBIDS_PATH", "operator.* actions must not include path."));
+      if (!needsPath && p) {
+        const detail = action.startsWith("operator.")
+          ? "operator.* actions must not include path."
+          : "non-fs actions must not include path.";
+        warnings.push(invalidCmdSummary("ERR_ACTION_FORBIDS_PATH", detail));
         resetBlock();
         continue;
       }

@@ -229,6 +229,22 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "ERR_MISSING_WRITE_CONTENT",
+    run: () => {
+      const cmd: OperatorCmd = {
+        version: 1,
+        id: "write-missing-001",
+        action: "fs.write",
+        path: "notes.txt",
+      };
+      const expected = invalidCmdSummary(
+        "ERR_MISSING_WRITE_CONTENT",
+        "fs.write requires content or content_b64."
+      );
+      expectValidation(cmd, expected, "ERR_MISSING_WRITE_CONTENT");
+    },
+  },
+  {
     name: "ERR_INVALID_BASE64 (content_b64)",
     run: () => {
       const cmd: OperatorCmd = {

@@ -29,6 +29,8 @@ import {
 
 const APP_NAME = "Operator";
 const MAX_READ_BYTES = 200_000;
+const MAX_READSLICE_BYTES = 2_000_000;
+const MAX_SEARCH_BYTES = 2_000_000;
 const EXTRACT_LIMIT_CHARS = 200_000;
 
 function normalizeStartUrl(raw?: string): string | null {
@@ -159,6 +161,320 @@ function b64(s: string) {
   return Buffer.from(s, "utf-8").toString("base64");
 }
 
+type CommentStyle =
+  | { type: "line"; linePrefix: string; language: string; source: "map" | "explicit" }
+  | { type: "block"; blockStart: string; blockEnd: string; language: string; source: "map" | "explicit" };
+
+const COMMENT_LANGUAGE_ALIASES: Record<string, string> = {
+  javascript: "js",
+  typescript: "ts",
+  "c++": "cpp",
+  "c#": "cs",
+  shell: "sh",
+  bash: "sh",
+  zsh: "sh",
+  powershell: "ps1",
+  markdown: "md",
+};
+
+const COMMENT_STYLE_MAP: Record<string, Omit<CommentStyle, "source">> = {
+  js: { type: "line", linePrefix: "//", language: "js" },
+  ts: { type: "line", linePrefix: "//", language: "ts" },
+  jsx: { type: "line", linePrefix: "//", language: "jsx" },
+  tsx: { type: "line", linePrefix: "//", language: "tsx" },
+  java: { type: "line", linePrefix: "//", language: "java" },
+  c: { type: "line", linePrefix: "//", language: "c" },
+  cpp: { type: "line", linePrefix: "//", language: "cpp" },
+  h: { type: "line", linePrefix: "//", language: "h" },
+  hpp: { type: "line", linePrefix: "//", language: "hpp" },
+  cs: { type: "line", linePrefix: "//", language: "cs" },
+  go: { type: "line", linePrefix: "//", language: "go" },
+  rs: { type: "line", linePrefix: "//", language: "rs" },
+  swift: { type: "line", linePrefix: "//", language: "swift" },
+  kt: { type: "line", linePrefix: "//", language: "kt" },
+  kts: { type: "line", linePrefix: "//", language: "kts" },
+  scala: { type: "line", linePrefix: "//", language: "scala" },
+  groovy: { type: "line", linePrefix: "//", language: "groovy" },
+  py: { type: "line", linePrefix: "#", language: "py" },
+  rb: { type: "line", linePrefix: "#", language: "rb" },
+  pl: { type: "line", linePrefix: "#", language: "pl" },
+  sh: { type: "line", linePrefix: "#", language: "sh" },
+  ps1: { type: "line", linePrefix: "#", language: "ps1" },
+  psm1: { type: "line", linePrefix: "#", language: "psm1" },
+  psd1: { type: "line", linePrefix: "#", language: "psd1" },
+  yaml: { type: "line", linePrefix: "#", language: "yaml" },
+  yml: { type: "line", linePrefix: "#", language: "yml" },
+  toml: { type: "line", linePrefix: "#", language: "toml" },
+  ini: { type: "line", linePrefix: "#", language: "ini" },
+  cfg: { type: "line", linePrefix: "#", language: "cfg" },
+  conf: { type: "line", linePrefix: "#", language: "conf" },
+  properties: { type: "line", linePrefix: "#", language: "properties" },
+  lua: { type: "line", linePrefix: "--", language: "lua" },
+  sql: { type: "line", linePrefix: "--", language: "sql" },
+  css: { type: "block", blockStart: "/*", blockEnd: "*/", language: "css" },
+  scss: { type: "block", blockStart: "/*", blockEnd: "*/", language: "scss" },
+  less: { type: "block", blockStart: "/*", blockEnd: "*/", language: "less" },
+  html: { type: "block", blockStart: "<!--", blockEnd: "-->", language: "html" },
+  xml: { type: "block", blockStart: "<!--", blockEnd: "-->", language: "xml" },
+  svg: { type: "block", blockStart: "<!--", blockEnd: "-->", language: "svg" },
+  md: { type: "block", blockStart: "<!--", blockEnd: "-->", language: "md" },
+};
+
+function normalizeLanguageId(raw: string): string {
+  return String(raw || "").trim().toLowerCase();
+}
+
+function getCommentStyleForLanguage(langRaw: string): CommentStyle | null {
+  const normalized = normalizeLanguageId(langRaw);
+  if (!normalized) return null;
+  const key = COMMENT_LANGUAGE_ALIASES[normalized] ?? normalized;
+  const style = COMMENT_STYLE_MAP[key];
+  if (!style) return null;
+  return { ...style, source: "map" };
+}
+
+function getCommentStyleForPath(relPath: string): CommentStyle | null {
+  const base = path.basename(relPath || "");
+  if (base.toLowerCase() === "dockerfile") {
+    return { type: "line", linePrefix: "#", language: "dockerfile", source: "map" };
+  }
+  const ext = path.extname(relPath || "").toLowerCase().replace(".", "");
+  if (!ext) return null;
+  return getCommentStyleForLanguage(ext);
+}
+
+function resolveCommentStyle(cmd: OperatorCmd, relPath: string): { ok: true; style: CommentStyle } | { ok: false; summary: string } {
+  const linePrefixRaw = typeof (cmd as any).comment_line_prefix === "string" ? String((cmd as any).comment_line_prefix) : "";
+  const blockStartRaw = typeof (cmd as any).comment_block_start === "string" ? String((cmd as any).comment_block_start) : "";
+  const blockEndRaw = typeof (cmd as any).comment_block_end === "string" ? String((cmd as any).comment_block_end) : "";
+  const languageRaw = typeof (cmd as any).language === "string" ? String((cmd as any).language) : "";
+
+  const hasLine = linePrefixRaw.trim().length > 0;
+  const hasBlockStart = blockStartRaw.trim().length > 0;
+  const hasBlockEnd = blockEndRaw.trim().length > 0;
+
+  if (hasLine && (hasBlockStart || hasBlockEnd)) {
+    return {
+      ok: false,
+      summary: invalidCmdSummary("ERR_INVALID_COMMENT_STYLE", "Use either comment_line_prefix or comment_block_start/comment_block_end."),
+    };
+  }
+  if ((hasBlockStart && !hasBlockEnd) || (!hasBlockStart && hasBlockEnd)) {
+    return {
+      ok: false,
+      summary: invalidCmdSummary("ERR_INVALID_COMMENT_STYLE", "comment_block_start and comment_block_end must both be set."),
+    };
+  }
+  if (hasLine) {
+    return {
+      ok: true,
+      style: {
+        type: "line",
+        linePrefix: linePrefixRaw.trim(),
+        language: "explicit",
+        source: "explicit",
+      },
+    };
+  }
+  if (hasBlockStart && hasBlockEnd) {
+    return {
+      ok: true,
+      style: {
+        type: "block",
+        blockStart: blockStartRaw.trim(),
+        blockEnd: blockEndRaw.trim(),
+        language: "explicit",
+        source: "explicit",
+      },
+    };
+  }
+
+  if (languageRaw.trim()) {
+    const style = getCommentStyleForLanguage(languageRaw.trim());
+    if (!style) {
+      return {
+        ok: false,
+        summary: invalidCmdSummary("ERR_UNKNOWN_LANGUAGE", `unknown language '${languageRaw.trim()}'`),
+      };
+    }
+    return { ok: true, style };
+  }
+
+  const byPath = getCommentStyleForPath(relPath);
+  if (!byPath) {
+    return {
+      ok: false,
+      summary: invalidCmdSummary(
+        "ERR_COMMENT_STYLE_REQUIRED",
+        "comment style not known for path; set comment_line_prefix or comment_block_start/comment_block_end."
+      ),
+    };
+  }
+  return { ok: true, style: byPath };
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function buildMarkerRegexes(style: CommentStyle, markerId: string): { begin: RegExp; end: RegExp } {
+  const id = escapeRegExp(markerId);
+  if (style.type === "line") {
+    const prefix = escapeRegExp(style.linePrefix);
+    return {
+      begin: new RegExp(`^\\s*${prefix}\\s*OPERATOR_BEGIN\\s+${id}\\s*$`),
+      end: new RegExp(`^\\s*${prefix}\\s*OPERATOR_END\\s+${id}\\s*$`),
+    };
+  }
+  const start = escapeRegExp(style.blockStart);
+  const end = escapeRegExp(style.blockEnd);
+  return {
+    begin: new RegExp(`^\\s*${start}\\s*OPERATOR_BEGIN\\s+${id}\\s*${end}\\s*$`),
+    end: new RegExp(`^\\s*${start}\\s*OPERATOR_END\\s+${id}\\s*${end}\\s*$`),
+  };
+}
+
+function buildMarkerLines(style: CommentStyle, markerId: string): { begin: string; end: string } {
+  if (style.type === "line") {
+    const prefix = style.linePrefix;
+    return {
+      begin: `${prefix} OPERATOR_BEGIN ${markerId}`,
+      end: `${prefix} OPERATOR_END ${markerId}`,
+    };
+  }
+  return {
+    begin: `${style.blockStart} OPERATOR_BEGIN ${markerId} ${style.blockEnd}`,
+    end: `${style.blockStart} OPERATOR_END ${markerId} ${style.blockEnd}`,
+  };
+}
+
+function buildMarkerCaptureRegexes(style: CommentStyle): { begin: RegExp; end: RegExp } {
+  if (style.type === "line") {
+    const prefix = escapeRegExp(style.linePrefix);
+    return {
+      begin: new RegExp(`^\\s*${prefix}\\s*OPERATOR_BEGIN\\s+(\\S+)\\s*$`),
+      end: new RegExp(`^\\s*${prefix}\\s*OPERATOR_END\\s+(\\S+)\\s*$`),
+    };
+  }
+  const start = escapeRegExp(style.blockStart);
+  const end = escapeRegExp(style.blockEnd);
+  return {
+    begin: new RegExp(`^\\s*${start}\\s*OPERATOR_BEGIN\\s+(\\S+)\\s*${end}\\s*$`),
+    end: new RegExp(`^\\s*${start}\\s*OPERATOR_END\\s+(\\S+)\\s*${end}\\s*$`),
+  };
+}
+
+function findRegion(lines: string[], style: CommentStyle, markerId: string): { ok: true; begin: number; end: number } | { ok: false; summary: string } {
+  const regexes = buildMarkerRegexes(style, markerId);
+  let begin = -1;
+  let end = -1;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (regexes.begin.test(line)) {
+      if (begin !== -1) {
+        return {
+          ok: false,
+          summary: invalidCmdSummary("ERR_REGION_MARKER_NOT_UNIQUE", `multiple OPERATOR_BEGIN markers for marker_id=${markerId}.`),
+        };
+      }
+      begin = i;
+      continue;
+    }
+    if (regexes.end.test(line)) {
+      if (end !== -1) {
+        return {
+          ok: false,
+          summary: invalidCmdSummary("ERR_REGION_MARKER_NOT_UNIQUE", `multiple OPERATOR_END markers for marker_id=${markerId}.`),
+        };
+      }
+      end = i;
+      continue;
+    }
+  }
+
+  if (begin === -1 || end === -1) {
+    return {
+      ok: false,
+      summary: invalidCmdSummary("ERR_REGION_MARKER_NOT_FOUND", `missing OPERATOR_BEGIN/END for marker_id=${markerId}.`),
+    };
+  }
+  if (end < begin) {
+    return {
+      ok: false,
+      summary: invalidCmdSummary("ERR_REGION_MARKER_ORDER", "OPERATOR_END appears before OPERATOR_BEGIN."),
+    };
+  }
+  return { ok: true, begin, end };
+}
+
+function listRegions(lines: string[], style: CommentStyle): { ok: true; regions: Array<{ marker_id: string; begin_line: number; end_line: number; content_start_line: number; content_end_line: number; content_lines: number }> } | { ok: false; summary: string } {
+  const regexes = buildMarkerCaptureRegexes(style);
+  const open = new Map<string, number>();
+  const seen = new Set<string>();
+  const regions: Array<{ marker_id: string; begin_line: number; end_line: number; content_start_line: number; content_end_line: number; content_lines: number }> = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const beginMatch = regexes.begin.exec(line);
+    if (beginMatch) {
+      const id = beginMatch[1];
+      if (open.has(id) || seen.has(id)) {
+        return {
+          ok: false,
+          summary: invalidCmdSummary("ERR_REGION_MARKER_NOT_UNIQUE", `multiple OPERATOR_BEGIN/END markers for marker_id=${id}.`),
+        };
+      }
+      open.set(id, i);
+      continue;
+    }
+
+    const endMatch = regexes.end.exec(line);
+    if (endMatch) {
+      const id = endMatch[1];
+      const beginIndex = open.get(id);
+      if (beginIndex === undefined) {
+        return {
+          ok: false,
+          summary: invalidCmdSummary("ERR_REGION_MARKER_ORDER", `OPERATOR_END appears before OPERATOR_BEGIN for marker_id=${id}.`),
+        };
+      }
+      if (i <= beginIndex) {
+        return {
+          ok: false,
+          summary: invalidCmdSummary("ERR_REGION_MARKER_ORDER", `OPERATOR_END appears before OPERATOR_BEGIN for marker_id=${id}.`),
+        };
+      }
+      open.delete(id);
+      seen.add(id);
+      const beginLine = beginIndex + 1;
+      const endLine = i + 1;
+      const contentStart = beginLine + 1;
+      const contentEnd = endLine - 1;
+      const contentLines = Math.max(0, endLine - beginLine - 1);
+      regions.push({
+        marker_id: id,
+        begin_line: beginLine,
+        end_line: endLine,
+        content_start_line: contentStart,
+        content_end_line: contentEnd,
+        content_lines: contentLines,
+      });
+      continue;
+    }
+  }
+
+  if (open.size > 0) {
+    const first = open.keys().next().value;
+    return {
+      ok: false,
+      summary: invalidCmdSummary("ERR_REGION_MARKER_MISMATCH", `missing OPERATOR_END for marker_id=${first}.`),
+    };
+  }
+
+  return { ok: true, regions };
+}
+
 async function readInterfaceSpec(): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
   try {
     const specPath = getAssetPath("operator_interface_spec.txt");
@@ -201,10 +517,9 @@ function resolveInWorkspace(relPath: string): { ok: boolean; absPath?: string; r
 
 function riskLevel(action?: string): "read" | "write" | "delete" | "unknown" {
   if (!action) return "unknown";
-  if (action === "fs.read" || action === "fs.list" || action === "fs.readSlice" || action === "fs.search") return "read";
-  if (action === "fs.write") return "write";
+  if (action === "fs.read" || action === "fs.list" || action === "fs.readSlice" || action === "fs.search" || action === "fs.readRegion" || action === "fs.listRegions") return "read";
+  if (action === "fs.write" || action === "fs.patch" || action === "fs.applyEdits" || action === "fs.replaceRegion" || action === "fs.deleteRegion" || action === "fs.insertRegion") return "write";
   if (action === "fs.delete") return "delete";
-  if (action === "fs.patch") return "write";
   return "unknown";
 }
 
@@ -289,6 +604,15 @@ async function executeFsCommand(win: BrowserWindow, cmd: OperatorCmd): Promise<O
         };
       }
 
+      const stat = await fs.stat(absPath);
+      if (stat.size > MAX_READSLICE_BYTES) {
+        return {
+          id,
+          ok: false,
+          summary: invalidCmdSummary("ERR_FILE_TOO_LARGE", `file too large for fs.readSlice (${stat.size} bytes).`),
+        };
+      }
+
       const data = await fs.readFile(absPath, "utf-8");
       const fileLines = data.split(/\r?\n/);
 
@@ -325,6 +649,15 @@ async function executeFsCommand(win: BrowserWindow, cmd: OperatorCmd): Promise<O
         return { id, ok: false, summary: searchCheck.summary };
       }
 
+      const stat = await fs.stat(absPath);
+      if (stat.size > MAX_SEARCH_BYTES) {
+        return {
+          id,
+          ok: false,
+          summary: invalidCmdSummary("ERR_FILE_TOO_LARGE", `file too large for fs.search (${stat.size} bytes).`),
+        };
+      }
+
       const data = await fs.readFile(absPath, "utf-8");
       const fileLines = data.split(/\r?\n/);
 
@@ -350,6 +683,144 @@ async function executeFsCommand(win: BrowserWindow, cmd: OperatorCmd): Promise<O
       }
 
       return { id, ok: true, summary: `Search found ${matches.length} matches`, details_b64: b64(out.join("\n")) };
+    }
+
+    if (action === "fs.listRegions") {
+      const styleRes = resolveCommentStyle(cmd, relPath);
+      if (!styleRes.ok) return { id, ok: false, summary: styleRes.summary };
+
+      const data = await fs.readFile(absPath, "utf-8");
+      const lines = data.split(/\r?\n/);
+      const res = listRegions(lines, styleRes.style);
+      if (!res.ok) return { id, ok: false, summary: res.summary };
+
+      const payload = { regions: res.regions };
+      return { id, ok: true, summary: `Listed ${res.regions.length} regions`, details_b64: b64(JSON.stringify(payload)) };
+    }
+
+    if (action === "fs.insertRegion") {
+      const markerId = String((cmd as any).marker_id || "").trim();
+      const anchor = String((cmd as any).anchor || "").trim();
+      const position = typeof (cmd as any).position === "string" ? String((cmd as any).position).trim() : "after";
+      const occurrence = Math.max(1, Number((cmd as any).occurrence ?? 1));
+      if (!Number.isFinite(occurrence)) {
+        return { id, ok: false, summary: invalidCmdSummary("ERR_INVALID_ANCHOR_OCCURRENCE", "occurrence must be a number.") };
+      }
+      if (position && position !== "before" && position !== "after") {
+        return { id, ok: false, summary: invalidCmdSummary("ERR_INVALID_INSERT_POSITION", "position must be 'before' or 'after'.") };
+      }
+
+      const styleRes = resolveCommentStyle(cmd, relPath);
+      if (!styleRes.ok) return { id, ok: false, summary: styleRes.summary };
+
+      const data = await fs.readFile(absPath, "utf-8");
+      const newline = data.includes("\r\n") ? "\r\n" : "\n";
+      const lines = data.split(/\r?\n/);
+      const markerRegexes = buildMarkerRegexes(styleRes.style, markerId);
+      const markerExists = lines.some((line) => markerRegexes.begin.test(line) || markerRegexes.end.test(line));
+      if (markerExists) {
+        return {
+          id,
+          ok: false,
+          summary: invalidCmdSummary("ERR_REGION_MARKER_ALREADY_EXISTS", `marker_id=${markerId} already exists.`),
+        };
+      }
+
+      let foundIndex = -1;
+      let seen = 0;
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes(anchor)) {
+          seen += 1;
+          if (seen === occurrence) {
+            foundIndex = i;
+            break;
+          }
+        }
+      }
+      if (foundIndex === -1) {
+        return { id, ok: false, summary: invalidCmdSummary("ERR_ANCHOR_NOT_FOUND", "anchor text not found.") };
+      }
+
+      let content = "";
+      try {
+        content = Buffer.from(String((cmd as any).content_b64).trim(), "base64").toString("utf-8");
+      } catch {
+        return {
+          id,
+          ok: false,
+          summary: invalidCmdSummary("ERR_INVALID_BASE64", "field=content_b64 is not valid base64."),
+        };
+      }
+
+      const markerLines = buildMarkerLines(styleRes.style, markerId);
+      const contentLines = content === "" ? [] : content.split(/\r?\n/);
+      const blockLines = [markerLines.begin, ...contentLines, markerLines.end];
+      const insertAt = position === "before" ? foundIndex : foundIndex + 1;
+      const newLines = lines.slice(0, insertAt).concat(blockLines, lines.slice(insertAt));
+      const newText = newLines.join(newline);
+      await fs.writeFile(absPath, newText, "utf-8");
+      return { id, ok: true, summary: `Inserted region ${markerId}` };
+    }
+
+    if (action === "fs.readRegion") {
+      const markerId = String((cmd as any).marker_id || "").trim();
+      const styleRes = resolveCommentStyle(cmd, relPath);
+      if (!styleRes.ok) return { id, ok: false, summary: styleRes.summary };
+
+      const data = await fs.readFile(absPath, "utf-8");
+      const newline = data.includes("\r\n") ? "\r\n" : "\n";
+      const lines = data.split(/\r?\n/);
+      const region = findRegion(lines, styleRes.style, markerId);
+      if (!region.ok) return { id, ok: false, summary: region.summary };
+
+      const content = lines.slice(region.begin + 1, region.end).join(newline);
+      return { id, ok: true, summary: `Read region ${markerId}`, details_b64: b64(content) };
+    }
+
+    if (action === "fs.replaceRegion") {
+      const markerId = String((cmd as any).marker_id || "").trim();
+      const styleRes = resolveCommentStyle(cmd, relPath);
+      if (!styleRes.ok) return { id, ok: false, summary: styleRes.summary };
+
+      const data = await fs.readFile(absPath, "utf-8");
+      const newline = data.includes("\r\n") ? "\r\n" : "\n";
+      const lines = data.split(/\r?\n/);
+      const region = findRegion(lines, styleRes.style, markerId);
+      if (!region.ok) return { id, ok: false, summary: region.summary };
+
+      let content = "";
+      try {
+        content = Buffer.from(String((cmd as any).content_b64).trim(), "base64").toString("utf-8");
+      } catch {
+        return {
+          id,
+          ok: false,
+          summary: invalidCmdSummary("ERR_INVALID_BASE64", "field=content_b64 is not valid base64."),
+        };
+      }
+
+      const contentLines = content === "" ? [] : content.split(/\r?\n/);
+      const newLines = lines.slice(0, region.begin + 1).concat(contentLines, lines.slice(region.end));
+      const newText = newLines.join(newline);
+      await fs.writeFile(absPath, newText, "utf-8");
+      return { id, ok: true, summary: `Replaced region ${markerId}` };
+    }
+
+    if (action === "fs.deleteRegion") {
+      const markerId = String((cmd as any).marker_id || "").trim();
+      const styleRes = resolveCommentStyle(cmd, relPath);
+      if (!styleRes.ok) return { id, ok: false, summary: styleRes.summary };
+
+      const data = await fs.readFile(absPath, "utf-8");
+      const newline = data.includes("\r\n") ? "\r\n" : "\n";
+      const lines = data.split(/\r?\n/);
+      const region = findRegion(lines, styleRes.style, markerId);
+      if (!region.ok) return { id, ok: false, summary: region.summary };
+
+      const newLines = lines.slice(0, region.begin + 1).concat(lines.slice(region.end));
+      const newText = newLines.join(newline);
+      await fs.writeFile(absPath, newText, "utf-8");
+      return { id, ok: true, summary: `Deleted region ${markerId}` };
     }
 
 
@@ -890,6 +1361,36 @@ function createWindow() {
         return { result: r, resultText: formatOperatorResult(r) };
       }
       const r: OperatorResult = { id, ok: true, summary: "Interface spec", details_b64: b64(spec.text) };
+      return { result: r, resultText: formatOperatorResult(r) };
+    }
+
+    if (action === "operator.getCommentStyle") {
+      const language = typeof cmd?.language === "string" ? cmd.language.trim() : "";
+      if (language) {
+        const style = getCommentStyleForLanguage(language);
+        if (!style) {
+          const r: OperatorResult = {
+            id,
+            ok: false,
+            summary: invalidCmdSummary("ERR_UNKNOWN_LANGUAGE", `unknown language '${language}'`),
+          };
+          return { result: r, resultText: formatOperatorResult(r) };
+        }
+        const payload = style.type === "line"
+          ? { language: style.language, type: "line", line_prefix: style.linePrefix }
+          : { language: style.language, type: "block", block_start: style.blockStart, block_end: style.blockEnd };
+        const body = { requested: language, styles: [payload] };
+        const r: OperatorResult = { id, ok: true, summary: "Comment style", details_b64: b64(JSON.stringify(body)) };
+        return { result: r, resultText: formatOperatorResult(r) };
+      }
+
+      const styles = Object.values(COMMENT_STYLE_MAP)
+        .map((s) => {
+          if (s.type === "line") return { language: s.language, type: "line", line_prefix: s.linePrefix };
+          return { language: s.language, type: "block", block_start: s.blockStart, block_end: s.blockEnd };
+        })
+        .sort((a, b) => a.language.localeCompare(b.language));
+      const r: OperatorResult = { id, ok: true, summary: "Comment style list", details_b64: b64(JSON.stringify({ styles })) };
       return { result: r, resultText: formatOperatorResult(r) };
     }
 
