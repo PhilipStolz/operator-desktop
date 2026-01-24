@@ -1431,26 +1431,8 @@ function createWindow() {
     if (trimmed) {
       errors.unshift(`Scan input trimmed to last ${EXTRACT_LIMIT_CHARS} chars.`);
     }
-
-    // Dedupe by id while preserving order of last occurrence.
-    const deduped: Array<OperatorCmd | null> = [];
-    const seenIndex = new Map<string, number>();
-
-    for (const c of commands) {
-      if (c.id) {
-        const id = String(c.id);
-        const prevIndex = seenIndex.get(id);
-        if (prevIndex !== undefined) {
-          deduped[prevIndex] = null;
-          errors.push(`Duplicate command id: ${id}. Using last occurrence.`);
-        }
-        seenIndex.set(id, deduped.length);
-      }
-      deduped.push(c);
-    }
-
-    const finalCommands = deduped.filter((c): c is OperatorCmd => Boolean(c));
-    return { commands: finalCommands, errors };
+    // Duplicate command id handling happens in scanForCommands (ERR_DUPLICATE_ID).
+    return { commands, errors };
   });
 
   ipcMain.handle("operator:execute", async (_evt, { cmd }: { cmd: OperatorCmd }) => {

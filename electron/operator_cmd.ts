@@ -57,6 +57,13 @@ function isValidBase64(input: string): boolean {
   return normalized(decoded.toString("base64")) === normalized(b64);
 }
 
+function canonicalizeCmd(cmd: OperatorCmd): string {
+  const keys = Object.keys(cmd).sort();
+  const out: Record<string, any> = {};
+  for (const key of keys) out[key] = (cmd as any)[key];
+  return JSON.stringify(out);
+}
+
 function parseKeyValueLines(lines: string[]): OperatorCmd {
   const cmd: OperatorCmd = {};
   for (const raw of lines) {
@@ -226,6 +233,7 @@ export function validateCommandFields(cmd: OperatorCmd): { ok: true } | { ok: fa
 export function scanForCommands(plainText: string): { commands: OperatorCmd[]; errors: string[] } {
   const errors: string[] = [];
   const commands: OperatorCmd[] = [];
+  const seenIds = new Map<string, string>();
 
   const lines = plainText.split(/\r?\n/g);
 
@@ -339,6 +347,17 @@ export function scanForCommands(plainText: string): { commands: OperatorCmd[]; e
       cmd.action = action;
       if (needsPath) cmd.path = p;
 
+      const existing = seenIds.get(id);
+      if (existing) {
+        const canon = canonicalizeCmd(cmd);
+        if (canon !== existing) {
+          errors.push(invalidCmdSummary("ERR_DUPLICATE_ID", `duplicate id with differing content: ${id}`));
+        }
+        resetBlock();
+        continue;
+      }
+
+      seenIds.set(id, canonicalizeCmd(cmd));
       commands.push(cmd);
 
       resetBlock();

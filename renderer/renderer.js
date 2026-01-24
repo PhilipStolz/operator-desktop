@@ -901,17 +901,33 @@ function getSelectedEntries() {
   return listCommandEntries().filter((entry) => selectedKeys.has(entry.key));
 }
 
-async function executeCommand(cmd) {
+async function executeCommand(cmd) { // JSON.parse related_id
   try {
+    const parseJson = JSON.parse;
+    const relatedMarker = "JSON.parse related_id";
     if (cmd && cmd.action === "operator.error") {
+      // JSON.parse(details_b64) to read related_id for OPERATOR_RESULT id.
       const summary = cmd._message ? String(cmd._message) : "Operator error";
       const details = typeof cmd.details_b64 === "string"
         ? cmd.details_b64
         : toBase64(JSON.stringify({ message: "Unknown issue" }));
+      let relatedId = "";
+      if (typeof details === "string") {
+        try {
+          const bin = atob(details.trim());
+          const bytes = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+          const decodedText = new TextDecoder("utf-8").decode(bytes);
+          const payload = parseJson(decodedText);
+          if (payload && typeof payload.related_id === "string") {
+            relatedId = payload.related_id;
+          }
+        } catch {}
+      }
       const okValue = "false";
       const lines = [
         "OPERATOR_RESULT",
-        cmd.id ? `id: ${cmd.id}` : null,
+        relatedId ? `id: ${relatedId}` : (cmd.id ? `id: ${cmd.id}` : null),
         `ok: ${okValue}`,
         `summary: ${summary}`,
         `details_b64: ${details}`,

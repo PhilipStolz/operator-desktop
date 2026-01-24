@@ -68,6 +68,7 @@ Additional validation errors:
 - ERR_INVALID_EDITS_JSON
 - ERR_UNKNOWN_ACTION
 - ERR_RESERVED_ACTION
+- ERR_DUPLICATE_ID
 - ERR_BLOCK_TOO_LARGE
 - ERR_UNSUPPORTED_VERSION
 - ERR_FILE_TOO_LARGE
@@ -266,7 +267,7 @@ RECOMMENDED WORKFLOW
 
 LLM GUIDANCE
 - Keep OPERATOR_CMD blocks short: max 200 lines and 50,000 chars inside a block.
-- Use unique ids per command; operator:scan deduplicates by id and keeps the last one.
+- Use unique ids per command; duplicate ids with identical content are ignored, differing content returns ERR_DUPLICATE_ID.
 - Place OPERATOR_CMD blocks near the end of the message; only the last 200,000 chars are scanned.
 - Use fs.readSlice for large files; fs.read can fail with a size limit.
 - fs.search returns at most 50 matches; refine the query if results are truncated.
