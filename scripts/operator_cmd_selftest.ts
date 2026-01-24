@@ -433,6 +433,23 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "Warnings are not always warn-only (require error/warn split)",
+    run: async () => {
+      const rendererJs = await loadRepoFile(path.join("renderer", "renderer.js"));
+      assert(rendererJs.includes("operator.warn"), "Expected operator.warn handling for non-error warnings");
+    },
+  },
+  {
+    name: "operator.error marks as executed in UI",
+    run: async () => {
+      const rendererJs = await loadRepoFile(path.join("renderer", "renderer.js"));
+      assert(
+        rendererJs.includes("operator.error") && rendererJs.includes("executedIds.add"),
+        "Expected operator.error execution to be recorded in executedIds"
+      );
+    },
+  },
+  {
     name: "Templates are valid",
     run: async () => {
       await assertTemplatesValid();
