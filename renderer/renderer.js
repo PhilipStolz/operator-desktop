@@ -407,6 +407,29 @@ function toBase64(text) {
   return btoa(binary);
 }
 
+function extractRelatedId(message) {
+  if (!message) return "";
+  const m = String(message).match(/id\s*[:=]\s*([A-Za-z0-9._-]+)/i);
+  return m ? m[1] : "";
+}
+
+function buildErrorCommands(warnings) {
+  if (!Array.isArray(warnings) || warnings.length === 0) return [];
+  const now = Date.now();
+  return warnings.map((message, index) => {
+    const relatedId = extractRelatedId(message);
+    const payload = relatedId ? { message, related_id: relatedId } : { message };
+    return {
+      version: 1,
+      id: `error-${now}-${index + 1}`,
+      action: "operator.error",
+      details_b64: toBase64(JSON.stringify(payload)),
+      _message: message,
+      _ui: "error",
+    };
+  });
+}
+
 function decodeBase64Value(value) {
   try {
     const trimmed = String(value || "").trim();
@@ -643,9 +666,11 @@ async function applyScanResults(scan, auto) {
   }
 
   setAutoScanPaused(false);
-  commands = scan?.commands || [];
+  const warns = scan?.warnings || [];
+  const errorCommands = buildErrorCommands(warns);
+  commands = (scan?.commands || []).concat(errorCommands);
   selectFocusAfterScan();
-  setWarnings(scan?.warnings || []);
+  setWarnings(warns);
   renderInbox();
   setStatus(`Scan done. Commands: ${commands.length}`);
 }
@@ -724,6 +749,19 @@ function getSelectedEntries() {
 
 async function executeCommand(cmd) {
   try {
+    if (cmd && cmd.action === "operator.error") {
+      const summary = cmd._message ? String(cmd._message) : "Operator error";
+      const details = typeof cmd.details_b64 === "string" ? cmd.details_b64 : toBase64(JSON.stringify({ message: "Unknown error" }));
+      const lines = [
+        "OPERATOR_RESULT",
+        cmd.id ? `id: ${cmd.id}` : null,
+        "ok: false",
+        `summary: ${summary}`,
+        `details_b64: ${details}`,
+        "END_OPERATOR_RESULT",
+      ].filter(Boolean);
+      return { ok: false, resultText: lines.join("\n") };
+    }
     const res = await window.operator.execute(cmd);
     const ok = !!res?.result?.ok;
     if (ok && cmd.id) {
