@@ -1,5 +1,6 @@
 import * as fs from "fs/promises";
 import * as path from "path";
+import { spawnSync } from "child_process";
 import {
   invalidCmdSummary,
   scanForCommands,
@@ -375,6 +376,19 @@ const tests: TestCase[] = [
     name: "ERR codes documented in spec",
     run: async () => {
       await assertSpecCoversErrCodes();
+    },
+  },
+  {
+    name: "TypeScript build (tsc --noEmit)",
+    run: () => {
+      const repoRoot = path.resolve(__dirname, "..");
+      const tscJs = path.join(repoRoot, "node_modules", "typescript", "lib", "tsc.js");
+      const res = spawnSync(process.execPath, [tscJs, "--noEmit"], { cwd: repoRoot, encoding: "utf-8" });
+      if (res.error) throw res.error;
+      if (res.status !== 0) {
+        const out = `${res.stdout ?? ""}\n${res.stderr ?? ""}`.trim();
+        throw new Error(out || "tsc failed");
+      }
     },
   },
   {
