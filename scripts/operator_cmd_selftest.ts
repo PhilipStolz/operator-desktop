@@ -28,10 +28,10 @@ async function loadRepoFile(relPath: string): Promise<string> {
   return fs.readFile(filePath, "utf-8");
 }
 
-function expectSingleWarning(input: string, expected: string, label: string) {
+function expectSingleError(input: string, expected: string, label: string) {
   const res = scanForCommands(input);
-  assertEqual(res.warnings.length, 1, `${label} warnings`);
-  assertEqual(res.warnings[0], expected, `${label} summary`);
+  assertEqual(res.errors.length, 1, `${label} errors`);
+  assertEqual(res.errors[0], expected, `${label} summary`);
 }
 
 function validationSummary(cmd: OperatorCmd): string {
@@ -101,7 +101,7 @@ async function assertTemplatesValid() {
 
   for (const [key, text] of Object.entries(templates)) {
     const res = scanForCommands(text);
-    assertEqual(res.warnings.length, 0, `Template warnings: ${key}`);
+    assertEqual(res.errors.length, 0, `Template errors: ${key}`);
     assertEqual(res.commands.length, 1, `Template commands: ${key}`);
     const cmd = res.commands[0];
     assert(cmd.version !== undefined, `Template missing version: ${key}`);
@@ -119,7 +119,7 @@ const tests: TestCase[] = [
         "ERR_MARKER_NOT_ALONE",
         "line 'OPERATOR_CMD extra' must be only OPERATOR_CMD"
       );
-      expectSingleWarning(input, expected, "ERR_MARKER_NOT_ALONE");
+      expectSingleError(input, expected, "ERR_MARKER_NOT_ALONE");
     },
   },
   {
@@ -136,7 +136,7 @@ const tests: TestCase[] = [
         "ERR_MISSING_END_MARKER",
         "reached end of text without END_OPERATOR_CMD."
       );
-      expectSingleWarning(input, expected, "ERR_MISSING_END_MARKER");
+      expectSingleError(input, expected, "ERR_MISSING_END_MARKER");
     },
   },
   {
@@ -159,7 +159,7 @@ const tests: TestCase[] = [
         "ERR_NESTED_BLOCK",
         "OPERATOR_CMD started before END_OPERATOR_CMD."
       );
-      expectSingleWarning(input, expected, "ERR_NESTED_BLOCK");
+      expectSingleError(input, expected, "ERR_NESTED_BLOCK");
     },
   },
   {
@@ -178,7 +178,7 @@ const tests: TestCase[] = [
         "ERR_NON_KEY_VALUE_LINE",
         "line 'not a pair' is not key: value."
       );
-      expectSingleWarning(input, expected, "ERR_NON_KEY_VALUE_LINE");
+      expectSingleError(input, expected, "ERR_NON_KEY_VALUE_LINE");
     },
   },
   {
@@ -197,7 +197,7 @@ const tests: TestCase[] = [
         "ERR_EMPTY_LINE_IN_CMD",
         "empty line inside OPERATOR_CMD."
       );
-      expectSingleWarning(input, expected, "ERR_EMPTY_LINE_IN_CMD");
+      expectSingleError(input, expected, "ERR_EMPTY_LINE_IN_CMD");
     },
   },
   {
@@ -215,7 +215,7 @@ const tests: TestCase[] = [
         "ERR_NON_ASCII_IN_CMD",
         "non-ASCII character detected in command block."
       );
-      expectSingleWarning(input, expected, "ERR_NON_ASCII_IN_CMD");
+      expectSingleError(input, expected, "ERR_NON_ASCII_IN_CMD");
     },
   },
   {
@@ -363,6 +363,26 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "Reject UI-only operator.error in scan",
+    run: () => {
+      const input = [
+        "OPERATOR_CMD",
+        "version: 1",
+        "id: err-001",
+        "action: operator.error",
+        "END_OPERATOR_CMD",
+      ].join("\n");
+      const expected = invalidCmdSummary(
+        "ERR_RESERVED_ACTION",
+        "action reserved for UI: operator.error"
+      );
+      const res = scanForCommands(input);
+      assertEqual(res.commands.length, 0, "operator.error scan commands");
+      assertEqual(res.errors.length, 1, "operator.error scan errors");
+      assertEqual(res.errors[0], expected, "operator.error scan summary");
+    },
+  },
+  {
     name: "ERR_UNKNOWN_ACTION",
     run: () => {
       const expected = invalidCmdSummary(
@@ -410,10 +430,10 @@ const tests: TestCase[] = [
     },
   },
   {
-    name: "Duplicate id warning in operator:scan",
+    name: "Duplicate id error in operator:scan",
     run: async () => {
       const text = await loadRepoFile(path.join("electron", "main.ts"));
-      assert(text.includes("Duplicate command id"), "Expected duplicate-id warning in operator:scan");
+      assert(text.includes("Duplicate command id"), "Expected duplicate-id error in operator:scan");
     },
   },
   {
@@ -430,13 +450,6 @@ const tests: TestCase[] = [
     run: async () => {
       const rendererJs = await loadRepoFile(path.join("renderer", "renderer.js"));
       assert(rendererJs.includes("operator.error"), "Expected UI handling/template for operator.error");
-    },
-  },
-  {
-    name: "Warnings are not always warn-only (require error/warn split)",
-    run: async () => {
-      const rendererJs = await loadRepoFile(path.join("renderer", "renderer.js"));
-      assert(rendererJs.includes("operator.warn"), "Expected operator.warn handling for non-error warnings");
     },
   },
   {

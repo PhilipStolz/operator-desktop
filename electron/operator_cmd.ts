@@ -220,8 +220,8 @@ export function validateCommandFields(cmd: OperatorCmd): { ok: true } | { ok: fa
   return { ok: true };
 }
 
-export function scanForCommands(plainText: string): { commands: OperatorCmd[]; warnings: string[] } {
-  const warnings: string[] = [];
+export function scanForCommands(plainText: string): { commands: OperatorCmd[]; errors: string[] } {
+  const errors: string[] = [];
   const commands: OperatorCmd[] = [];
 
   const lines = plainText.split(/\r?\n/g);
@@ -241,11 +241,11 @@ export function scanForCommands(plainText: string): { commands: OperatorCmd[]; w
 
     if (!inBlock) {
       if (isMarkerLineNotAlone(line, START_MARK)) {
-        warnings.push(invalidCmdSummary("ERR_MARKER_NOT_ALONE", `line '${line.trim()}' must be only ${START_MARK}`));
+        errors.push(invalidCmdSummary("ERR_MARKER_NOT_ALONE", `line '${line.trim()}' must be only ${START_MARK}`));
         continue;
       }
       if (isMarkerLineNotAlone(line, END_MARK)) {
-        warnings.push(invalidCmdSummary("ERR_MARKER_NOT_ALONE", `line '${line.trim()}' must be only ${END_MARK}`));
+        errors.push(invalidCmdSummary("ERR_MARKER_NOT_ALONE", `line '${line.trim()}' must be only ${END_MARK}`));
         continue;
       }
       if (isMarkerLine(line, START_MARK)) {
@@ -258,12 +258,12 @@ export function scanForCommands(plainText: string): { commands: OperatorCmd[]; w
 
     // inBlock
     if (isMarkerLineNotAlone(line, END_MARK)) {
-      warnings.push(invalidCmdSummary("ERR_MARKER_NOT_ALONE", `line '${line.trim()}' must be only ${END_MARK}`));
+      errors.push(invalidCmdSummary("ERR_MARKER_NOT_ALONE", `line '${line.trim()}' must be only ${END_MARK}`));
       resetBlock();
       continue;
     }
     if (isMarkerLineNotAlone(line, START_MARK)) {
-      warnings.push(invalidCmdSummary("ERR_MARKER_NOT_ALONE", `line '${line.trim()}' must be only ${START_MARK}`));
+      errors.push(invalidCmdSummary("ERR_MARKER_NOT_ALONE", `line '${line.trim()}' must be only ${START_MARK}`));
       resetBlock();
       continue;
     }
@@ -272,7 +272,7 @@ export function scanForCommands(plainText: string): { commands: OperatorCmd[]; w
       // finalize block
       const hasNonAscii = buf.some((raw) => NON_ASCII_RE.test(raw));
       if (hasNonAscii) {
-        warnings.push(invalidCmdSummary("ERR_NON_ASCII_IN_CMD", "non-ASCII character detected in command block."));
+        errors.push(invalidCmdSummary("ERR_NON_ASCII_IN_CMD", "non-ASCII character detected in command block."));
         resetBlock();
         continue;
       }
@@ -285,7 +285,7 @@ export function scanForCommands(plainText: string): { commands: OperatorCmd[]; w
 
       if (invalidLines.length > 0) {
         const bad = invalidLines[0].trim();
-        warnings.push(invalidCmdSummary("ERR_NON_KEY_VALUE_LINE", `line '${bad}' is not key: value.`));
+        errors.push(invalidCmdSummary("ERR_NON_KEY_VALUE_LINE", `line '${bad}' is not key: value.`));
         resetBlock();
         continue;
       }
@@ -304,13 +304,13 @@ export function scanForCommands(plainText: string): { commands: OperatorCmd[]; w
           !id ? "id" : null,
           !action ? "action" : null,
         ].filter(Boolean).join(", ");
-        warnings.push(invalidCmdSummary("ERR_MISSING_REQUIRED_FIELDS", `missing ${missing}`));
+        errors.push(invalidCmdSummary("ERR_MISSING_REQUIRED_FIELDS", `missing ${missing}`));
         resetBlock();
         continue;
       }
 
       if (needsPath && !p) {
-        warnings.push(invalidCmdSummary("ERR_ACTION_REQUIRES_PATH", "fs.* actions require path."));
+        errors.push(invalidCmdSummary("ERR_ACTION_REQUIRES_PATH", "fs.* actions require path."));
         resetBlock();
         continue;
       }
@@ -319,14 +319,14 @@ export function scanForCommands(plainText: string): { commands: OperatorCmd[]; w
         const detail = action.startsWith("operator.")
           ? "operator.* actions must not include path."
           : "non-fs actions must not include path.";
-        warnings.push(invalidCmdSummary("ERR_ACTION_FORBIDS_PATH", detail));
+        errors.push(invalidCmdSummary("ERR_ACTION_FORBIDS_PATH", detail));
         resetBlock();
         continue;
       }
 
       const validation = validateCommandFields(cmd);
       if (!validation.ok) {
-        warnings.push(invalidCmdSummary(validation.code, validation.detail));
+        errors.push(invalidCmdSummary(validation.code, validation.detail));
         resetBlock();
         continue;
       }
@@ -343,7 +343,7 @@ export function scanForCommands(plainText: string): { commands: OperatorCmd[]; w
     }
 
     if (line.trim() === "") {
-      warnings.push(invalidCmdSummary("ERR_EMPTY_LINE_IN_CMD", "empty line inside OPERATOR_CMD."));
+      errors.push(invalidCmdSummary("ERR_EMPTY_LINE_IN_CMD", "empty line inside OPERATOR_CMD."));
       resetBlock();
       continue;
     }
@@ -353,19 +353,19 @@ export function scanForCommands(plainText: string): { commands: OperatorCmd[]; w
     bufChars += line.length + 1;
 
     if (buf.length > MAX_BLOCK_LINES) {
-      warnings.push(invalidCmdSummary("ERR_BLOCK_TOO_LARGE", `too many lines (>${MAX_BLOCK_LINES}).`));
+      errors.push(invalidCmdSummary("ERR_BLOCK_TOO_LARGE", `too many lines (>${MAX_BLOCK_LINES}).`));
       resetBlock();
       continue;
     }
     if (bufChars > MAX_BLOCK_CHARS) {
-      warnings.push(invalidCmdSummary("ERR_BLOCK_TOO_LARGE", `too many characters (>${MAX_BLOCK_CHARS}).`));
+      errors.push(invalidCmdSummary("ERR_BLOCK_TOO_LARGE", `too many characters (>${MAX_BLOCK_CHARS}).`));
       resetBlock();
       continue;
     }
 
     // If another START appears before END, reset to avoid nesting/spanning
     if (isMarkerLine(line, START_MARK)) {
-      warnings.push(invalidCmdSummary("ERR_NESTED_BLOCK", "OPERATOR_CMD started before END_OPERATOR_CMD."));
+      errors.push(invalidCmdSummary("ERR_NESTED_BLOCK", "OPERATOR_CMD started before END_OPERATOR_CMD."));
       // treat this line as a new start
       inBlock = true;
       buf = [];
@@ -374,10 +374,10 @@ export function scanForCommands(plainText: string): { commands: OperatorCmd[]; w
   }
 
   if (inBlock) {
-    warnings.push(invalidCmdSummary("ERR_MISSING_END_MARKER", "reached end of text without END_OPERATOR_CMD."));
+    errors.push(invalidCmdSummary("ERR_MISSING_END_MARKER", "reached end of text without END_OPERATOR_CMD."));
   }
 
-  return { commands, warnings };
+  return { commands, errors };
 }
 
 export async function validateSearchPathIsFile(

@@ -535,7 +535,7 @@ function riskLevel(action?: string): "read" | "write" | "delete" | "unknown" {
 
 async function confirmDestructive(win: BrowserWindow, title: string, message: string) {
   const { response } = await dialog.showMessageBox(win, {
-    type: "warning",
+    type: "question",
     buttons: ["Cancel", "Confirm"],
     defaultId: 0,
     cancelId: 0,
@@ -1411,9 +1411,9 @@ function createWindow() {
     const plain = String(text ?? "");
     const trimmed = plain.length > EXTRACT_LIMIT_CHARS;
     const scanText = trimmed ? plain.slice(plain.length - EXTRACT_LIMIT_CHARS) : plain;
-    const { commands, warnings } = scanForCommands(scanText);
+    const { commands, errors } = scanForCommands(scanText);
     if (trimmed) {
-      warnings.unshift(`Scan input trimmed to last ${EXTRACT_LIMIT_CHARS} chars.`);
+      errors.unshift(`Scan input trimmed to last ${EXTRACT_LIMIT_CHARS} chars.`);
     }
 
     // Dedupe by id while preserving order of last occurrence.
@@ -1426,7 +1426,7 @@ function createWindow() {
         const prevIndex = seenIndex.get(id);
         if (prevIndex !== undefined) {
           deduped[prevIndex] = null;
-          warnings.push(`Duplicate command id: ${id}. Using last occurrence.`);
+          errors.push(`Duplicate command id: ${id}. Using last occurrence.`);
         }
         seenIndex.set(id, deduped.length);
       }
@@ -1434,7 +1434,7 @@ function createWindow() {
     }
 
     const finalCommands = deduped.filter((c): c is OperatorCmd => Boolean(c));
-    return { commands: finalCommands, warnings };
+    return { commands: finalCommands, errors };
   });
 
   ipcMain.handle("operator:execute", async (_evt, { cmd }: { cmd: OperatorCmd }) => {

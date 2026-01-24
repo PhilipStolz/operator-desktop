@@ -7,7 +7,7 @@ const workspaceEl = $("workspace");
 const btnExtract = $("btnExtract");
 const btnClear = $("btnClear");
 const statusEl = $("status");
-const warningsEl = $("warnings");
+const errorsEl = $("errors");
 const inboxEl = $("inbox");
 const resultEl = $("result");
 const btnCopyResult = $("btnCopyResult");
@@ -336,12 +336,12 @@ function setStatus(msg) {
   statusEl.textContent = msg || "";
 }
 
-function setWarnings(warns) {
-  if (!warns || warns.length === 0) {
-    warningsEl.textContent = "";
+function setErrors(errors) {
+  if (!errors || errors.length === 0) {
+    errorsEl.textContent = "";
     return;
   }
-  warningsEl.textContent = warns.join(" | ");
+  errorsEl.textContent = errors.join(" | ");
 }
 
 function escapeHtml(s) {
@@ -413,24 +413,19 @@ function extractRelatedId(message) {
   return m ? m[1] : "";
 }
 
-function isErrorWarning(message) {
-  return /Invalid OPERATOR_CMD\s*\(ERR_/i.test(String(message || ""));
-}
-
-function buildIssueCommands(warnings) {
-  if (!Array.isArray(warnings) || warnings.length === 0) return [];
+function buildIssueCommands(errors) {
+  if (!Array.isArray(errors) || errors.length === 0) return [];
   const now = Date.now();
-  return warnings.map((message, index) => {
+  return errors.map((message, index) => {
     const relatedId = extractRelatedId(message);
     const payload = relatedId ? { message, related_id: relatedId } : { message };
-    const isError = isErrorWarning(message);
     return {
       version: 1,
-      id: `${isError ? "error" : "warn"}-${now}-${index + 1}`,
-      action: isError ? "operator.error" : "operator.warn",
+      id: `error-${now}-${index + 1}`,
+      action: "operator.error",
       details_b64: toBase64(JSON.stringify(payload)),
       _message: message,
-      _ui: isError ? "error" : "warn",
+      _ui: "error",
     };
   });
 }
@@ -671,11 +666,11 @@ async function applyScanResults(scan, auto) {
   }
 
   setAutoScanPaused(false);
-  const warns = scan?.warnings || [];
-  const issueCommands = buildIssueCommands(warns);
+  const errors = scan?.errors || [];
+  const issueCommands = buildIssueCommands(errors);
   commands = (scan?.commands || []).concat(issueCommands);
   selectFocusAfterScan();
-  setWarnings(warns);
+  setErrors(errors);
   renderInbox();
   setStatus(`Scan done. Commands: ${commands.length}`);
 }
@@ -692,7 +687,7 @@ async function scanFromExtract(auto) {
 
   scanInFlight = true;
   try {
-    if (!auto) setWarnings([]);
+    if (!auto) setErrors([]);
     setStatus(auto ? "Auto extracting..." : "Extracting...");
 
     const extracted = await window.operator.extract();
@@ -703,7 +698,7 @@ async function scanFromExtract(auto) {
     await applyScanResults(scan, auto);
   } catch (e) {
     setStatus(auto ? "Auto extraction failed." : "Extraction failed.");
-    setWarnings([String(e)]);
+    setErrors([String(e)]);
   } finally {
     scanInFlight = false;
   }
@@ -716,7 +711,7 @@ async function scanClipboard() {
   }
 
   scanInFlight = true;
-  setWarnings([]);
+  setErrors([]);
   setStatus("Reading clipboard...");
 
   try {
@@ -727,7 +722,7 @@ async function scanClipboard() {
     await applyScanResults(scan, false);
   } catch (e) {
     setStatus("Clipboard scan failed.");
-    setWarnings([String(e)]);
+    setErrors([String(e)]);
   } finally {
     scanInFlight = false;
   }
@@ -754,13 +749,12 @@ function getSelectedEntries() {
 
 async function executeCommand(cmd) {
   try {
-    if (cmd && (cmd.action === "operator.error" || cmd.action === "operator.warn")) {
-      const isWarn = cmd.action === "operator.warn";
-      const summary = cmd._message ? String(cmd._message) : (isWarn ? "Operator warning" : "Operator error");
+    if (cmd && cmd.action === "operator.error") {
+      const summary = cmd._message ? String(cmd._message) : "Operator error";
       const details = typeof cmd.details_b64 === "string"
         ? cmd.details_b64
         : toBase64(JSON.stringify({ message: "Unknown issue" }));
-      const okValue = isWarn ? "true" : "false";
+      const okValue = "false";
       const lines = [
         "OPERATOR_RESULT",
         cmd.id ? `id: ${cmd.id}` : null,
@@ -774,7 +768,7 @@ async function executeCommand(cmd) {
         executedIds.add(String(cmd.id));
         saveExecutedIds();
       }
-      return { ok: !isWarn ? false : true, resultText: lines.join("\n") };
+      return { ok: false, resultText: lines.join("\n") };
     }
     const res = await window.operator.execute(cmd);
     const ok = !!res?.result?.ok;
@@ -878,7 +872,7 @@ async function loadLlmProfiles() {
     const active = await window.operator.getActiveLlmProfile?.();
     if (active?.id) llmProfileSelect.value = active.id;
   } catch (e) {
-    setWarnings([`Failed to load LLM profiles: ${String(e)}`]);
+    setErrors([`Failed to load LLM profiles: ${String(e)}`]);
   }
 }
 
@@ -897,7 +891,7 @@ if (llmProfileSelect) {
       }
     } catch (e) {
       setStatus("Failed to set LLM.");
-      setWarnings([String(e)]);
+      setErrors([String(e)]);
     }
   };
 }
@@ -984,7 +978,7 @@ btnClear.onclick = () => {
   selectedKeys = new Set();
   inboxEl.innerHTML = "";
   resultEl.value = "";
-  setWarnings([]);
+  setErrors([]);
   setStatus("");
   copyStatusEl.textContent = "";
   renderInbox();
@@ -1006,7 +1000,7 @@ btnCopyBootstrap.onclick = async () => {
     setTimeout(() => (copyStatusEl.textContent = ""), 1200);
   } catch (e) {
     setStatus("Failed to copy bootstrap prompt.");
-    setWarnings([String(e)]);
+    setErrors([String(e)]);
   }
 };
 
@@ -1026,7 +1020,7 @@ if (btnCopySmokeTest) {
       setTimeout(() => (copyStatusEl.textContent = ""), 1200);
     } catch (e) {
       setStatus("Failed to copy smoke test.");
-      setWarnings([String(e)]);
+      setErrors([String(e)]);
     }
   };
 }
@@ -1064,7 +1058,7 @@ if (btnBase64EncodeJson && base64Input && base64Output) {
       setStatus("JSON encoded.");
     } catch (e) {
       setStatus("Invalid JSON.");
-      setWarnings([String(e)]);
+      setErrors([String(e)]);
     }
   };
 }

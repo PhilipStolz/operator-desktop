@@ -5,7 +5,7 @@ declare global {
   interface Window {
     operator: {
       extract: () => Promise<{ text: string; meta: any }>;
-      scan: (text: string) => Promise<{ commands: any[]; warnings: string[] }>;
+      scan: (text: string) => Promise<{ commands: any[]; errors: string[] }>;
       execute: (cmd: any) => Promise<{ result: any; resultText: string }>;
       chooseWorkspace: () => Promise<{ ok: boolean; workspaceRoot: string | null }>;
       getWorkspace: () => Promise<{ workspaceRoot: string | null }>;
