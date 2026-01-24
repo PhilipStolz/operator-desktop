@@ -104,6 +104,14 @@ If language is provided, the payload is a single style object:
 The "language" field uses the resolved mapping key (e.g., "ts" for "typescript").
 If language is omitted, returns {"styles":[...]} with all supported default mappings.
 
+operator.error
+Required: version, id, action
+No path allowed
+Purpose: UI-generated error feedback (e.g., scan/validation failures). This is NOT an execution result for any other command.
+Result: details_b64 contains JSON {"message":"<error message>","related_id":"<optional original command id>"}.
+LLM behavior: treat as an error report; do NOT assume any command was executed.
+LLMs MUST NOT emit operator.error; it is UI-generated only.
+
 FILESYSTEM ACTIONS (fs.*)
 All fs.* actions operate strictly within the currently selected workspace root.
 Write/edit/patch/delete actions require explicit user confirmation.
@@ -261,6 +269,7 @@ LLM GUIDANCE
 - Use fs.readSlice for large files; fs.read can fail with a size limit.
 - fs.search returns at most 50 matches; refine the query if results are truncated.
 - Base64 payloads must be single-line (no whitespace). On ERR_INVALID_BASE64, re-encode and retry; split large payloads.
+- Choose conservative payload sizes to reduce base64 encoding errors; split very large content into multiple edits or regions.
 
 GOLDEN PATH EXAMPLES
 fs.write (content_b64):
