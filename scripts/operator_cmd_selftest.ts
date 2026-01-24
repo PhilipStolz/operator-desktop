@@ -363,6 +363,50 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "Duplicate id with identical content is ignored",
+    run: () => {
+      const block = [
+        "OPERATOR_CMD",
+        "version: 1",
+        "id: dup-001",
+        "action: fs.list",
+        "path: .",
+        "END_OPERATOR_CMD",
+      ].join("\n");
+      const input = `${block}\n${block}`;
+      const res = scanForCommands(input);
+      assertEqual(res.errors.length, 0, "duplicate identical errors");
+      assertEqual(res.commands.length, 1, "duplicate identical commands");
+    },
+  },
+  {
+    name: "Duplicate id with differing content raises ERR_DUPLICATE_ID",
+    run: () => {
+      const input = [
+        "OPERATOR_CMD",
+        "version: 1",
+        "id: dup-002",
+        "action: fs.list",
+        "path: .",
+        "END_OPERATOR_CMD",
+        "OPERATOR_CMD",
+        "version: 1",
+        "id: dup-002",
+        "action: fs.readSlice",
+        "path: README.md",
+        "END_OPERATOR_CMD",
+      ].join("\n");
+      const expected = invalidCmdSummary(
+        "ERR_DUPLICATE_ID",
+        "duplicate id with differing content: dup-002"
+      );
+      const res = scanForCommands(input);
+      assertEqual(res.commands.length, 1, "duplicate differing commands");
+      assertEqual(res.errors.length, 1, "duplicate differing errors");
+      assertEqual(res.errors[0], expected, "duplicate differing summary");
+    },
+  },
+  {
     name: "Reject UI-only operator.error in scan",
     run: () => {
       const input = [
@@ -450,6 +494,18 @@ const tests: TestCase[] = [
     run: async () => {
       const rendererJs = await loadRepoFile(path.join("renderer", "renderer.js"));
       assert(rendererJs.includes("operator.error"), "Expected UI handling/template for operator.error");
+    },
+  },
+  {
+    name: "operator.error result echoes related id",
+    run: async () => {
+      const rendererJs = await loadRepoFile(path.join("renderer", "renderer.js"));
+      const match = rendererJs.match(/async function executeCommand[\s\S]*?const res = await window\.operator\.execute/);
+      assert(!!match, "executeCommand block not found");
+      const block = match ? match[0] : "";
+      assert(block.includes("operator.error"), "operator.error branch missing in executeCommand");
+      assert(/JSON\\.parse/.test(block), "Expected executeCommand to parse details_b64 JSON for related_id");
+      assert(/related_id/.test(block), "Expected executeCommand to use related_id for OPERATOR_RESULT id");
     },
   },
   {
