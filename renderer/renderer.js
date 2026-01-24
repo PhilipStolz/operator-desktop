@@ -7,7 +7,12 @@ const workspaceEl = $("workspace");
 const btnExtract = $("btnExtract");
 const btnClear = $("btnClear");
 const statusEl = $("status");
-const errorsEl = $("errors");
+const errorsSection = $("errorsSection");
+const errorsSummary = $("errorsSummary");
+const errorListEl = $("errorList");
+const inboxSection = $("inboxSection");
+const toolsSection = $("toolsSection");
+const settingsSection = $("settingsSection");
 const inboxEl = $("inbox");
 const resultEl = $("result");
 const btnCopyResult = $("btnCopyResult");
@@ -20,7 +25,6 @@ const templateSelect = $("templateSelect");
 const btnInsertTemplate = $("btnInsertTemplate");
 const base64Box = $("base64Box");
 const base64Body = $("base64Body");
-const btnToggleBase64 = $("btnToggleBase64");
 const base64Input = $("base64Input");
 const base64Output = $("base64Output");
 const btnBase64Encode = $("btnBase64Encode");
@@ -49,6 +53,7 @@ const chkStopOnFail = $("chkStopOnFail");
 const chkAutoCopy = $("chkAutoCopy");
 
 let commands = [];
+let errorItems = [];
 let lastResultText = "";
 let selectedKeys = new Set();
 let pendingFocusKey = null;
@@ -58,14 +63,25 @@ let executedIds = new Set();
 
 const AUTO_SCAN_KEY = "operator.autoScan.v1";
 const AUTO_SCAN_INTERVAL_KEY = "operator.autoScanIntervalMs.v1";
+const WORKSPACE_KEY = "operator.workspaceRoot.v1";
 let autoScanTimer = null;
 let autoScanPaused = false;
 let scanInFlight = false;
 let inboxResizing = false;
+let lastErrorCount = 0;
 
 const SIDEBAR_WIDTH_KEY = "operator.sidebarWidth.v1";
 const INBOX_HEIGHT_KEY = "operator.inboxHeight.v1";
 const BASE64_COLLAPSED_KEY = "operator.base64Collapsed.v1";
+const ACCORDION_ERRORS_KEY = "operator.accordion.errors.v1";
+const ACCORDION_INBOX_KEY = "operator.accordion.inbox.v1";
+const ACCORDION_TOOLS_KEY = "operator.accordion.tools.v1";
+const ACCORDION_SETTINGS_KEY = "operator.accordion.settings.v1";
+
+const FALLBACK_LLM_PROFILES = [
+  { id: "chatgpt", label: "ChatGPT" },
+  { id: "deepseek", label: "DeepSeek" },
+];
 
 let modalCmd = null;
 let modalKey = null;
@@ -138,10 +154,36 @@ function loadLayoutSettings() {
   }
 }
 
+function setAccordionOpenTransient(detailsEl, open) {
+  if (!detailsEl) return;
+  if (detailsEl.open === !!open) return;
+  detailsEl.dataset.suppressSave = "1";
+  detailsEl.open = !!open;
+}
+
+function loadAccordionState(detailsEl, key, defaultOpen) {
+  if (!detailsEl) return;
+  try {
+    const stored = localStorage.getItem(key);
+    if (stored === null) detailsEl.open = !!defaultOpen;
+    else detailsEl.open = stored === "true";
+  } catch {
+    detailsEl.open = !!defaultOpen;
+  }
+  detailsEl.addEventListener("toggle", () => {
+    if (detailsEl.dataset.suppressSave === "1") {
+      delete detailsEl.dataset.suppressSave;
+      return;
+    }
+    try {
+      localStorage.setItem(key, detailsEl.open ? "true" : "false");
+    } catch {}
+  });
+}
+
 function setBase64Collapsed(collapsed) {
-  if (!base64Box || !btnToggleBase64) return;
-  base64Box.classList.toggle("collapsed", collapsed);
-  btnToggleBase64.textContent = collapsed ? "Show" : "Hide";
+  if (!base64Box) return;
+  base64Box.open = !collapsed;
   try {
     localStorage.setItem(BASE64_COLLAPSED_KEY, collapsed ? "true" : "false");
   } catch {}
@@ -157,6 +199,26 @@ function loadBase64Collapsed() {
     }
   } catch {
     setBase64Collapsed(true);
+  }
+}
+
+async function loadWorkspaceFromStorage() {
+  if (!window.operator?.setWorkspace) return;
+  try {
+    const stored = localStorage.getItem(WORKSPACE_KEY);
+    if (!stored) return;
+    const res = await window.operator.setWorkspace(stored);
+    if (res?.ok) return { ok: true };
+    const reason = res?.error ? ` (${res.error})` : "";
+    try {
+      localStorage.removeItem(WORKSPACE_KEY);
+    } catch {}
+    return { ok: false, error: `Workspace restore failed: ${stored}${reason}` };
+  } catch (e) {
+    try {
+      localStorage.removeItem(WORKSPACE_KEY);
+    } catch {}
+    return { ok: false, error: `Workspace restore failed: ${String(e)}` };
   }
 }
 
@@ -336,12 +398,120 @@ function setStatus(msg) {
   statusEl.textContent = msg || "";
 }
 
-function setErrors(errors) {
-  if (!errors || errors.length === 0) {
-    errorsEl.textContent = "";
+function buildErrorItems(messages) {
+  const list = Array.isArray(messages) ? messages : [];
+  const now = Date.now();
+  return list.map((message, index) => {
+    const text = String(message ?? "");
+    const relatedId = extractRelatedId(text);
+    const payload = relatedId ? { message: text, related_id: relatedId } : { message: text };
+    return {
+      id: `error-${now}-${index + 1}`,
+      message: text,
+      related_id: relatedId || "",
+      details_b64: toBase64(JSON.stringify(payload)),
+    };
+  });
+}
+
+async function copyErrorResult(item) {
+  if (!item || !window.operator?.copyToClipboard) return;
+  const lines = [
+    "OPERATOR_RESULT",
+    item.id ? `id: ${item.id}` : null,
+    "ok: false",
+    `summary: ${item.message}`,
+    `details_b64: ${item.details_b64}`,
+    "END_OPERATOR_RESULT",
+  ].filter(Boolean);
+  const text = lines.join("\n");
+  try {
+    await window.operator.copyToClipboard(text);
+    copyStatusEl.textContent = "Copied error result.";
+    setTimeout(() => (copyStatusEl.textContent = ""), 1200);
+  } catch (e) {
+    copyStatusEl.textContent = `Copy failed: ${String(e)}`;
+    setTimeout(() => (copyStatusEl.textContent = ""), 1600);
+  }
+}
+
+function renderErrors() {
+  if (!errorsSummary || !errorsSection || !errorListEl) return;
+  const count = errorItems.length;
+  errorsSummary.textContent = `Errors (${count})`;
+  errorListEl.innerHTML = "";
+
+  if (count === 0) {
+    setAccordionOpenTransient(errorsSection, false);
+    lastErrorCount = 0;
     return;
   }
-  errorsEl.textContent = errors.join(" | ");
+
+  let pref = null;
+  try {
+    pref = localStorage.getItem(ACCORDION_ERRORS_KEY);
+  } catch {}
+
+  if (pref === "false") {
+    setAccordionOpenTransient(errorsSection, false);
+  } else if (pref === "true") {
+    setAccordionOpenTransient(errorsSection, true);
+  } else if (lastErrorCount === 0) {
+    setAccordionOpenTransient(errorsSection, true);
+  }
+  lastErrorCount = count;
+
+  for (const item of errorItems) {
+    const card = document.createElement("div");
+    card.className = "errorCard";
+
+    const message = document.createElement("div");
+    message.className = "errorMessage";
+    message.textContent = item.message;
+    card.appendChild(message);
+
+    if (item.related_id) {
+      const meta = document.createElement("div");
+      meta.className = "errorMeta";
+      meta.textContent = `related: ${item.related_id}`;
+      card.appendChild(meta);
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "errorActions";
+
+    const btnCopy = document.createElement("button");
+    btnCopy.textContent = "Copy result";
+    btnCopy.onclick = (ev) => {
+      if (ev && ev.stopPropagation) ev.stopPropagation();
+      copyErrorResult(item);
+    };
+
+    const btnDismiss = document.createElement("button");
+    btnDismiss.textContent = "Dismiss";
+    btnDismiss.onclick = (ev) => {
+      if (ev && ev.stopPropagation) ev.stopPropagation();
+      errorItems = errorItems.filter((e) => e !== item);
+      renderErrors();
+    };
+
+    actions.appendChild(btnCopy);
+    actions.appendChild(btnDismiss);
+    card.appendChild(actions);
+
+    errorListEl.appendChild(card);
+  }
+}
+
+function setErrors(messages) {
+  errorItems = buildErrorItems(messages);
+  renderErrors();
+}
+
+function addErrorMessage(message) {
+  const items = buildErrorItems([message]);
+  errorItems = errorItems.concat(items);
+  renderErrors();
 }
 
 function escapeHtml(s) {
@@ -413,22 +583,7 @@ function extractRelatedId(message) {
   return m ? m[1] : "";
 }
 
-function buildIssueCommands(errors) {
-  if (!Array.isArray(errors) || errors.length === 0) return [];
-  const now = Date.now();
-  return errors.map((message, index) => {
-    const relatedId = extractRelatedId(message);
-    const payload = relatedId ? { message, related_id: relatedId } : { message };
-    return {
-      version: 1,
-      id: `error-${now}-${index + 1}`,
-      action: "operator.error",
-      details_b64: toBase64(JSON.stringify(payload)),
-      _message: message,
-      _ui: "error",
-    };
-  });
-}
+
 
 function decodeBase64Value(value) {
   try {
@@ -667,8 +822,7 @@ async function applyScanResults(scan, auto) {
 
   setAutoScanPaused(false);
   const errors = scan?.errors || [];
-  const issueCommands = buildIssueCommands(errors);
-  commands = (scan?.commands || []).concat(issueCommands);
+  commands = scan?.commands || [];
   selectFocusAfterScan();
   setErrors(errors);
   renderInbox();
@@ -856,7 +1010,18 @@ if (btnRunAll) {
 }
 
 async function loadLlmProfiles() {
-  if (!llmProfileSelect || !window.operator.getLlmProfiles) return;
+  if (!llmProfileSelect) return;
+  if (!window.operator?.getLlmProfiles) {
+    llmProfileSelect.innerHTML = "";
+    for (const profile of FALLBACK_LLM_PROFILES) {
+      const option = document.createElement("option");
+      option.value = profile.id;
+      option.textContent = profile.label || profile.id;
+      llmProfileSelect.appendChild(option);
+    }
+    setErrors(["LLM list unavailable from backend. Using fallback list."]);
+    return;
+  }
   try {
     const res = await window.operator.getLlmProfiles();
     const profiles = Array.isArray(res?.profiles) ? res.profiles : [];
@@ -871,6 +1036,25 @@ async function loadLlmProfiles() {
 
     const active = await window.operator.getActiveLlmProfile?.();
     if (active?.id) llmProfileSelect.value = active.id;
+
+    if (profiles.length === 0) {
+      if (active?.id) {
+        const option = document.createElement("option");
+        option.value = active.id;
+        option.textContent = active.label || active.id;
+        llmProfileSelect.appendChild(option);
+        llmProfileSelect.value = active.id;
+        return;
+      }
+      for (const profile of FALLBACK_LLM_PROFILES) {
+        const option = document.createElement("option");
+        option.value = profile.id;
+        option.textContent = profile.label || profile.id;
+        llmProfileSelect.appendChild(option);
+      }
+      llmProfileSelect.value = FALLBACK_LLM_PROFILES[0]?.id ?? "";
+      setErrors(["No LLM profiles available from backend. Using fallback list."]);
+    }
   } catch (e) {
     setErrors([`Failed to load LLM profiles: ${String(e)}`]);
   }
@@ -879,7 +1063,11 @@ async function loadLlmProfiles() {
 if (llmProfileSelect) {
   llmProfileSelect.onchange = async () => {
     const id = llmProfileSelect.value;
-    if (!id || !window.operator.setLlmProfile) return;
+    if (!id) return;
+    if (!window.operator?.setLlmProfile) {
+      addErrorMessage("LLM switch unavailable: operator.setLlmProfile missing.");
+      return;
+    }
     setStatus("Switching LLM...");
     try {
       const res = await window.operator.setLlmProfile(id);
@@ -887,18 +1075,43 @@ if (llmProfileSelect) {
         const label = res?.label || id;
         setStatus(`LLM set: ${label}.`);
       } else {
-        setStatus(res?.error ? `Failed to set LLM: ${res.error}` : "Failed to set LLM.");
+        const msg = res?.error ? `Failed to set LLM: ${res.error}` : "Failed to set LLM.";
+        setStatus(msg);
+        addErrorMessage(msg);
       }
     } catch (e) {
       setStatus("Failed to set LLM.");
-      setErrors([String(e)]);
+      addErrorMessage(String(e));
     }
   };
+}
+
+if (settingsSection) {
+  settingsSection.addEventListener("toggle", () => {
+    if (!settingsSection.open) return;
+    if (!llmProfileSelect) return;
+    if (llmProfileSelect.options.length === 0) {
+      loadLlmProfiles();
+    }
+  });
+}
+
+if (llmProfileSelect) {
+  llmProfileSelect.addEventListener("focus", () => {
+    if (llmProfileSelect.options.length === 0) {
+      loadLlmProfiles();
+    }
+  });
 }
 
 btnWorkspace.onclick = async () => {
   setStatus("Choosing workspace...");
   const res = await window.operator.chooseWorkspace();
+  if (res?.ok && res.workspaceRoot) {
+    try {
+      localStorage.setItem(WORKSPACE_KEY, res.workspaceRoot);
+    } catch {}
+  }
   await refreshWorkspacePill();
   loadExecutedIds();
   setStatus(res?.ok ? "Workspace set." : "Workspace not changed.");
@@ -929,11 +1142,12 @@ if (autoScanInterval) {
   };
 }
 
-if (btnToggleBase64 && base64Box) {
-  btnToggleBase64.onclick = () => {
-    const collapsed = base64Box.classList.contains("collapsed");
-    setBase64Collapsed(!collapsed);
-  };
+if (base64Box) {
+  base64Box.addEventListener("toggle", () => {
+    try {
+      localStorage.setItem(BASE64_COLLAPSED_KEY, base64Box.open ? "false" : "true");
+    } catch {}
+  });
 }
 
 if (cmdModalClose) {
@@ -1103,14 +1317,36 @@ btnCopyDecoded.onclick = async () => {
 
 // boot
 (async () => {
+  window.addEventListener("error", (event) => {
+    const message = event?.error?.stack || event?.message || "Unknown error";
+    addErrorMessage(`UI error: ${message}`);
+    setStatus("UI error detected.");
+  });
+  window.addEventListener("unhandledrejection", (event) => {
+    const reason = event?.reason;
+    const message = reason?.stack || String(reason || "Unknown rejection");
+    addErrorMessage(`UI rejection: ${message}`);
+    setStatus("UI error detected.");
+  });
+
+  loadAccordionState(errorsSection, ACCORDION_ERRORS_KEY, false);
+  loadAccordionState(inboxSection, ACCORDION_INBOX_KEY, true);
+  loadAccordionState(toolsSection, ACCORDION_TOOLS_KEY, false);
+  loadAccordionState(settingsSection, ACCORDION_SETTINGS_KEY, false);
+  loadBase64Collapsed();
+  const restore = await loadWorkspaceFromStorage();
+  if (restore && restore.ok === false && restore.error) {
+    setErrors([restore.error]);
+    setStatus("Workspace restore failed.");
+  }
   await refreshWorkspacePill();
   loadExecutedIds();
   await loadLlmProfiles();
   loadLayoutSettings();
   setupSidebarResize();
   setupInboxResize();
-  loadBase64Collapsed();
   loadAutoScanSettings();
   if (chkAutoScan && chkAutoScan.checked) startAutoScan();
   renderInbox();
+  renderErrors();
 })();

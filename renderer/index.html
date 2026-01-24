@@ -65,6 +65,93 @@
       color: #b00020
     }
 
+    .accordion {
+      border: 1px solid #eee;
+      border-radius: 8px;
+      background: #fafafa;
+      overflow: visible;
+    }
+
+    .accordion + .accordion {
+      margin-top: 8px;
+    }
+
+    .accordion summary {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 10px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #222;
+      user-select: none;
+    }
+
+    .accordion summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .accordion summary::after {
+      content: "▸";
+      font-size: 12px;
+      color: #666;
+      transition: transform 0.15s ease;
+    }
+
+    .accordion[open] summary::after {
+      transform: rotate(90deg);
+    }
+
+    .accordion[open] summary {
+      border-bottom: 1px solid #eee;
+      background: #f6f6f6;
+    }
+
+    .accordionBody {
+      padding: 8px;
+    }
+
+    .errorList {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .errorCard {
+      border: 1px solid #f1c0c0;
+      background: #fff4f4;
+      padding: 8px;
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .errorMessage {
+      font-size: 12px;
+      color: #8a0b0b;
+      word-break: break-word;
+    }
+
+    .errorMeta {
+      font-size: 11px;
+      color: #666;
+    }
+
+    .errorActions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .errorActions button {
+      padding: 6px 8px;
+      font-size: 12px;
+    }
+
     .mono {
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 12px;
@@ -219,13 +306,6 @@
       outline: 2px solid rgba(11, 87, 208, 0.35);
     }
 
-    .mutedBox {
-      border: 1px solid #eee;
-      border-radius: 8px;
-      padding: 8px;
-      background: #fafafa;
-    }
-
     #base64Box.collapsed #base64Body {
       display: none;
     }
@@ -363,102 +443,114 @@
         <span id="workspace" class="pill">Workspace: (not set)</span>
       </div>
       <div class="row" style="margin-top:8px;">
-        <label class="small" for="llmProfile">LLM</label>
-        <select id="llmProfile"></select>
-      </div>
-      <div class="row" style="margin-top:8px;">
         <button id="btnScanClipboard">Scan Clipboard</button>
         <button id="btnExtract">Extract &amp; Scan</button>
         <button id="btnClear">Clear</button>
       </div>
-      <div class="row" style="margin-top:6px;">
-        <label class="chk">
-          <input id="chkAutoScan" type="checkbox" /> auto extract &amp; scan
-        </label>
-        <label class="small" for="autoScanInterval">interval</label>
-        <select id="autoScanInterval">
-          <option value="2000">2s</option>
-          <option value="3000" selected>3s</option>
-          <option value="5000">5s</option>
-          <option value="10000">10s</option>
-        </select>
-      </div>
-      <div class="small">Auto pauses while you interact with Command Inbox.</div>
       <div id="status" class="small" style="margin-top:6px;"></div>
-      <div id="errors" class="small error" style="margin-top:4px;"></div>
     </div>
 
-    <div class="mutedBox">
-      <div class="row" style="justify-content:space-between;width:100%;">
-        <div>
-          <div class="sectionTitle">Command Inbox</div>
-          <div class="small">Select commands and run as a batch.</div>
+    <details class="accordion" id="errorsSection">
+      <summary id="errorsSummary">Errors (0)</summary>
+      <div class="accordionBody">
+        <div id="errorList" class="errorList"></div>
+      </div>
+    </details>
+
+    <details class="accordion" id="inboxSection" open>
+      <summary>Command Inbox</summary>
+      <div class="accordionBody">
+        <div class="small">Select commands and run as a batch.</div>
+        <div class="row" style="margin-top:8px;">
+          <button id="btnSelectAll">Select all</button>
+          <button id="btnSelectNone">Select none</button>
+          <button id="btnRunSelected">Run selected</button>
+          <button id="btnRunAll">Run all</button>
+          <button id="btnResetExecuted">Reset executed</button>
+          <label class="chk">
+            <input id="chkStopOnFail" type="checkbox" checked /> stop on fail
+          </label>
+          <label class="chk">
+            <input id="chkAutoCopy" type="checkbox" /> auto copy result
+          </label>
+        </div>
+        <div id="inbox" class="inboxPane" style="margin-top:8px;"></div>
+        <div id="inboxResizeHandle" class="resizeHandle horizontal"></div>
+      </div>
+    </details>
+
+    <details class="accordion" id="toolsSection">
+      <summary>Tools</summary>
+      <div class="accordionBody">
+        <div class="sectionTitle">Templates</div>
+        <div class="row" style="margin-top:8px;">
+          <select id="templateSelect">
+            <option value="operator.getInterfaceSpec">operator.getInterfaceSpec</option>
+            <option value="fs.list">fs.list</option>
+            <option value="fs.readSlice">fs.readSlice</option>
+            <option value="fs.search">fs.search</option>
+            <option value="fs.write">fs.write</option>
+            <option value="fs.applyEdits">fs.applyEdits</option>
+          </select>
+          <button id="btnInsertTemplate">Insert template</button>
+        </div>
+        <div class="small" style="margin-top:6px;">Copies a valid OPERATOR_CMD skeleton to clipboard.</div>
+
+        <div class="accordion" id="base64Box" style="margin-top:10px;">
+          <summary id="btnToggleBase64">Base64 Helper</summary>
+          <div class="accordionBody" id="base64Body">
+            <div class="small" style="margin-top:6px;">Text or JSON to base64 (UTF-8).</div>
+            <textarea id="base64Input" style="height:80px;" placeholder="Input text or JSON"></textarea>
+            <div class="row" style="margin-top:6px;">
+              <button id="btnBase64Encode">Encode</button>
+              <button id="btnBase64EncodeJson">Encode JSON</button>
+              <button id="btnBase64Copy">Copy output</button>
+            </div>
+            <textarea id="base64Output" style="height:80px;" readonly placeholder="Base64 output"></textarea>
+          </div>
+        </div>
+
+        <div style="margin-top:10px;">
+          <div class="sectionTitle">Last Result</div>
+          <textarea id="result" readonly></textarea>
+          <div class="row">
+            <button id="btnCopyResult">Copy Result</button>
+            <button id="btnCopyDecoded">Copy decoded details_b64</button>
+            <button id="btnCopyBootstrap">Copy LLM Bootstrap Prompt</button>
+            <button id="btnCopySmokeTest">Copy Smoke Test Task</button>
+            <span id="copyStatus" class="small"></span>
+          </div>
+          <div class="small">If fs.read fails due to size, Use fs.readSlice.</div>
+          <div class="small">Webchat laeuft rechts (BrowserView). Operator liest nur Text und fuehrt lokale Aktionen nur nach Bestaetigung aus.</div>
         </div>
       </div>
-      <div class="row" style="margin-top:8px;">
-        <button id="btnSelectAll">Select all</button>
-        <button id="btnSelectNone">Select none</button>
-        <button id="btnRunSelected">Run selected</button>
-        <button id="btnRunAll">Run all</button>
-        <button id="btnResetExecuted">Reset executed</button>
-        <label class="chk">
-          <input id="chkStopOnFail" type="checkbox" checked /> stop on fail
-        </label>
-        <label class="chk">
-          <input id="chkAutoCopy" type="checkbox" /> auto copy result
-        </label>
-      </div>
-    </div>
+    </details>
 
-    <div id="inbox" class="inboxPane"></div>
-    <div id="inboxResizeHandle" class="resizeHandle horizontal"></div>
-
-    <div class="mutedBox">
-      <div class="sectionTitle">Templates</div>
-      <div class="row" style="margin-top:8px;">
-        <select id="templateSelect">
-          <option value="operator.getInterfaceSpec">operator.getInterfaceSpec</option>
-          <option value="fs.list">fs.list</option>
-          <option value="fs.readSlice">fs.readSlice</option>
-          <option value="fs.search">fs.search</option>
-          <option value="fs.write">fs.write</option>
-          <option value="fs.applyEdits">fs.applyEdits</option>
-        </select>
-        <button id="btnInsertTemplate">Insert template</button>
-      </div>
-      <div class="small" style="margin-top:6px;">Copies a valid OPERATOR_CMD skeleton to clipboard.</div>
-    </div>
-
-    <div class="mutedBox collapsed" id="base64Box">
-      <div class="row" style="justify-content:space-between;width:100%;">
-        <div class="sectionTitle">Base64 Helper</div>
-        <button id="btnToggleBase64">Show</button>
-      </div>
-      <div id="base64Body">
-        <div class="small" style="margin-top:6px;">Text or JSON to base64 (UTF-8).</div>
-        <textarea id="base64Input" style="height:80px;" placeholder="Input text or JSON"></textarea>
-        <div class="row" style="margin-top:6px;">
-          <button id="btnBase64Encode">Encode</button>
-          <button id="btnBase64EncodeJson">Encode JSON</button>
-          <button id="btnBase64Copy">Copy output</button>
-        </div>
-        <textarea id="base64Output" style="height:80px;" readonly placeholder="Base64 output"></textarea>
-      </div>
-    </div>
-
-    <div class="lastResultPane">
-      <div class="sectionTitle">Last Result</div>
-      <textarea id="result" readonly></textarea>
+    <details class="accordion" id="settingsSection">
+      <summary>Settings</summary>
+      <div class="accordionBody">
         <div class="row">
-          <button id="btnCopyResult">Copy Result</button>
-          <button id="btnCopyDecoded">Copy decoded details_b64</button>
-          <button id="btnCopyBootstrap">Copy LLM Bootstrap Prompt</button>
-          <button id="btnCopySmokeTest">Copy Smoke Test Task</button>
-          <span id="copyStatus" class="small"></span>
+          <label class="small" for="llmProfile">LLM</label>
+          <select id="llmProfile">
+            <option value="chatgpt">ChatGPT</option>
+            <option value="deepseek">DeepSeek</option>
+          </select>
         </div>
-        <div class="small">If fs.read fails due to size, Use fs.readSlice.</div>
-        <div class="small">Webchat laeuft rechts (BrowserView). Operator liest nur Text und fuehrt lokale Aktionen nur nach Bestaetigung aus.</div>
+        <div class="row" style="margin-top:8px;">
+          <label class="chk">
+            <input id="chkAutoScan" type="checkbox" /> auto extract &amp; scan
+          </label>
+          <label class="small" for="autoScanInterval">interval</label>
+          <select id="autoScanInterval">
+            <option value="2000">2s</option>
+            <option value="3000" selected>3s</option>
+            <option value="5000">5s</option>
+            <option value="10000">10s</option>
+          </select>
+        </div>
+        <div class="small">Auto pauses while you interact with Command Inbox.</div>
       </div>
+    </details>
   </div>
 
   <div class="contentHint">Webchat rechts im Fenster (BrowserView). Sidebar bleibt Operator.</div>

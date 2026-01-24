@@ -1316,6 +1316,22 @@ function createWindow() {
     return { workspaceRoot };
   });
 
+  ipcMain.handle("operator:setWorkspace", async (_evt, { path: candidate }: { path: string }) => {
+    const raw = typeof candidate === "string" ? candidate.trim() : "";
+    if (!raw) return { ok: false, workspaceRoot, error: "Workspace path is empty" };
+    try {
+      const resolved = path.resolve(raw);
+      const stat = await fs.stat(resolved);
+      if (!stat.isDirectory()) {
+        return { ok: false, workspaceRoot, error: "Workspace path is not a directory" };
+      }
+      workspaceRoot = resolved;
+      return { ok: true, workspaceRoot };
+    } catch (e: any) {
+      return { ok: false, workspaceRoot, error: String(e?.message ?? e) };
+    }
+  });
+
   ipcMain.handle("operator:setSidebarWidth", async (_evt, { width }: { width: number }) => {
     const next = setSidebarWidth(width);
     return { ok: true, width: next };

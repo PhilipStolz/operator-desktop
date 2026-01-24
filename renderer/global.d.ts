@@ -8,6 +8,7 @@ declare global {
       scan: (text: string) => Promise<{ commands: any[]; errors: string[] }>;
       execute: (cmd: any) => Promise<{ result: any; resultText: string }>;
       chooseWorkspace: () => Promise<{ ok: boolean; workspaceRoot: string | null }>;
+      setWorkspace: (path: string) => Promise<{ ok: boolean; workspaceRoot: string | null; error?: string }>;
       getWorkspace: () => Promise<{ workspaceRoot: string | null }>;
       copyToClipboard: (text: string) => Promise<{ ok: boolean }>;
       readClipboard: () => Promise<{ text: string }>;

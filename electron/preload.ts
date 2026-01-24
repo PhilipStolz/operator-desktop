@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld("operator", {
 
   // Workspace selection
   chooseWorkspace: () => ipcRenderer.invoke("operator:chooseWorkspace"),
+  setWorkspace: (path: string) => ipcRenderer.invoke("operator:setWorkspace", { path }),
   getWorkspace: () => ipcRenderer.invoke("operator:getWorkspace"),
 
   // Clipboard
