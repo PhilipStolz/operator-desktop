@@ -413,19 +413,24 @@ function extractRelatedId(message) {
   return m ? m[1] : "";
 }
 
-function buildErrorCommands(warnings) {
+function isErrorWarning(message) {
+  return /Invalid OPERATOR_CMD\s*\(ERR_/i.test(String(message || ""));
+}
+
+function buildIssueCommands(warnings) {
   if (!Array.isArray(warnings) || warnings.length === 0) return [];
   const now = Date.now();
   return warnings.map((message, index) => {
     const relatedId = extractRelatedId(message);
     const payload = relatedId ? { message, related_id: relatedId } : { message };
+    const isError = isErrorWarning(message);
     return {
       version: 1,
-      id: `error-${now}-${index + 1}`,
-      action: "operator.error",
+      id: `${isError ? "error" : "warn"}-${now}-${index + 1}`,
+      action: isError ? "operator.error" : "operator.warn",
       details_b64: toBase64(JSON.stringify(payload)),
       _message: message,
-      _ui: "error",
+      _ui: isError ? "error" : "warn",
     };
   });
 }
@@ -667,8 +672,8 @@ async function applyScanResults(scan, auto) {
 
   setAutoScanPaused(false);
   const warns = scan?.warnings || [];
-  const errorCommands = buildErrorCommands(warns);
-  commands = (scan?.commands || []).concat(errorCommands);
+  const issueCommands = buildIssueCommands(warns);
+  commands = (scan?.commands || []).concat(issueCommands);
   selectFocusAfterScan();
   setWarnings(warns);
   renderInbox();
@@ -749,18 +754,27 @@ function getSelectedEntries() {
 
 async function executeCommand(cmd) {
   try {
-    if (cmd && cmd.action === "operator.error") {
-      const summary = cmd._message ? String(cmd._message) : "Operator error";
-      const details = typeof cmd.details_b64 === "string" ? cmd.details_b64 : toBase64(JSON.stringify({ message: "Unknown error" }));
+    if (cmd && (cmd.action === "operator.error" || cmd.action === "operator.warn")) {
+      const isWarn = cmd.action === "operator.warn";
+      const summary = cmd._message ? String(cmd._message) : (isWarn ? "Operator warning" : "Operator error");
+      const details = typeof cmd.details_b64 === "string"
+        ? cmd.details_b64
+        : toBase64(JSON.stringify({ message: "Unknown issue" }));
+      const okValue = isWarn ? "true" : "false";
       const lines = [
         "OPERATOR_RESULT",
         cmd.id ? `id: ${cmd.id}` : null,
-        "ok: false",
+        `ok: ${okValue}`,
         `summary: ${summary}`,
         `details_b64: ${details}`,
         "END_OPERATOR_RESULT",
       ].filter(Boolean);
-      return { ok: false, resultText: lines.join("\n") };
+
+      if (cmd.id) {
+        executedIds.add(String(cmd.id));
+        saveExecutedIds();
+      }
+      return { ok: !isWarn ? false : true, resultText: lines.join("\n") };
     }
     const res = await window.operator.execute(cmd);
     const ok = !!res?.result?.ok;
