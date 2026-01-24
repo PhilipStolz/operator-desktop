@@ -168,6 +168,10 @@ type CommentStyle =
   | { type: "line"; linePrefix: string; language: string; source: "map" | "explicit" }
   | { type: "block"; blockStart: string; blockEnd: string; language: string; source: "map" | "explicit" };
 
+type CommentStyleMapEntry =
+  | { type: "line"; linePrefix: string; language: string }
+  | { type: "block"; blockStart: string; blockEnd: string; language: string };
+
 const COMMENT_LANGUAGE_ALIASES: Record<string, string> = {
   javascript: "js",
   typescript: "ts",
@@ -180,7 +184,7 @@ const COMMENT_LANGUAGE_ALIASES: Record<string, string> = {
   markdown: "md",
 };
 
-const COMMENT_STYLE_MAP: Record<string, Omit<CommentStyle, "source">> = {
+const COMMENT_STYLE_MAP: Record<string, CommentStyleMapEntry> = {
   js: { type: "line", linePrefix: "//", language: "js" },
   ts: { type: "line", linePrefix: "//", language: "ts" },
   jsx: { type: "line", linePrefix: "//", language: "jsx" },
@@ -233,7 +237,10 @@ function getCommentStyleForLanguage(langRaw: string): CommentStyle | null {
   const key = COMMENT_LANGUAGE_ALIASES[normalized] ?? normalized;
   const style = COMMENT_STYLE_MAP[key];
   if (!style) return null;
-  return { ...style, source: "map" };
+  if (style.type === "line") {
+    return { type: "line", linePrefix: style.linePrefix, language: style.language, source: "map" };
+  }
+  return { type: "block", blockStart: style.blockStart, blockEnd: style.blockEnd, language: style.language, source: "map" };
 }
 
 function getCommentStyleForPath(relPath: string): CommentStyle | null {
