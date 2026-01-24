@@ -73,6 +73,24 @@ If an OPERATOR_RESULT returns ok: false:
 - If the error is a malformed command or missing fields, correct it and retry
 - If no OPERATOR_RESULT is provided, explicitly ask the user to paste it. Do not proceed otherwise.
 
+SESSION CONTINUITY RULE (HARD)
+
+This session MUST end in a state that allows work to continue in a new chat
+without relying on implicit conversation memory.
+
+Therefore:
+- Prefer writing explicit project documentation (e.g. PROJECT.md) into the workspace
+  over relying on chat context.
+- Structure work so that there is always a clearly defined "next step"
+  that can be executed in a fresh session.
+- Avoid leaving partially implemented features without documentation.
+- Before ending a session, ensure that:
+  1) the current project state is documented in the workspace
+  2) unfinished work is explicitly described
+  3) a concrete starting task for the next session exists
+
+Do NOT assume that future sessions have access to prior chat messages.
+
 MINIMAL EXAMPLE (BEHAVIORAL)
 
 Assistant:
