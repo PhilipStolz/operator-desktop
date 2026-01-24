@@ -65,6 +65,7 @@ WORKFLOW GUIDANCE
 - Prefer: fs.search -> fs.readSlice -> fs.applyEdits -> fs.readSlice (verify).
 - Avoid fs.patch unless necessary.
 - Avoid fs.read for large files (over ~200k bytes); use fs.readSlice.
+- Base64 payloads must be single-line (no whitespace). If ERR_INVALID_BASE64 occurs, re-encode and retry; split large payloads.
 
 FAILURE HANDLING
 If an OPERATOR_RESULT returns ok: false:

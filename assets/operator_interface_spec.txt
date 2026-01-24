@@ -6,6 +6,7 @@ HARD RULES
 3. Inside OPERATOR_CMD blocks, ONLY lines of the form "key: value" are allowed (one key-value per line; keys are case-sensitive). Any other non-empty line makes the command invalid.
 4. OPERATOR_CMD blocks MUST NOT be nested. If START appears before END, the block is invalid.
 5. Multi-line payloads MUST NEVER be sent inline. Use base64 UTF-8 fields: content_b64, patch_b64, edits_b64.
+   Base64 fields MUST be a single line with no whitespace; only A-Z a-z 0-9 + / = are allowed, and padding must be correct.
 6. The plain "content" field MAY be used ONLY for very small single-line text and MUST NOT contain line breaks.
 7. Use ASCII only inside OPERATOR_CMD blocks. Non-ASCII characters make the command invalid.
 8. Every OPERATOR_CMD MUST include: version: 1, id: <string>, action: <string>. version must be exactly 1.
@@ -259,6 +260,7 @@ LLM GUIDANCE
 - Place OPERATOR_CMD blocks near the end of the message; only the last 200,000 chars are scanned.
 - Use fs.readSlice for large files; fs.read can fail with a size limit.
 - fs.search returns at most 50 matches; refine the query if results are truncated.
+- Base64 payloads must be single-line (no whitespace). On ERR_INVALID_BASE64, re-encode and retry; split large payloads.
 
 GOLDEN PATH EXAMPLES
 fs.write (content_b64):
