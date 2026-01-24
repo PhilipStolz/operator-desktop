@@ -99,6 +99,9 @@ export function validateCommandFields(cmd: OperatorCmd): { ok: true } | { ok: fa
   const action = String(cmd.action);
   const pathValue = cmd.path ? String(cmd.path) : "";
   const isFs = action.startsWith("fs.");
+  if (action === "operator.error") {
+    return { ok: false, code: "ERR_RESERVED_ACTION", detail: "action reserved for UI: operator.error" };
+  }
   if (isFs && !pathValue) {
     return { ok: false, code: "ERR_ACTION_REQUIRES_PATH", detail: "fs.* actions require path." };
   }

@@ -67,6 +67,7 @@ Additional validation errors:
 - ERR_MISSING_PATCH_B64
 - ERR_INVALID_EDITS_JSON
 - ERR_UNKNOWN_ACTION
+- ERR_RESERVED_ACTION
 - ERR_BLOCK_TOO_LARGE
 - ERR_UNSUPPORTED_VERSION
 - ERR_FILE_TOO_LARGE
@@ -111,6 +112,7 @@ Purpose: UI-generated error feedback (e.g., scan/validation failures). This is N
 Result: details_b64 contains JSON {"message":"<error message>","related_id":"<optional original command id>"}.
 LLM behavior: treat as an error report; do NOT assume any command was executed.
 LLMs MUST NOT emit operator.error; it is UI-generated only.
+If an OPERATOR_CMD attempts operator.error, it is rejected with ERR_RESERVED_ACTION.
 
 FILESYSTEM ACTIONS (fs.*)
 All fs.* actions operate strictly within the currently selected workspace root.
