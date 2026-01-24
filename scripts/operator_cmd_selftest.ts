@@ -1,4 +1,5 @@
 import * as fs from "fs/promises";
+import * as fsSync from "fs";
 import * as path from "path";
 import { spawnSync } from "child_process";
 import {
@@ -22,8 +23,24 @@ function assert(condition: boolean, label: string) {
   if (!condition) throw new Error(label);
 }
 
+function findRepoRoot(start: string): string {
+  let dir = path.resolve(start);
+  for (let i = 0; i < 6; i++) {
+    const candidate = path.join(dir, "package.json");
+    if (fsSync.existsSync(candidate)) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return path.resolve(process.cwd());
+}
+
+function getRepoRoot(): string {
+  return findRepoRoot(process.cwd());
+}
+
 async function loadRepoFile(relPath: string): Promise<string> {
-  const repoRoot = path.resolve(__dirname, "..");
+  const repoRoot = getRepoRoot();
   const filePath = path.join(repoRoot, relPath);
   return fs.readFile(filePath, "utf-8");
 }
@@ -46,7 +63,7 @@ function expectValidation(cmd: OperatorCmd, expected: string, label: string) {
 }
 
 async function assertSpecCoversErrCodes() {
-  const repoRoot = path.resolve(__dirname, "..");
+  const repoRoot = getRepoRoot();
   const specPath = path.join(repoRoot, "assets", "operator_interface_spec.txt");
   const specText = await fs.readFile(specPath, "utf-8");
   const specCodes = new Set(specText.match(/ERR_[A-Z0-9_]+/g) ?? []);
@@ -67,7 +84,7 @@ async function assertSpecCoversErrCodes() {
 }
 
 async function loadTemplates(): Promise<Record<string, string>> {
-  const repoRoot = path.resolve(__dirname, "..");
+  const repoRoot = getRepoRoot();
   const rendererPath = path.join(repoRoot, "renderer", "renderer.js");
   const text = await fs.readFile(rendererPath, "utf-8");
 
@@ -504,8 +521,9 @@ const tests: TestCase[] = [
       assert(!!match, "executeCommand block not found");
       const block = match ? match[0] : "";
       assert(block.includes("operator.error"), "operator.error branch missing in executeCommand");
-      assert(/JSON\\.parse/.test(block), "Expected executeCommand to parse details_b64 JSON for related_id");
-      assert(/related_id/.test(block), "Expected executeCommand to use related_id for OPERATOR_RESULT id");
+      assert(/JSON\\.parse/.test(block) || /parseJson/.test(block), "Expected executeCommand to parse details_b64 JSON");
+      assert(/related_id/.test(block), "Expected executeCommand to read related_id from details_b64");
+      assert(/id:\s*\$\{relatedId\}/.test(block), "Expected OPERATOR_RESULT id to use relatedId");
     },
   },
   {
