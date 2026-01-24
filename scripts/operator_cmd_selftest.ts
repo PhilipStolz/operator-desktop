@@ -426,6 +426,13 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "operator.error displayed in UI",
+    run: async () => {
+      const rendererJs = await loadRepoFile(path.join("renderer", "renderer.js"));
+      assert(rendererJs.includes("operator.error"), "Expected UI handling/template for operator.error");
+    },
+  },
+  {
     name: "Templates are valid",
     run: async () => {
       await assertTemplatesValid();
