@@ -397,6 +397,59 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "ERR_ACTION_REQUIRES_PATH includes id",
+    run: () => {
+      const input = [
+        "OPERATOR_CMD",
+        "version: 1",
+        "id: needs-path-002",
+        "action: fs.list",
+        "END_OPERATOR_CMD",
+      ].join("\n");
+      const expected = invalidCmdSummary(
+        "ERR_ACTION_REQUIRES_PATH",
+        "fs.* actions require path. id: needs-path-002"
+      );
+      expectSingleError(input, expected, "ERR_ACTION_REQUIRES_PATH includes id");
+    },
+  },
+  {
+    name: "ERR_MISSING_WRITE_CONTENT includes id",
+    run: () => {
+      const input = [
+        "OPERATOR_CMD",
+        "version: 1",
+        "id: write-missing-002",
+        "action: fs.write",
+        "path: notes.txt",
+        "END_OPERATOR_CMD",
+      ].join("\n");
+      const expected = invalidCmdSummary(
+        "ERR_MISSING_WRITE_CONTENT",
+        "fs.write requires content or content_b64. id: write-missing-002"
+      );
+      expectSingleError(input, expected, "ERR_MISSING_WRITE_CONTENT includes id");
+    },
+  },
+  {
+    name: "ERR_MISSING_QUERY includes id",
+    run: () => {
+      const input = [
+        "OPERATOR_CMD",
+        "version: 1",
+        "id: search-missing-002",
+        "action: fs.search",
+        "path: notes.txt",
+        "END_OPERATOR_CMD",
+      ].join("\n");
+      const expected = invalidCmdSummary(
+        "ERR_MISSING_QUERY",
+        "missing query; use query: <text>. id: search-missing-002"
+      );
+      expectSingleError(input, expected, "ERR_MISSING_QUERY includes id");
+    },
+  },
+  {
     name: "Duplicate id with identical content is ignored",
     run: () => {
       const block = [
