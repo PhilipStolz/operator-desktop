@@ -336,6 +336,23 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "ERR_INVALID_BASE64 includes command id",
+    run: () => {
+      const input = [
+        "OPERATOR_CMD",
+        "version: 1",
+        "id: badb64-001",
+        "action: fs.write",
+        "path: test.txt",
+        "content_b64: !!!NOT_BASE64!!!",
+        "END_OPERATOR_CMD",
+      ].join("\n");
+      const res = scanForCommands(input);
+      assertEqual(res.errors.length, 1, "badb64 errors");
+      assert(/id\s*[:=]\s*badb64-001/.test(res.errors[0]), "Expected error summary to include id");
+    },
+  },
+  {
     name: "ERR_SEARCH_PATH_IS_DIR",
     run: async () => {
       const dirPath = process.cwd();
