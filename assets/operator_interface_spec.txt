@@ -114,6 +114,9 @@ Result: details_b64 contains JSON {"message":"<error message>","related_id":"<op
 LLM behavior: treat as an error report; do NOT assume any command was executed.
 LLMs MUST NOT emit operator.error; it is UI-generated only.
 If an OPERATOR_CMD attempts operator.error, it is rejected with ERR_RESERVED_ACTION.
+LLM expectation:
+- When an error relates to a specific command, related_id will be that command id.
+- The OPERATOR_RESULT id for such an error will match related_id so you can associate it with the failed command.
 
 FILESYSTEM ACTIONS (fs.*)
 All fs.* actions operate strictly within the currently selected workspace root.
