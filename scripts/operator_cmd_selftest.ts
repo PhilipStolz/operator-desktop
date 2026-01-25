@@ -450,6 +450,60 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "ERR_MISSING_PATH_TO (fs.copy)",
+    run: () => {
+      const input = [
+        "OPERATOR_CMD",
+        "version: 1",
+        "id: copy-001",
+        "action: fs.copy",
+        "path: src/a.txt",
+        "END_OPERATOR_CMD",
+      ].join("\n");
+      const expected = invalidCmdSummary(
+        "ERR_MISSING_PATH_TO",
+        "path_to is required. id: copy-001"
+      );
+      expectSingleError(input, expected, "ERR_MISSING_PATH_TO fs.copy");
+    },
+  },
+  {
+    name: "ERR_MISSING_PATH_TO (fs.move)",
+    run: () => {
+      const input = [
+        "OPERATOR_CMD",
+        "version: 1",
+        "id: move-001",
+        "action: fs.move",
+        "path: src/a.txt",
+        "END_OPERATOR_CMD",
+      ].join("\n");
+      const expected = invalidCmdSummary(
+        "ERR_MISSING_PATH_TO",
+        "path_to is required. id: move-001"
+      );
+      expectSingleError(input, expected, "ERR_MISSING_PATH_TO fs.move");
+    },
+  },
+  {
+    name: "ERR_MISSING_PATH_TO (fs.rename)",
+    run: () => {
+      const input = [
+        "OPERATOR_CMD",
+        "version: 1",
+        "id: rename-001",
+        "action: fs.rename",
+        "path: src/a.txt",
+        "END_OPERATOR_CMD",
+      ].join("\n");
+      const expected = invalidCmdSummary(
+        "ERR_MISSING_PATH_TO",
+        "path_to is required. id: rename-001"
+      );
+      expectSingleError(input, expected, "ERR_MISSING_PATH_TO fs.rename");
+    },
+  },
+  {
     name: "Duplicate id with identical content is ignored",
     run: () => {
       const block = [
@@ -558,6 +612,24 @@ const tests: TestCase[] = [
 
       const hasGlob = /fs\.glob/.test(text);
       assert(!hasGlob, "Did not expect fs.glob in electron/main.ts");
+    },
+  },
+  {
+    name: "fs.copy/fs.move/fs.rename handlers",
+    run: async () => {
+      const text = await loadRepoFile(path.join("electron", "main.ts"));
+      const hasCopy =
+        /action\s*===\s*["']fs\.copy["']/.test(text) ||
+        /case\s+["']fs\.copy["']/.test(text);
+      const hasMove =
+        /action\s*===\s*["']fs\.move["']/.test(text) ||
+        /case\s+["']fs\.move["']/.test(text);
+      const hasRename =
+        /action\s*===\s*["']fs\.rename["']/.test(text) ||
+        /case\s+["']fs\.rename["']/.test(text);
+      assert(hasCopy, "Expected fs.copy action handler in electron/main.ts");
+      assert(hasMove, "Expected fs.move action handler in electron/main.ts");
+      assert(hasRename, "Expected fs.rename action handler in electron/main.ts");
     },
   },
   {
