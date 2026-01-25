@@ -12,6 +12,7 @@ HARD RULES
 8. Every OPERATOR_CMD MUST include: version: 1, id: <string>, action: <string>. version must be exactly 1.
 9. The command id MUST be echoed verbatim in the corresponding OPERATOR_RESULT.
 10. Actions starting with "fs." REQUIRE a path field. Actions not starting with "fs." MUST NOT include a path field.
+    For fs.copy, fs.move, and fs.rename you MUST also provide path_to.
 11. Workspace is NOT part of OPERATOR_CMD. Do NOT include workspace/workspaceRoot (or any equivalent) as a command field. Workspace is selected in the app UI and stored as state.
 12. Do NOT guess file contents. Read before modifying. Do not issue fs.patch or fs.applyEdits without reading relevant context first.
 13. fs.patch is strict unified diff patching; hunks and context must match exactly or the command fails.
@@ -75,6 +76,7 @@ Additional validation errors:
 - ERR_MISSING_MARKER_ID
 - ERR_MISSING_CONTENT_B64
 - ERR_MISSING_WRITE_CONTENT
+- ERR_MISSING_PATH_TO
 - ERR_UNKNOWN_LANGUAGE
 - ERR_COMMENT_STYLE_REQUIRED
 - ERR_INVALID_COMMENT_STYLE
@@ -123,6 +125,7 @@ FILESYSTEM ACTIONS (fs.*)
 All fs.* actions operate strictly within the currently selected workspace root.
 Write/edit/patch/delete actions require explicit user confirmation.
 Paths are always interpreted as relative to the workspace root.
+fs.copy/fs.move/fs.rename require both path and path_to.
 
 fs.list
 Requires: path (directory)
@@ -256,6 +259,21 @@ fs.delete
 Requires: path
 Requires user confirmation
 Behavior: deletes or trashes the path
+
+fs.copy
+Requires: path (file or directory)
+Requires: path_to (destination path)
+Requires user confirmation
+Behavior: copies from path to path_to
+
+fs.move
+Requires: path (file or directory)
+Requires: path_to (destination path)
+Requires user confirmation
+Behavior: moves/renames from path to path_to
+
+fs.rename
+Alias of fs.move
 
 RECOMMENDED WORKFLOW
 1) operator.getInterfaceSpec (once at the start of a session)
