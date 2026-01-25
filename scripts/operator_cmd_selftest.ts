@@ -504,6 +504,43 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "ERR_UNEXPECTED_PATH_TO (fs.read)",
+    run: () => {
+      const input = [
+        "OPERATOR_CMD",
+        "version: 1",
+        "id: read-pt-001",
+        "action: fs.read",
+        "path: notes.txt",
+        "path_to: other.txt",
+        "END_OPERATOR_CMD",
+      ].join("\n");
+      const expected = invalidCmdSummary(
+        "ERR_UNEXPECTED_PATH_TO",
+        "path_to is not allowed for this action. id: read-pt-001"
+      );
+      expectSingleError(input, expected, "ERR_UNEXPECTED_PATH_TO fs.read");
+    },
+  },
+  {
+    name: "ERR_UNEXPECTED_PATH_TO (operator.getInterfaceSpec)",
+    run: () => {
+      const input = [
+        "OPERATOR_CMD",
+        "version: 1",
+        "id: iface-pt-001",
+        "action: operator.getInterfaceSpec",
+        "path_to: other.txt",
+        "END_OPERATOR_CMD",
+      ].join("\n");
+      const expected = invalidCmdSummary(
+        "ERR_UNEXPECTED_PATH_TO",
+        "path_to is not allowed for this action. id: iface-pt-001"
+      );
+      expectSingleError(input, expected, "ERR_UNEXPECTED_PATH_TO operator.getInterfaceSpec");
+    },
+  },
+  {
     name: "Duplicate id with identical content is ignored",
     run: () => {
       const block = [

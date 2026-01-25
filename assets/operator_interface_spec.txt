@@ -13,6 +13,7 @@ HARD RULES
 9. The command id MUST be echoed verbatim in the corresponding OPERATOR_RESULT.
 10. Actions starting with "fs." REQUIRE a path field. Actions not starting with "fs." MUST NOT include a path field.
     For fs.copy, fs.move, and fs.rename you MUST also provide path_to.
+    For all other actions, path_to MUST NOT be provided.
 11. Workspace is NOT part of OPERATOR_CMD. Do NOT include workspace/workspaceRoot (or any equivalent) as a command field. Workspace is selected in the app UI and stored as state.
 12. Do NOT guess file contents. Read before modifying. Do not issue fs.patch or fs.applyEdits without reading relevant context first.
 13. fs.patch is strict unified diff patching; hunks and context must match exactly or the command fails.
@@ -77,6 +78,7 @@ Additional validation errors:
 - ERR_MISSING_CONTENT_B64
 - ERR_MISSING_WRITE_CONTENT
 - ERR_MISSING_PATH_TO
+- ERR_UNEXPECTED_PATH_TO
 - ERR_UNKNOWN_LANGUAGE
 - ERR_COMMENT_STYLE_REQUIRED
 - ERR_INVALID_COMMENT_STYLE

@@ -528,7 +528,7 @@ function resolveInWorkspace(relPath: string): { ok: boolean; absPath?: string; r
 function riskLevel(action?: string): "read" | "write" | "delete" | "unknown" {
   if (!action) return "unknown";
   if (action === "fs.read" || action === "fs.list" || action === "fs.readSlice" || action === "fs.search" || action === "fs.readRegion" || action === "fs.listRegions" || action === "fs.stat" || action === "fs.searchTree") return "read";
-  if (action === "fs.write" || action === "fs.patch" || action === "fs.applyEdits" || action === "fs.replaceRegion" || action === "fs.deleteRegion" || action === "fs.insertRegion") return "write";
+  if (action === "fs.write" || action === "fs.patch" || action === "fs.applyEdits" || action === "fs.replaceRegion" || action === "fs.deleteRegion" || action === "fs.insertRegion" || action === "fs.copy" || action === "fs.move" || action === "fs.rename") return "write";
   if (action === "fs.delete") return "delete";
   return "unknown";
 }
@@ -543,6 +543,39 @@ async function confirmDestructive(win: BrowserWindow, title: string, message: st
     message,
   });
   return response === 1;
+}
+
+async function copyPath(src: string, dest: string) {
+  const cp = (fs as any).cp;
+  if (typeof cp === "function") {
+    await cp(src, dest, { recursive: true, force: true });
+    return;
+  }
+  const stat = await fs.lstat(src);
+  if (stat.isSymbolicLink()) {
+    const link = await fs.readlink(src);
+    await fs.symlink(link, dest);
+    return;
+  }
+  if (stat.isDirectory()) {
+    await fs.mkdir(dest, { recursive: true });
+    const entries = await fs.readdir(src, { withFileTypes: true });
+    for (const entry of entries) {
+      const from = path.join(src, entry.name);
+      const to = path.join(dest, entry.name);
+      if (entry.isDirectory()) {
+        await copyPath(from, to);
+      } else if (entry.isSymbolicLink()) {
+        const link = await fs.readlink(from);
+        await fs.symlink(link, to);
+      } else {
+        await fs.copyFile(from, to);
+      }
+    }
+    return;
+  }
+  await fs.mkdir(path.dirname(dest), { recursive: true });
+  await fs.copyFile(src, dest);
 }
 
 async function executeFsCommand(win: BrowserWindow, cmd: OperatorCmd): Promise<OperatorResult> {
@@ -565,15 +598,32 @@ async function executeFsCommand(win: BrowserWindow, cmd: OperatorCmd): Promise<O
   const absPath = resolved.absPath!;
   const normalizeRel = (p: string) => normalizeRelPath(p.replace(/\\/g, "/"));
   const toRelPath = (p: string) => normalizeRel(path.relative(workspaceRoot ?? "", p));
+  const needsPathTo = action === "fs.copy" || action === "fs.move" || action === "fs.rename";
+  const relPathTo = needsPathTo && typeof (cmd as any).path_to === "string"
+    ? String((cmd as any).path_to).trim()
+    : "";
+  if (needsPathTo && !relPathTo) {
+    return {
+      id,
+      ok: false,
+      summary: invalidCmdSummary("ERR_MISSING_PATH_TO", "path_to is required."),
+    };
+  }
+  const resolvedTo = needsPathTo ? resolveInWorkspace(relPathTo) : null;
+  if (needsPathTo && resolvedTo && !resolvedTo.ok) {
+    return { id, ok: false, summary: `Workspace/path error: ${resolvedTo.reason}` };
+  }
+  const absPathTo = resolvedTo?.absPath;
 
   const level = riskLevel(action);
 
   // confirm write/delete always
   if (level === "write" || level === "delete") {
+    const destInfo = relPathTo ? `\n\nPath to:\n${relPathTo}` : "";
     const ok = await confirmDestructive(
       win,
       "Confirm action",
-      `Do you want to execute:\n\n${action}\n${relPath}\n\nWorkspace:\n${workspaceRoot}`
+      `Do you want to execute:\n\n${action}\n${relPath}${destInfo}\n\nWorkspace:\n${workspaceRoot}`
     );
     if (!ok) return { id, ok: false, summary: "User cancelled" };
   }
@@ -1013,6 +1063,42 @@ async function executeFsCommand(win: BrowserWindow, cmd: OperatorCmd): Promise<O
 
       await fs.writeFile(absPath, res.text, "utf-8");
       return { id, ok: true, summary: "Applied edits" };
+    }
+
+
+    if (action === "fs.copy") {
+      if (!absPathTo) {
+        return {
+          id,
+          ok: false,
+          summary: invalidCmdSummary("ERR_MISSING_PATH_TO", "path_to is required."),
+        };
+      }
+      await fs.mkdir(path.dirname(absPathTo), { recursive: true });
+      await copyPath(absPath, absPathTo);
+      return { id, ok: true, summary: "Copied" };
+    }
+
+    if (action === "fs.move" || action === "fs.rename") {
+      if (!absPathTo) {
+        return {
+          id,
+          ok: false,
+          summary: invalidCmdSummary("ERR_MISSING_PATH_TO", "path_to is required."),
+        };
+      }
+      await fs.mkdir(path.dirname(absPathTo), { recursive: true });
+      try {
+        await fs.rename(absPath, absPathTo);
+      } catch (err: any) {
+        if (err?.code === "EXDEV") {
+          await copyPath(absPath, absPathTo);
+          await fs.rm(absPath, { recursive: true, force: true });
+        } else {
+          throw err;
+        }
+      }
+      return { id, ok: true, summary: action === "fs.rename" ? "Renamed" : "Moved" };
     }
 
 

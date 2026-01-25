@@ -5,6 +5,7 @@ export type OperatorCmd = {
   id?: string;
   action?: string;
   path?: string;
+  path_to?: string;
   [k: string]: any;
 };
 
@@ -117,6 +118,12 @@ export function validateCommandFields(cmd: OperatorCmd): { ok: true } | { ok: fa
       ? "operator.* actions must not include path."
       : "non-fs actions must not include path.";
     return { ok: false, code: "ERR_ACTION_FORBIDS_PATH", detail };
+  }
+  if (action === "fs.copy" || action === "fs.move" || action === "fs.rename") {
+    const pathToValue = cmd.path_to ? String(cmd.path_to).trim() : "";
+    if (!pathToValue) {
+      return { ok: false, code: "ERR_MISSING_PATH_TO", detail: "path_to is required." };
+    }
   }
 
   const versionNum = Number(cmd.version);
@@ -342,6 +349,7 @@ export function scanForCommands(plainText: string): { commands: OperatorCmd[]; e
           "ERR_INVALID_BASE64",
           "ERR_MISSING_WRITE_CONTENT",
           "ERR_MISSING_QUERY",
+          "ERR_MISSING_PATH_TO",
         ]);
         const detail = id && idTaggedCodes.has(validation.code)
           ? `${validation.detail} id: ${id}`
