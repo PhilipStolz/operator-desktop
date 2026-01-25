@@ -32,6 +32,7 @@ const btnBase64EncodeJson = $("btnBase64EncodeJson");
 const btnBase64Copy = $("btnBase64Copy");
 const chkAutoScan = $("chkAutoScan");
 const autoScanInterval = $("autoScanInterval");
+const autoScanHintEl = $("autoScanHint");
 const sidebarResizeHandle = $("sidebarResizeHandle");
 const inboxResizeHandle = $("inboxResizeHandle");
 const cmdModalOverlay = $("cmdModalOverlay");
@@ -202,6 +203,29 @@ function loadBase64Collapsed() {
   }
 }
 
+function preserveSidebarScroll(updateFn) {
+  const sidebar = document.querySelector(".sidebar") || $("sidebar");
+  if (!sidebar) return updateFn();
+  const prevTop = sidebar.scrollTop;
+  const prevHeight = sidebar.scrollHeight;
+  let result;
+  try {
+    result = updateFn();
+  } finally {
+    const restore = () => {
+      const nextHeight = sidebar.scrollHeight;
+      const delta = nextHeight - prevHeight;
+      sidebar.scrollTop = prevTop + delta;
+    };
+    if (result && typeof result.then === "function") {
+      result.finally(() => requestAnimationFrame(restore));
+    } else {
+      requestAnimationFrame(restore);
+    }
+  }
+  return result;
+}
+
 async function loadWorkspaceFromStorage() {
   if (!window.operator?.setWorkspace) return;
   try {
@@ -235,6 +259,15 @@ function isInboxInteracting() {
 function setAutoScanPaused(paused) {
   if (autoScanPaused === paused) return;
   autoScanPaused = paused;
+  if (autoScanHintEl) {
+    if (paused) {
+      autoScanHintEl.textContent = "Auto scan paused (inbox interaction).";
+      autoScanHintEl.style.display = "block";
+    } else {
+      autoScanHintEl.textContent = "";
+      autoScanHintEl.style.display = "none";
+    }
+  }
   if (paused) setStatus("Auto scan paused (inbox interaction).");
 }
 
@@ -820,13 +853,17 @@ async function applyScanResults(scan, auto) {
     return;
   }
 
-  setAutoScanPaused(false);
-  const errors = scan?.errors || [];
-  commands = scan?.commands || [];
-  selectFocusAfterScan();
-  setErrors(errors);
-  renderInbox();
-  setStatus(`Scan done. Commands: ${commands.length}`);
+  const applyUpdates = () => {
+    setAutoScanPaused(false);
+    const errors = scan?.errors || [];
+    commands = scan?.commands || [];
+    selectFocusAfterScan();
+    setErrors(errors);
+    renderInbox();
+    setStatus(`Scan done. Commands: ${commands.length}`);
+  };
+
+  preserveSidebarScroll(applyUpdates);
 }
 
 async function scanFromExtract(auto) {
