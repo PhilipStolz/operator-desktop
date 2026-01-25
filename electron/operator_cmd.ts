@@ -321,7 +321,8 @@ export function scanForCommands(plainText: string): { commands: OperatorCmd[]; e
       }
 
       if (needsPath && !p) {
-        errors.push(invalidCmdSummary("ERR_ACTION_REQUIRES_PATH", "fs.* actions require path."));
+        const detail = id ? `fs.* actions require path. id: ${id}` : "fs.* actions require path.";
+        errors.push(invalidCmdSummary("ERR_ACTION_REQUIRES_PATH", detail));
         resetBlock();
         continue;
       }
@@ -337,7 +338,12 @@ export function scanForCommands(plainText: string): { commands: OperatorCmd[]; e
 
       const validation = validateCommandFields(cmd);
       if (!validation.ok) {
-        const detail = validation.code === "ERR_INVALID_BASE64" && id
+        const idTaggedCodes = new Set([
+          "ERR_INVALID_BASE64",
+          "ERR_MISSING_WRITE_CONTENT",
+          "ERR_MISSING_QUERY",
+        ]);
+        const detail = id && idTaggedCodes.has(validation.code)
           ? `${validation.detail} id: ${id}`
           : validation.detail;
         errors.push(invalidCmdSummary(validation.code, detail));
