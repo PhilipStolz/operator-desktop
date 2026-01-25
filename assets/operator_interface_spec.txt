@@ -117,6 +117,7 @@ If an OPERATOR_CMD attempts operator.error, it is rejected with ERR_RESERVED_ACT
 LLM expectation:
 - When an error relates to a specific command, related_id will be that command id.
 - The OPERATOR_RESULT id for such an error will match related_id so you can associate it with the failed command.
+- Command-related scan/validation errors will include the command id in the error message (e.g., "id: <command id>").
 
 FILESYSTEM ACTIONS (fs.*)
 All fs.* actions operate strictly within the currently selected workspace root.
