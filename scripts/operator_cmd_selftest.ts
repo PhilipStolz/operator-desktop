@@ -527,6 +527,29 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "Sidebar scroll preserved during auto scan",
+    run: async () => {
+      const rendererJs = await loadRepoFile(path.join("renderer", "renderer.js"));
+      const hasSidebarSelector =
+        /querySelector\(\s*["']\.sidebar["']/.test(rendererJs) ||
+        /getElementById\(\s*["']sidebar["']/.test(rendererJs);
+      assert(hasSidebarSelector, "Expected sidebar scroll container selection in renderer.js");
+
+      const hasHelper =
+        /function\s+preserveSidebarScroll\s*\(/.test(rendererJs) ||
+        /const\s+preserveSidebarScroll\s*=\s*\(/.test(rendererJs);
+      assert(hasHelper, "Expected preserveSidebarScroll helper in renderer.js");
+
+      const hasScrollUsage = /scrollTop/.test(rendererJs) && /scrollHeight/.test(rendererJs);
+      assert(hasScrollUsage, "Expected scrollTop/scrollHeight usage to preserve sidebar scroll");
+
+      const applyMatch = rendererJs.match(/async function applyScanResults[\s\S]*?\n}/);
+      assert(!!applyMatch, "applyScanResults block not found");
+      const applyBlock = applyMatch ? applyMatch[0] : "";
+      assert(/preserveSidebarScroll\(/.test(applyBlock), "Expected applyScanResults to use preserveSidebarScroll");
+    },
+  },
+  {
     name: "operator.error marks as executed in UI",
     run: async () => {
       const rendererJs = await loadRepoFile(path.join("renderer", "renderer.js"));
