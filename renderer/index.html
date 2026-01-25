@@ -489,12 +489,18 @@
             <option value="fs.list">fs.list</option>
             <option value="fs.readSlice">fs.readSlice</option>
             <option value="fs.search">fs.search</option>
+            <option value="fs.searchTree">fs.searchTree</option>
+            <option value="fs.stat">fs.stat</option>
             <option value="fs.write">fs.write</option>
             <option value="fs.applyEdits">fs.applyEdits</option>
+            <option value="fs.copy">fs.copy</option>
+            <option value="fs.move">fs.move</option>
+            <option value="fs.rename">fs.rename</option>
           </select>
           <button id="btnInsertTemplate">Insert template</button>
         </div>
         <div class="small" style="margin-top:6px;">Copies a valid OPERATOR_CMD skeleton to clipboard.</div>
+        <div class="small">Includes fs.stat, fs.searchTree, and fs.copy/move/rename (path_to required).</div>
 
         <div class="accordion" id="base64Box" style="margin-top:10px;">
           <summary id="btnToggleBase64">Base64 Helper</summary>

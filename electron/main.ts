@@ -602,18 +602,11 @@ async function executeFsCommand(win: BrowserWindow, cmd: OperatorCmd): Promise<O
   const relPathTo = needsPathTo && typeof (cmd as any).path_to === "string"
     ? String((cmd as any).path_to).trim()
     : "";
-  if (needsPathTo && !relPathTo) {
-    return {
-      id,
-      ok: false,
-      summary: invalidCmdSummary("ERR_MISSING_PATH_TO", "path_to is required."),
-    };
-  }
   const resolvedTo = needsPathTo ? resolveInWorkspace(relPathTo) : null;
   if (needsPathTo && resolvedTo && !resolvedTo.ok) {
     return { id, ok: false, summary: `Workspace/path error: ${resolvedTo.reason}` };
   }
-  const absPathTo = resolvedTo?.absPath;
+  const absPathTo = resolvedTo ? resolvedTo.absPath! : undefined;
 
   const level = riskLevel(action);
 
@@ -1067,32 +1060,18 @@ async function executeFsCommand(win: BrowserWindow, cmd: OperatorCmd): Promise<O
 
 
     if (action === "fs.copy") {
-      if (!absPathTo) {
-        return {
-          id,
-          ok: false,
-          summary: invalidCmdSummary("ERR_MISSING_PATH_TO", "path_to is required."),
-        };
-      }
-      await fs.mkdir(path.dirname(absPathTo), { recursive: true });
-      await copyPath(absPath, absPathTo);
+      await fs.mkdir(path.dirname(absPathTo!), { recursive: true });
+      await copyPath(absPath, absPathTo!);
       return { id, ok: true, summary: "Copied" };
     }
 
     if (action === "fs.move" || action === "fs.rename") {
-      if (!absPathTo) {
-        return {
-          id,
-          ok: false,
-          summary: invalidCmdSummary("ERR_MISSING_PATH_TO", "path_to is required."),
-        };
-      }
-      await fs.mkdir(path.dirname(absPathTo), { recursive: true });
+      await fs.mkdir(path.dirname(absPathTo!), { recursive: true });
       try {
-        await fs.rename(absPath, absPathTo);
+        await fs.rename(absPath, absPathTo!);
       } catch (err: any) {
         if (err?.code === "EXDEV") {
-          await copyPath(absPath, absPathTo);
+          await copyPath(absPath, absPathTo!);
           await fs.rm(absPath, { recursive: true, force: true });
         } else {
           throw err;

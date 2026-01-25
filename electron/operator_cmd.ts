@@ -119,11 +119,14 @@ export function validateCommandFields(cmd: OperatorCmd): { ok: true } | { ok: fa
       : "non-fs actions must not include path.";
     return { ok: false, code: "ERR_ACTION_FORBIDS_PATH", detail };
   }
-  if (action === "fs.copy" || action === "fs.move" || action === "fs.rename") {
-    const pathToValue = cmd.path_to ? String(cmd.path_to).trim() : "";
+  const pathToValue = cmd.path_to ? String(cmd.path_to).trim() : "";
+  const needsPathTo = action === "fs.copy" || action === "fs.move" || action === "fs.rename";
+  if (needsPathTo) {
     if (!pathToValue) {
       return { ok: false, code: "ERR_MISSING_PATH_TO", detail: "path_to is required." };
     }
+  } else if (pathToValue) {
+    return { ok: false, code: "ERR_UNEXPECTED_PATH_TO", detail: "path_to is not allowed for this action." };
   }
 
   const versionNum = Number(cmd.version);
@@ -350,6 +353,7 @@ export function scanForCommands(plainText: string): { commands: OperatorCmd[]; e
           "ERR_MISSING_WRITE_CONTENT",
           "ERR_MISSING_QUERY",
           "ERR_MISSING_PATH_TO",
+          "ERR_UNEXPECTED_PATH_TO",
         ]);
         const detail = id && idTaggedCodes.has(validation.code)
           ? `${validation.detail} id: ${id}`
