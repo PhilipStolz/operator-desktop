@@ -337,7 +337,10 @@ export function scanForCommands(plainText: string): { commands: OperatorCmd[]; e
 
       const validation = validateCommandFields(cmd);
       if (!validation.ok) {
-        errors.push(invalidCmdSummary(validation.code, validation.detail));
+        const detail = validation.code === "ERR_INVALID_BASE64" && id
+          ? `${validation.detail} id: ${id}`
+          : validation.detail;
+        errors.push(invalidCmdSummary(validation.code, detail));
         resetBlock();
         continue;
       }
