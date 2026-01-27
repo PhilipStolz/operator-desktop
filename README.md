@@ -10,7 +10,7 @@ Core idea: **human-in-the-loop** execution. The LLM proposes actions in strict t
 - Provide an Operator Panel for:
   - extracting chat text (plain text)
   - scanning for commands
-  - confirmations + audit log
+  - confirmations
   - workspace-scoped file operations
 - Run on Windows and Linux
 
@@ -25,7 +25,7 @@ Core idea: **human-in-the-loop** execution. The LLM proposes actions in strict t
 - All file operations are scoped to a user-selected **workspace root**
 - Writes and deletes require explicit user approval (default)
 - Path traversal is blocked (no `../` escaping)
-- Actions are logged (audit log)
+- Actions are confirmed before execution
 - Destructive ops should be reversible (trash / snapshots)
 
 ## Command protocol (v1)
@@ -83,7 +83,7 @@ If a command is invalid, Operator replies with a summary like:
 
 ### Interface discovery (important)
 
-He app is self-describing. The first step for an LLM is:
+The app is self-describing. The first step for an LLM is:
 
 ```text
 OPERATOR_CMD
@@ -94,6 +94,13 @@ END_OPERATOR_CMD
 ```
 
 The returned `details_b64` contains the canonical interface specification (base64 UTF-8).
+
+### Typical workflow
+
+1. The user pastes the bootstrap prompt into the chat.
+2. The LLM responds with the interface spec command.
+3. The user pastes the OPERATOR_RESULT back into the chat.
+4. The LLM asks what to work on and proceeds.
 
 ### Token-efficient workflow
 
@@ -164,7 +171,7 @@ prompt is usually enough.
 
 ```bash
 npm install
-npm run dev
+npm run start
 ```
 
 ### Build (example)
@@ -172,6 +179,11 @@ npm run dev
 ```bash
 npm run build
 ```
+
+### Releases (Electron Forge)
+
+This project uses Electron Forge for packaging. Release builds can be produced via the Forge setup
+configured in this repo (see `RELEASING.md` for the current process).
 
 ## License
 
