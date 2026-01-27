@@ -1,6 +1,6 @@
 {
   "name": "operator-desktop",
-  "version": "1.0.0",
+  "version": "0.0.4",
   "description": "Operator is a cross-platform desktop application (Electron) that helps users safely execute actions suggested by web-based LLM chats on their local machine — without using any official provider APIs.",
   "main": "dist/electron/main.js",
   "config": {
