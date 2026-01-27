@@ -11,7 +11,8 @@
     "start": "electron-forge start",
     "selftest": "ts-node scripts/operator_cmd_selftest.ts",
     "package": "electron-forge package",
-    "make": "electron-forge make"
+    "make": "electron-forge make",
+    "publish": "electron-forge publish"
   },
   "repository": {
     "type": "git",
