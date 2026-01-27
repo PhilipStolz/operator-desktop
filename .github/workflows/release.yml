@@ -30,6 +30,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build (TypeScript)
+        run: npm run build
+
       - name: Build & publish with Electron Forge
         run: npm run publish
         env:
