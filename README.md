@@ -1,8 +1,18 @@
 # Operator
 
+![Operator - Human in the Loop](media/hero/hero.png)
+
+Operator bridges the gap between LLM chats and real project files - turning suggestions into structured files under your control.
+
 Operator is a cross-platform desktop application (Electron + TypeScript) that embeds a web-based LLM chat (e.g. ChatGPT) and lets the LLM suggest **controlled local actions**.
 
-Core idea: **human-in-the-loop** execution. The LLM proposes actions in strict text blocks, the user explicitly approves/rejects, Operator executes inside a user-selected workspace, and returns results.
+Product name: Operator  
+Repository: operator-desktop
+
+> **Alpha status**  
+> Operator is currently in **alpha**. Core concepts are stable, but features, workflows, and the command protocol may still change. Expect rough edges.
+
+Core idea: **human-in-the-loop** execution. The LLM proposes actions in strict text blocks, the user explicitly approves or rejects them, Operator executes inside a user-selected workspace, and returns results.
 
 ## Goals
 
@@ -187,4 +197,10 @@ configured in this repo (see `RELEASING.md` for the current process).
 
 ## License
 
-See `LICENSE `.
+The source code and software assets in this repository are licensed under the MIT License.
+
+The hero image in `media/hero/hero.png` is (c) 2026 Philip Stolz,
+is **not** covered by the MIT License, and was created using
+AI-assisted, human-directed generation.
+See `media/hero/LICENSE`.
+

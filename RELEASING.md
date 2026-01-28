@@ -1,6 +1,7 @@
 # Releasing (Electron Forge + GitHub Actions)
 
 This repository publishes end-user downloads via GitHub Releases.
+Product name: Operator. Repository: operator-desktop.
 A release build is triggered by pushing a git tag like v0.0.5.
 
 Preconditions
