@@ -1297,6 +1297,9 @@ function createWindow() {
 
   allowedHosts = buildAllowedHosts(activeProfile, startUrlOverride);
 
+  const SIDEBAR_WIDTH = 360;
+  const TOPBAR_HEIGHT = 44;
+
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -1318,11 +1321,32 @@ function createWindow() {
   // Harden Operator UI window too (any popups from UI should go external)
   hardenWebContents(win.webContents);
 
-  // Load Operator UI (stays loaded)
-  win.loadFile(path.join(app.getAppPath(), "renderer", "index.html")).catch(() => { });
+  // Host window (no UI content)
+  win.loadFile(path.join(app.getAppPath(), "renderer", "host.html")).catch(() => { });
 
-  // Create BrowserView for Webchat
-  const view = new BrowserView({
+  const sidebarView = new BrowserView({
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+      preload: path.join(__dirname, "preload.js"),
+    },
+  });
+
+  const topbarView = new BrowserView({
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+      preload: path.join(__dirname, "preload.js"),
+    },
+  });
+
+  const chatView = new BrowserView({
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -1333,31 +1357,75 @@ function createWindow() {
     },
   });
 
-  win.setBrowserView(view);
+  const overlayView = new BrowserView({
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+      preload: path.join(__dirname, "preload.js"),
+    },
+  });
+
+  win.addBrowserView(sidebarView);
+  win.addBrowserView(topbarView);
+  win.addBrowserView(chatView);
+  win.addBrowserView(overlayView);
 
   function setActiveProfile(id: LLMId) {
     activeProfileId = id;
     activeProfile = getProfile(activeProfileId);
     startUrlOverride = null;
     allowedHosts = buildAllowedHosts(activeProfile, null);
-    view.webContents.loadURL(activeProfile.startUrl);
+    chatView.webContents.loadURL(activeProfile.startUrl);
   }
 
-  let sidebarWidth = 360;
+  let sidebarWidth = SIDEBAR_WIDTH;
+
+  let overlayVisible = false;
+
+  function applyOverlayBounds() {
+    const [w, h] = win.getContentSize();
+    if (!overlayVisible) {
+      overlayView.setBounds({ x: 0, y: 0, width: 0, height: 0 });
+      return;
+    }
+    overlayView.setBounds({ x: 0, y: 0, width: w, height: h });
+  }
 
   function layout() {
     const [w, h] = win.getContentSize();
-    view.setBounds({
-      x: sidebarWidth,
+    const SIDEBAR_WIDTH = sidebarWidth;
+    const TOPBAR_HEIGHT = 44;
+    sidebarView.setBounds({
+      x: 0,
       y: 0,
-      width: Math.max(0, w - sidebarWidth),
+      width: SIDEBAR_WIDTH,
       height: h,
     });
-    view.setAutoResize({ width: true, height: true });
+    topbarView.setBounds({
+      x: SIDEBAR_WIDTH,
+      y: 0,
+      width: Math.max(0, w - SIDEBAR_WIDTH),
+      height: TOPBAR_HEIGHT,
+    });
+    chatView.setBounds({
+      x: SIDEBAR_WIDTH,
+      y: TOPBAR_HEIGHT,
+      width: Math.max(0, w - SIDEBAR_WIDTH),
+      height: Math.max(0, h - TOPBAR_HEIGHT),
+    });
+    sidebarView.setAutoResize({ height: true });
+    topbarView.setAutoResize({ width: true });
+    chatView.setAutoResize({ width: true, height: true });
+    overlayView.setAutoResize({ width: true, height: true });
+    applyOverlayBounds();
+    // debug logging removed
   }
 
   function setSidebarWidth(width: number) {
-    const next = Math.max(260, Math.min(720, Math.floor(Number(width) || sidebarWidth)));
+    const next = Math.max(260, Math.min(720, Math.floor(Number(width) || SIDEBAR_WIDTH)));
     if (next !== sidebarWidth) {
       sidebarWidth = next;
       layout();
@@ -1368,12 +1436,19 @@ function createWindow() {
   layout();
   win.on("resize", layout);
 
-  // Harden the webchat view (THIS is what matters most)
-  hardenWebContents(view.webContents);
+  // Harden the UI views and webchat view
+  hardenWebContents(sidebarView.webContents);
+  hardenWebContents(topbarView.webContents);
+  hardenWebContents(chatView.webContents);
+
+  // Load Operator UI views
+  sidebarView.webContents.loadFile(path.join(app.getAppPath(), "renderer", "index.html")).catch(() => { });
+  topbarView.webContents.loadFile(path.join(app.getAppPath(), "renderer", "topbar.html")).catch(() => { });
+  overlayView.webContents.loadFile(path.join(app.getAppPath(), "renderer", "overlay.html")).catch(() => { });
 
   // Load webchat
   const startUrl = startUrlOverride ?? activeProfile.startUrl;
-  view.webContents.loadURL(startUrl);
+  chatView.webContents.loadURL(startUrl);
 
   // ---- IPC handlers ----
 
@@ -1391,6 +1466,7 @@ function createWindow() {
         return { ok: false, workspaceRoot, error: "Workspace path is not a directory" };
       }
       workspaceRoot = resolved;
+      topbarView.webContents.send("operator:workspaceChanged", { workspaceRoot });
       return { ok: true, workspaceRoot };
     } catch (e: any) {
       return { ok: false, workspaceRoot, error: String(e?.message ?? e) };
@@ -1402,6 +1478,20 @@ function createWindow() {
     return { ok: true, width: next };
   });
 
+  ipcMain.handle("operator:openGettingStarted", async () => {
+    overlayVisible = true;
+    applyOverlayBounds();
+    overlayView.webContents.send("operator:openGettingStarted");
+    overlayView.webContents.executeJavaScript("window.__openGettingStarted && window.__openGettingStarted()").catch(() => {});
+    return { ok: true };
+  });
+
+  ipcMain.handle("operator:closeGettingStarted", async () => {
+    overlayVisible = false;
+    applyOverlayBounds();
+    return { ok: true };
+  });
+
   ipcMain.handle("operator:chooseWorkspace", async () => {
     const res = await dialog.showOpenDialog(win, {
       title: "Choose workspace root",
@@ -1409,6 +1499,7 @@ function createWindow() {
     });
     if (res.canceled || res.filePaths.length === 0) return { ok: false, workspaceRoot };
     workspaceRoot = res.filePaths[0];
+    topbarView.webContents.send("operator:workspaceChanged", { workspaceRoot });
     return { ok: true, workspaceRoot };
   });
 
@@ -1478,7 +1569,7 @@ function createWindow() {
     `;
 
     // true => userGesture (slightly safer and aligns with "on-demand extraction")
-    const result = await view.webContents.executeJavaScript(extractorCode, true);
+    const result = await chatView.webContents.executeJavaScript(extractorCode, true);
     // Limit size (DoS guard) and keep the tail to favor recent context.
     const text = typeof result?.text === "string" ? result.text : "";
     const limited = text.length > EXTRACT_LIMIT_CHARS

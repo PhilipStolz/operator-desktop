@@ -1,0 +1,90 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <title>Operator Overlay</title>
+  <style>
+    body {
+      margin: 0;
+      background: transparent;
+      font-family: sans-serif;
+    }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.35);
+      z-index: 2000;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    .overlay.open {
+      display: flex;
+    }
+
+    .modal {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      width: min(520px, 90vw);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    }
+
+    .modalHeader {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .modalBody {
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .modalFooter {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 10px 12px;
+      border-top: 1px solid #eee;
+    }
+
+    .small {
+      font-size: 12px;
+      color: #666;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="gettingStartedOverlay" class="overlay" aria-hidden="true">
+    <div class="modal">
+      <div class="modalHeader">
+        <div>Getting started</div>
+        <button id="gettingStartedClose">X</button>
+      </div>
+      <div class="modalBody">
+        <div class="small">Choose workspace</div>
+        <div class="small">Paste bootstrap prompt into the chat</div>
+        <div class="small">Run the interface spec command and paste the result back</div>
+        <div class="small">Review commands in the inbox and run them</div>
+      </div>
+      <div class="modalFooter">
+        <button id="gettingStartedCloseFooter">Close</button>
+      </div>
+    </div>
+  </div>
+  <script src="./overlay.js"></script>
+</body>
+
+</html>

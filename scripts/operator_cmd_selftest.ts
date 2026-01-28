@@ -670,6 +670,35 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "Top bar BrowserView layout uses constants",
+    run: async () => {
+      const text = await loadRepoFile(path.join("electron", "main.ts"));
+      assert(/const\s+TOPBAR_HEIGHT\s*=/.test(text), "Expected TOPBAR_HEIGHT constant in electron/main.ts");
+      assert(/const\s+SIDEBAR_WIDTH\s*=/.test(text), "Expected SIDEBAR_WIDTH constant in electron/main.ts");
+      assert(/setBounds\(\{\s*x:\s*SIDEBAR_WIDTH,\s*y:\s*TOPBAR_HEIGHT,/.test(text), "Expected chat view bounds offset by TOPBAR_HEIGHT");
+    },
+  },
+  {
+    name: "Top bar view HTML exists and includes controls",
+    run: async () => {
+      const html = await loadRepoFile(path.join("renderer", "topbar.html"));
+      assert(html.includes("topbarWorkspace"), "Expected topbarWorkspace element in topbar.html");
+      assert(html.includes("llmProfile"), "Expected llmProfile select in topbar.html");
+      assert(html.includes("btnGettingStarted"), "Expected btnGettingStarted in topbar.html");
+      assert(html.includes("btnWorkspace"), "Expected workspace button in topbar.html");
+    },
+  },
+  {
+    name: "Top bar has visible separator from chat",
+    run: async () => {
+      const html = await loadRepoFile(path.join("renderer", "topbar.html"));
+      const hasSeparator =
+        /\\.topBar\\s*\\{[\\s\\S]*?border-bottom\\s*:/i.test(html) ||
+        /\\.topBar\\s*\\{[\\s\\S]*?box-shadow\\s*:/i.test(html);
+      assert(hasSeparator, "Expected .topBar to define border-bottom or box-shadow for visibility");
+    },
+  },
+  {
     name: "Duplicate id error in operator:scan",
     run: async () => {
       const text = await loadRepoFile(path.join("electron", "main.ts"));

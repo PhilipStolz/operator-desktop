@@ -23,6 +23,10 @@ declare global {
       getLlmProfiles: () => Promise<{ profiles: Array<{ id: string; label: string }> }>;
       getActiveLlmProfile: () => Promise<{ id: string; label: string }>;
       setLlmProfile: (id: string) => Promise<{ ok: boolean; id?: string; label?: string; error?: string }>;
+      openGettingStarted: () => Promise<{ ok: boolean }>;
+      onOpenGettingStarted: (cb: () => void) => void;
+      onWorkspaceChanged: (cb: (workspaceRoot: string | null) => void) => void;
+      closeGettingStarted: () => Promise<{ ok: boolean }>;
     };
   }
 }

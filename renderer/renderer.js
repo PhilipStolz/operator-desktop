@@ -7,6 +7,8 @@ const workspaceEl = $("workspace");
 const btnExtract = $("btnExtract");
 const btnClear = $("btnClear");
 const statusEl = $("status");
+const topbarWorkspaceEl = $("topbarWorkspace");
+const btnGettingStarted = $("btnGettingStarted");
 const errorsSection = $("errorsSection");
 const errorsSummary = $("errorsSummary");
 const errorListEl = $("errorList");
@@ -45,11 +47,8 @@ const cmdModalStatus = $("cmdModalStatus");
 const cmdModalExecute = $("cmdModalExecute");
 const cmdModalDismiss = $("cmdModalDismiss");
 const cmdModalToggleDecoded = $("cmdModalToggleDecoded");
+const resetStatusEl = $("resetStatus");
 
-const btnSelectAll = $("btnSelectAll");
-const btnSelectNone = $("btnSelectNone");
-const btnRunSelected = $("btnRunSelected");
-const btnRunAll = $("btnRunAll");
 const chkStopOnFail = $("chkStopOnFail");
 const chkAutoCopy = $("chkAutoCopy");
 
@@ -423,12 +422,28 @@ if (btnResetExecuted) {
     executedIds = new Set();
     saveExecutedIds();
     renderInbox();
-    setStatus("Executed cache reset.");
+    if (resetStatusEl) {
+      resetStatusEl.textContent = "Reset.";
+      setTimeout(() => {
+        if (resetStatusEl) resetStatusEl.textContent = "";
+      }, 1200);
+    }
+  };
+}
+
+if (btnGettingStarted) {
+  btnGettingStarted.onclick = () => {
+    // handled in topbar view
   };
 }
 
 function setStatus(msg) {
   statusEl.textContent = msg || "";
+}
+
+function setTopbarWorkspace(text) {
+  if (!topbarWorkspaceEl) return;
+  topbarWorkspaceEl.textContent = text || "Workspace: (not set)";
 }
 
 function buildErrorItems(messages) {
@@ -1072,38 +1087,13 @@ async function refreshWorkspacePill() {
   try {
     const res = await window.operator.getWorkspace?.();
     const root = res?.workspaceRoot;
-    workspaceEl.textContent = root ? `Workspace: ${root}` : "Workspace: (not set)";
+    const text = root ? `Workspace: ${root}` : "Workspace: (not set)";
+    if (workspaceEl) workspaceEl.textContent = text;
+    setTopbarWorkspace(text);
   } catch {
-    workspaceEl.textContent = "Workspace: (unknown)";
+    if (workspaceEl) workspaceEl.textContent = "Workspace: (unknown)";
+    setTopbarWorkspace("Workspace: (unknown)");
   }
-}
-
-if (btnSelectAll) {
-  btnSelectAll.onclick = () => {
-    selectedKeys = new Set(listCommandEntries().map((entry) => entry.key));
-    renderInbox();
-    setStatus(`Selected: ${selectedKeys.size}`);
-  };
-}
-
-if (btnSelectNone) {
-  btnSelectNone.onclick = () => {
-    selectedKeys = new Set();
-    renderInbox();
-    setStatus("Selection cleared.");
-  };
-}
-
-if (btnRunSelected) {
-  btnRunSelected.onclick = async () => {
-    await runCommands(getSelectedEntries());
-  };
-}
-
-if (btnRunAll) {
-  btnRunAll.onclick = async () => {
-    await runCommands(listCommandEntries());
-  };
 }
 
 async function loadLlmProfiles() {
@@ -1201,18 +1191,20 @@ if (llmProfileSelect) {
   });
 }
 
-btnWorkspace.onclick = async () => {
-  setStatus("Choosing workspace...");
-  const res = await window.operator.chooseWorkspace();
-  if (res?.ok && res.workspaceRoot) {
-    try {
-      localStorage.setItem(WORKSPACE_KEY, res.workspaceRoot);
-    } catch {}
-  }
-  await refreshWorkspacePill();
-  loadExecutedIds();
-  setStatus(res?.ok ? "Workspace set." : "Workspace not changed.");
-};
+if (btnWorkspace) {
+  btnWorkspace.onclick = async () => {
+    setStatus("Choosing workspace...");
+    const res = await window.operator.chooseWorkspace();
+    if (res?.ok && res.workspaceRoot) {
+      try {
+        localStorage.setItem(WORKSPACE_KEY, res.workspaceRoot);
+      } catch {}
+    }
+    await refreshWorkspacePill();
+    loadExecutedIds();
+    setStatus(res?.ok ? "Workspace set." : "Workspace not changed.");
+  };
+}
 
 const btnScanClipboard = $("btnScanClipboard");
 
@@ -1425,7 +1417,6 @@ btnCopyDecoded.onclick = async () => {
     addErrorMessage(`UI rejection: ${message}`);
     setStatus("UI error detected.");
   });
-
   loadAccordionState(errorsSection, ACCORDION_ERRORS_KEY, false);
   loadAccordionState(inboxSection, ACCORDION_INBOX_KEY, true);
   loadAccordionState(toolsSection, ACCORDION_TOOLS_KEY, false);

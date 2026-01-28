@@ -431,17 +431,37 @@
       width: 100%;
       background: #eee;
     }
+
+    .resetBtn {
+      width: 20px;
+      height: 20px;
+      border-radius: 999px;
+      border: 1px solid #bbb;
+      background: #f6f6f6;
+      position: relative;
+      padding: 0;
+      cursor: pointer;
+    }
+
+    .resetBtn::before {
+      content: "";
+      position: absolute;
+      inset: 5px;
+      border-radius: 999px;
+      background: #d33;
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+    }
+
+    .resetBtn:active::before {
+      inset: 6px;
+      background: #b21f1f;
+    }
   </style>
 </head>
 
 <body>
   <div class="sidebar">
     <div>
-      <h2 style="margin:0 0 8px;">Operator</h2>
-      <div class="row">
-        <button id="btnWorkspace">Choose Workspace</button>
-        <span id="workspace" class="pill">Workspace: (not set)</span>
-      </div>
       <div class="row" style="margin-top:8px;">
         <button id="btnScanClipboard">Scan Clipboard</button>
         <button id="btnExtract">Extract &amp; Scan</button>
@@ -460,21 +480,20 @@
     <details class="accordion" id="inboxSection" open>
       <summary>Command Inbox</summary>
       <div class="accordionBody">
-        <div class="small">Select commands and run as a batch.</div>
         <div class="row" style="margin-top:8px;">
-          <button id="btnSelectAll">Select all</button>
-          <button id="btnSelectNone">Select none</button>
-          <button id="btnRunSelected">Run selected</button>
-          <button id="btnRunAll">Run all</button>
-          <button id="btnResetExecuted">Reset executed</button>
           <label class="chk">
             <input id="chkStopOnFail" type="checkbox" checked /> stop on fail
           </label>
           <label class="chk">
-            <input id="chkAutoCopy" type="checkbox" /> auto copy result
+            <input id="chkAutoCopy" type="checkbox" checked /> auto copy result
           </label>
         </div>
         <div id="inbox" class="inboxPane" style="margin-top:8px;"></div>
+        <div class="row" style="margin-top:6px; align-items:center;">
+          <button id="btnResetExecuted" class="resetBtn" title="Reset executed states" aria-label="Reset executed states"></button>
+          <span class="small">Reset executed states</span>
+          <span id="resetStatus" class="small"></span>
+        </div>
         <div id="inboxResizeHandle" class="resizeHandle horizontal"></div>
       </div>
     </details>
@@ -535,13 +554,6 @@
     <details class="accordion" id="settingsSection">
       <summary>Settings</summary>
       <div class="accordionBody">
-        <div class="row">
-          <label class="small" for="llmProfile">LLM</label>
-          <select id="llmProfile">
-            <option value="chatgpt">ChatGPT</option>
-            <option value="deepseek">DeepSeek</option>
-          </select>
-        </div>
         <div class="row" style="margin-top:8px;">
           <label class="chk">
             <input id="chkAutoScan" type="checkbox" /> auto extract &amp; scan

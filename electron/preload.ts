@@ -37,6 +37,11 @@ contextBridge.exposeInMainWorld("operator", {
   getBootstrapPrompt: () => ipcRenderer.invoke("operator:getBootstrapPrompt"),
   getSmokeTestPrompt: () => ipcRenderer.invoke("operator:getSmokeTestPrompt"),
   setSidebarWidth: (width: number) => ipcRenderer.invoke("operator:setSidebarWidth", { width }),
+  openGettingStarted: () => ipcRenderer.invoke("operator:openGettingStarted"),
+  onOpenGettingStarted: (cb: () => void) => ipcRenderer.on("operator:openGettingStarted", () => cb()),
+  onWorkspaceChanged: (cb: (workspaceRoot: string | null) => void) =>
+    ipcRenderer.on("operator:workspaceChanged", (_evt, payload: { workspaceRoot: string | null }) => cb(payload.workspaceRoot)),
+  closeGettingStarted: () => ipcRenderer.invoke("operator:closeGettingStarted"),
 
 });
 
