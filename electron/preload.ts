@@ -45,6 +45,8 @@ contextBridge.exposeInMainWorld("operator", {
   showToast: (payload: { message: string; kind?: string }) => ipcRenderer.invoke("operator:showToast", payload),
   onToast: (cb: (payload: { message: string; kind?: string }) => void) =>
     ipcRenderer.on("operator:toast", (_evt, payload: { message: string; kind?: string }) => cb(payload)),
+  hideToast: () => ipcRenderer.invoke("operator:hideToast"),
+  setToastSize: (payload: { width: number; height: number }) => ipcRenderer.invoke("operator:setToastSize", payload),
 
 });
 

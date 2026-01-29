@@ -1380,9 +1380,6 @@ function createWindow() {
       preload: path.join(__dirname, "preload.js"),
     },
   });
-  if (typeof (toastView.webContents as any).setIgnoreMouseEvents === "function") {
-    (toastView.webContents as any).setIgnoreMouseEvents(true, { forward: true });
-  }
 
   win.addBrowserView(sidebarView);
   win.addBrowserView(topbarView);
@@ -1399,8 +1396,25 @@ function createWindow() {
   }
 
   let sidebarWidth = SIDEBAR_WIDTH;
+  let resizeTimer: NodeJS.Timeout | null = null;
+  let pendingSidebarWidth: number | null = null;
 
   let overlayVisible = false;
+  let toastVisible = false;
+  let toastSize = { width: TOAST_WIDTH, height: TOAST_HEIGHT };
+
+  function applyToastBounds() {
+    const [w, h] = win.getContentSize();
+    if (!toastVisible) {
+      toastView.setBounds({ x: 0, y: 0, width: 0, height: 0 });
+      return;
+    }
+    const toastWidth = Math.min(toastSize.width, Math.max(0, w - SIDEBAR_WIDTH));
+    const toastHeight = Math.min(toastSize.height, Math.max(0, h - TOPBAR_HEIGHT));
+    const x = SIDEBAR_WIDTH + Math.max(0, w - SIDEBAR_WIDTH - toastWidth);
+    const y = TOPBAR_HEIGHT + Math.max(0, h - TOPBAR_HEIGHT - toastHeight);
+    toastView.setBounds({ x, y, width: toastWidth, height: toastHeight });
+  }
 
   function applyOverlayBounds() {
     const [w, h] = win.getContentSize();
@@ -1412,51 +1426,61 @@ function createWindow() {
   }
 
   function layout() {
+    if (win.isDestroyed()) return;
+    if (sidebarView.webContents.isDestroyed() || topbarView.webContents.isDestroyed() || chatView.webContents.isDestroyed()) return;
     const [w, h] = win.getContentSize();
     const SIDEBAR_WIDTH = sidebarWidth;
     const TOPBAR_HEIGHT = 44;
-    sidebarView.setBounds({
-      x: 0,
-      y: 0,
-      width: SIDEBAR_WIDTH,
-      height: h,
-    });
-    topbarView.setBounds({
-      x: SIDEBAR_WIDTH,
-      y: 0,
-      width: Math.max(0, w - SIDEBAR_WIDTH),
-      height: TOPBAR_HEIGHT,
-    });
-    chatView.setBounds({
-      x: SIDEBAR_WIDTH,
-      y: TOPBAR_HEIGHT,
-      width: Math.max(0, w - SIDEBAR_WIDTH),
-      height: Math.max(0, h - TOPBAR_HEIGHT),
-    });
-    const toastWidth = Math.min(TOAST_WIDTH, Math.max(0, w - SIDEBAR_WIDTH));
-    const toastHeight = Math.min(TOAST_HEIGHT, Math.max(0, h - TOPBAR_HEIGHT));
-    toastView.setBounds({
-      x: SIDEBAR_WIDTH + Math.max(0, w - SIDEBAR_WIDTH - toastWidth),
-      y: TOPBAR_HEIGHT + Math.max(0, h - TOPBAR_HEIGHT - toastHeight),
-      width: toastWidth,
-      height: toastHeight,
-    });
-    sidebarView.setAutoResize({ height: true });
-    topbarView.setAutoResize({ width: true });
-    chatView.setAutoResize({ width: true, height: true });
-    toastView.setAutoResize({ width: true, height: true });
-    overlayView.setAutoResize({ width: true, height: true });
-    applyOverlayBounds();
+    try {
+      sidebarView.setBounds({
+        x: 0,
+        y: 0,
+        width: SIDEBAR_WIDTH,
+        height: h,
+      });
+      topbarView.setBounds({
+        x: SIDEBAR_WIDTH,
+        y: 0,
+        width: Math.max(0, w - SIDEBAR_WIDTH),
+        height: TOPBAR_HEIGHT,
+      });
+      chatView.setBounds({
+        x: SIDEBAR_WIDTH,
+        y: TOPBAR_HEIGHT,
+        width: Math.max(0, w - SIDEBAR_WIDTH),
+        height: Math.max(0, h - TOPBAR_HEIGHT),
+      });
+      sidebarView.setAutoResize({ height: true });
+      topbarView.setAutoResize({ width: true });
+      chatView.setAutoResize({ width: true, height: true });
+      toastView.setAutoResize({ width: true, height: true });
+      overlayView.setAutoResize({ width: true, height: true });
+      applyToastBounds();
+      applyOverlayBounds();
+    } catch {
+      // ignore layout errors during teardown/restart
+    }
     // debug logging removed
   }
 
   function setSidebarWidth(width: number) {
+    if (win.isDestroyed()) return sidebarWidth;
     const next = Math.max(260, Math.min(720, Math.floor(Number(width) || SIDEBAR_WIDTH)));
-    if (next !== sidebarWidth) {
-      sidebarWidth = next;
-      layout();
+    pendingSidebarWidth = next;
+    if (!resizeTimer) {
+      resizeTimer = setTimeout(() => {
+        resizeTimer = null;
+        if (pendingSidebarWidth === null) return;
+        if (win.isDestroyed()) return;
+        const value = pendingSidebarWidth;
+        pendingSidebarWidth = null;
+        if (value !== sidebarWidth) {
+          sidebarWidth = value;
+          layout();
+        }
+      }, 40);
     }
-    return sidebarWidth;
+    return next;
   }
 
   layout();
@@ -1467,12 +1491,13 @@ function createWindow() {
   hardenWebContents(topbarView.webContents);
   hardenWebContents(chatView.webContents);
   hardenWebContents(toastView.webContents);
+  hardenWebContents(overlayView.webContents);
 
   // Load Operator UI views
   sidebarView.webContents.loadFile(path.join(app.getAppPath(), "renderer", "index.html")).catch(() => { });
   topbarView.webContents.loadFile(path.join(app.getAppPath(), "renderer", "topbar.html")).catch(() => { });
-  toastView.webContents.loadFile(path.join(app.getAppPath(), "renderer", "toast.html")).catch(() => { });
   overlayView.webContents.loadFile(path.join(app.getAppPath(), "renderer", "overlay.html")).catch(() => { });
+  toastView.webContents.loadFile(path.join(app.getAppPath(), "renderer", "toast.html")).catch(() => { });
 
   // Load webchat
   const startUrl = startUrlOverride ?? activeProfile.startUrl;
@@ -1521,7 +1546,23 @@ function createWindow() {
   });
 
   ipcMain.handle("operator:showToast", async (_evt, payload: { message: string; kind?: string }) => {
+    toastVisible = true;
+    applyToastBounds();
     toastView.webContents.send("operator:toast", payload);
+    return { ok: true };
+  });
+
+  ipcMain.handle("operator:hideToast", async () => {
+    toastVisible = false;
+    applyToastBounds();
+    return { ok: true };
+  });
+
+  ipcMain.handle("operator:setToastSize", async (_evt, payload: { width: number; height: number }) => {
+    const w = Math.max(180, Math.min(420, Math.floor(payload.width || TOAST_WIDTH)));
+    const h = Math.max(60, Math.min(240, Math.floor(payload.height || TOAST_HEIGHT)));
+    toastSize = { width: w, height: h };
+    if (toastVisible) applyToastBounds();
     return { ok: true };
   });
 

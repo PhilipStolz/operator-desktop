@@ -29,6 +29,8 @@ declare global {
       closeGettingStarted: () => Promise<{ ok: boolean }>;
       showToast: (payload: { message: string; kind?: string }) => Promise<{ ok: boolean }>;
       onToast: (cb: (payload: { message: string; kind?: string }) => void) => void;
+      hideToast: () => Promise<{ ok: boolean }>;
+      setToastSize: (payload: { width: number; height: number }) => Promise<{ ok: boolean }>;
     };
   }
 }
