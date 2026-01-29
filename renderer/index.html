@@ -468,6 +468,7 @@
           <button id="btnScanClipboard">Scan Clipboard</button>
           <button id="btnExtract">Extract &amp; Scan</button>
           <button id="btnClear">Clear</button>
+          <button id="btnCopyBootstrap">Copy LLM Bootstrap Prompt</button>
         </div>
         <div id="status" class="small" style="margin-top:6px;"></div>
       </div>
@@ -501,29 +502,23 @@
       </div>
     </details>
 
+    <details class="accordion" id="resultsSection">
+      <summary>Results</summary>
+      <div class="accordionBody">
+        <div class="sectionTitle">Last Result</div>
+        <textarea id="result" readonly></textarea>
+        <div class="row">
+          <button id="btnCopyResult">Copy Result</button>
+          <button id="btnCopyDecoded">Copy decoded details_b64</button>
+          <span id="copyStatus" class="small"></span>
+        </div>
+        <div class="small">If fs.read fails due to size, Use fs.readSlice.</div>
+      </div>
+    </details>
+
     <details class="accordion" id="toolsSection">
       <summary>Tools</summary>
       <div class="accordionBody">
-        <div class="sectionTitle">Templates</div>
-        <div class="row" style="margin-top:8px;">
-          <select id="templateSelect">
-            <option value="operator.getInterfaceSpec">operator.getInterfaceSpec</option>
-            <option value="fs.list">fs.list</option>
-            <option value="fs.readSlice">fs.readSlice</option>
-            <option value="fs.search">fs.search</option>
-            <option value="fs.searchTree">fs.searchTree</option>
-            <option value="fs.stat">fs.stat</option>
-            <option value="fs.write">fs.write</option>
-            <option value="fs.applyEdits">fs.applyEdits</option>
-            <option value="fs.copy">fs.copy</option>
-            <option value="fs.move">fs.move</option>
-            <option value="fs.rename">fs.rename</option>
-          </select>
-          <button id="btnInsertTemplate">Insert template</button>
-        </div>
-        <div class="small" style="margin-top:6px;">Copies a valid OPERATOR_CMD skeleton to clipboard.</div>
-        <div class="small">Includes fs.stat, fs.searchTree, and fs.copy/move/rename (path_to required).</div>
-
         <div class="accordion" id="base64Box" style="margin-top:10px;">
           <summary id="btnToggleBase64">Base64 Helper</summary>
           <div class="accordionBody" id="base64Body">
@@ -538,19 +533,6 @@
           </div>
         </div>
 
-        <div style="margin-top:10px;">
-          <div class="sectionTitle">Last Result</div>
-          <textarea id="result" readonly></textarea>
-          <div class="row">
-            <button id="btnCopyResult">Copy Result</button>
-            <button id="btnCopyDecoded">Copy decoded details_b64</button>
-            <button id="btnCopyBootstrap">Copy LLM Bootstrap Prompt</button>
-            <button id="btnCopySmokeTest">Copy Smoke Test Task</button>
-            <span id="copyStatus" class="small"></span>
-          </div>
-          <div class="small">If fs.read fails due to size, Use fs.readSlice.</div>
-          <div class="small">Webchat laeuft rechts (BrowserView). Operator liest nur Text und fuehrt lokale Aktionen nur nach Bestaetigung aus.</div>
-        </div>
       </div>
     </details>
 

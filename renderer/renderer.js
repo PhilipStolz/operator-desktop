@@ -13,6 +13,7 @@ const btnGettingStarted = $("btnGettingStarted");
 const errorsSection = $("errorsSection");
 const errorsSummary = $("errorsSummary");
 const errorListEl = $("errorList");
+const resultsSection = $("resultsSection");
 const inboxSection = $("inboxSection");
 const toolsSection = $("toolsSection");
 const settingsSection = $("settingsSection");
@@ -22,10 +23,7 @@ const btnCopyResult = $("btnCopyResult");
 const btnCopyDecoded = $("btnCopyDecoded");
 const copyStatusEl = $("copyStatus");
 const btnCopyBootstrap = $("btnCopyBootstrap");
-const btnCopySmokeTest = $("btnCopySmokeTest");
 const llmProfileSelect = $("llmProfile");
-const templateSelect = $("templateSelect");
-const btnInsertTemplate = $("btnInsertTemplate");
 const base64Box = $("base64Box");
 const base64Body = $("base64Body");
 const base64Input = $("base64Input");
@@ -78,6 +76,7 @@ const ACCORDION_ACTIONS_KEY = "operator.accordion.actions.v1";
 const ACCORDION_ERRORS_KEY = "operator.accordion.errors.v1";
 const ACCORDION_INBOX_KEY = "operator.accordion.inbox.v1";
 const ACCORDION_TOOLS_KEY = "operator.accordion.tools.v1";
+const ACCORDION_RESULTS_KEY = "operator.accordion.results.v1";
 const ACCORDION_SETTINGS_KEY = "operator.accordion.settings.v1";
 
 const FALLBACK_LLM_PROFILES = [
@@ -702,105 +701,6 @@ function closeCommandModal() {
   setModalDecodedVisibility(false);
 }
 
-const TEMPLATES = {
-  "operator.getInterfaceSpec": [
-    "OPERATOR_CMD",
-    "version: 1",
-    "id: iface-001",
-    "action: operator.getInterfaceSpec",
-    "END_OPERATOR_CMD",
-  ].join("\n"),
-  "fs.list": [
-    "OPERATOR_CMD",
-    "version: 1",
-    "id: list-001",
-    "action: fs.list",
-    "path: .",
-    "END_OPERATOR_CMD",
-  ].join("\n"),
-  "fs.readSlice": [
-    "OPERATOR_CMD",
-    "version: 1",
-    "id: readslice-001",
-    "action: fs.readSlice",
-    "path: path/to/file.txt",
-    "start: 1",
-    "lines: 120",
-    "END_OPERATOR_CMD",
-  ].join("\n"),
-  "fs.search": [
-    "OPERATOR_CMD",
-    "version: 1",
-    "id: search-001",
-    "action: fs.search",
-    "path: path/to/file.txt",
-    "query: TODO",
-    "END_OPERATOR_CMD",
-  ].join("\n"),
-  "fs.searchTree": [
-    "OPERATOR_CMD",
-    "version: 1",
-    "id: searchtree-001",
-    "action: fs.searchTree",
-    "path: path/to/dir",
-    "query: TODO",
-    "END_OPERATOR_CMD",
-  ].join("\n"),
-  "fs.stat": [
-    "OPERATOR_CMD",
-    "version: 1",
-    "id: stat-001",
-    "action: fs.stat",
-    "path: path/to/file.txt",
-    "END_OPERATOR_CMD",
-  ].join("\n"),
-  "fs.write": [
-    "OPERATOR_CMD",
-    "version: 1",
-    "id: write-001",
-    "action: fs.write",
-    "path: path/to/file.txt",
-    "content_b64: SGVsbG8=",
-    "END_OPERATOR_CMD",
-  ].join("\n"),
-  "fs.applyEdits": [
-    "OPERATOR_CMD",
-    "version: 1",
-    "id: applyedits-001",
-    "action: fs.applyEdits",
-    "path: path/to/file.txt",
-    "edits_b64: eyJ2ZXJzaW9uIjoxLCJlZGl0cyI6W119",
-    "END_OPERATOR_CMD",
-  ].join("\n"),
-  "fs.copy": [
-    "OPERATOR_CMD",
-    "version: 1",
-    "id: copy-001",
-    "action: fs.copy",
-    "path: path/from.txt",
-    "path_to: path/to.txt",
-    "END_OPERATOR_CMD",
-  ].join("\n"),
-  "fs.move": [
-    "OPERATOR_CMD",
-    "version: 1",
-    "id: move-001",
-    "action: fs.move",
-    "path: path/from.txt",
-    "path_to: path/to.txt",
-    "END_OPERATOR_CMD",
-  ].join("\n"),
-  "fs.rename": [
-    "OPERATOR_CMD",
-    "version: 1",
-    "id: rename-001",
-    "action: fs.rename",
-    "path: path/from.txt",
-    "path_to: path/to.txt",
-    "END_OPERATOR_CMD",
-  ].join("\n"),
-};
-
 function renderInbox() {
   inboxEl.innerHTML = "";
 
@@ -1309,42 +1209,6 @@ btnCopyBootstrap.onclick = async () => {
   }
 };
 
-if (btnCopySmokeTest) {
-  btnCopySmokeTest.onclick = async () => {
-    setStatus("Loading smoke test...");
-    try {
-      const res = await window.operator.getSmokeTestPrompt();
-      const text = res?.text || "";
-      if (!text.trim()) {
-        setStatus("Smoke test is empty (missing file?).");
-        return;
-      }
-      await window.operator.copyToClipboard(text);
-      setStatus("Smoke test copied. Paste it into the new chat.");
-      copyStatusEl.textContent = "Copied smoke test.";
-      setTimeout(() => (copyStatusEl.textContent = ""), 1200);
-    } catch (e) {
-      setStatus("Failed to copy smoke test.");
-      setErrors([String(e)]);
-    }
-  };
-}
-
-if (btnInsertTemplate && templateSelect) {
-  btnInsertTemplate.onclick = async () => {
-    const key = templateSelect.value;
-    const text = TEMPLATES[key];
-    if (!text) {
-      setStatus("Unknown template.");
-      return;
-    }
-    await window.operator.copyToClipboard(text);
-    setStatus(`Template copied: ${key}.`);
-    copyStatusEl.textContent = "Copied template.";
-    setTimeout(() => (copyStatusEl.textContent = ""), 1200);
-  };
-}
-
 if (btnBase64Encode && base64Input && base64Output) {
   btnBase64Encode.onclick = () => {
     const input = base64Input.value || "";
@@ -1423,6 +1287,7 @@ btnCopyDecoded.onclick = async () => {
   loadAccordionState(actionsSection, ACCORDION_ACTIONS_KEY, true);
   loadAccordionState(inboxSection, ACCORDION_INBOX_KEY, true);
   loadAccordionState(toolsSection, ACCORDION_TOOLS_KEY, false);
+  loadAccordionState(resultsSection, ACCORDION_RESULTS_KEY, false);
   loadAccordionState(settingsSection, ACCORDION_SETTINGS_KEY, false);
   loadBase64Collapsed();
   const restore = await loadWorkspaceFromStorage();
