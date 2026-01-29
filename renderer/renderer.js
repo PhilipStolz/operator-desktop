@@ -21,7 +21,6 @@ const inboxEl = $("inbox");
 const resultEl = $("result");
 const btnCopyResult = $("btnCopyResult");
 const btnCopyDecoded = $("btnCopyDecoded");
-const copyStatusEl = $("copyStatus");
 const btnCopyBootstrap = $("btnCopyBootstrap");
 const llmProfileSelect = $("llmProfile");
 const base64Box = $("base64Box");
@@ -46,7 +45,6 @@ const cmdModalStatus = $("cmdModalStatus");
 const cmdModalExecute = $("cmdModalExecute");
 const cmdModalDismiss = $("cmdModalDismiss");
 const cmdModalToggleDecoded = $("cmdModalToggleDecoded");
-const resetStatusEl = $("resetStatus");
 
 const chkStopOnFail = $("chkStopOnFail");
 const chkAutoCopy = $("chkAutoCopy");
@@ -68,6 +66,8 @@ let autoScanPaused = false;
 let scanInFlight = false;
 let inboxResizing = false;
 let lastErrorCount = 0;
+let lastScanCommandCount = 0;
+let lastScanErrorCount = 0;
 
 const SIDEBAR_WIDTH_KEY = "operator.sidebarWidth.v1";
 const INBOX_HEIGHT_KEY = "operator.inboxHeight.v1";
@@ -423,12 +423,7 @@ if (btnResetExecuted) {
     executedIds = new Set();
     saveExecutedIds();
     renderInbox();
-    if (resetStatusEl) {
-      resetStatusEl.textContent = "Reset.";
-      setTimeout(() => {
-        if (resetStatusEl) resetStatusEl.textContent = "";
-      }, 1200);
-    }
+    showToast("Reset executed states.");
   };
 }
 
@@ -438,8 +433,20 @@ if (btnGettingStarted) {
   };
 }
 
+function showToast(message, kind) {
+  const text = String(message || "").trim();
+  if (!text) return;
+  if (window.operator?.showToast) {
+    window.operator.showToast({ message: text, kind: kind || "info" }).catch(() => {});
+    return;
+  }
+  // Fallback: keep status line usable in case toast view isn't available.
+  if (statusEl) statusEl.textContent = text;
+}
+
 function setStatus(msg) {
-  statusEl.textContent = msg || "";
+  if (!statusEl) return;
+  statusEl.textContent = String(msg || "");
 }
 
 function setTopbarWorkspace(text) {
@@ -476,11 +483,9 @@ async function copyErrorResult(item) {
   const text = lines.join("\n");
   try {
     await window.operator.copyToClipboard(text);
-    copyStatusEl.textContent = "Copied error result.";
-    setTimeout(() => (copyStatusEl.textContent = ""), 1200);
+    showToast("Copied error result.");
   } catch (e) {
-    copyStatusEl.textContent = `Copy failed: ${String(e)}`;
-    setTimeout(() => (copyStatusEl.textContent = ""), 1600);
+    showToast(`Copy failed: ${String(e)}`, "error");
   }
 }
 
@@ -821,7 +826,24 @@ async function applyScanResults(scan, auto) {
     selectFocusAfterScan();
     setErrors(errors);
     renderInbox();
-    setStatus(`Scan done. Commands: ${commands.length}`);
+    const newCmds = Math.max(0, commands.length - lastScanCommandCount);
+    const newErrs = Math.max(0, errors.length - lastScanErrorCount);
+    if (auto) {
+      if (newCmds > 0 || newErrs > 0) {
+        const parts = [];
+        if (newCmds > 0) parts.push(`+${newCmds} command${newCmds === 1 ? "" : "s"}`);
+        if (newErrs > 0) parts.push(`+${newErrs} error${newErrs === 1 ? "" : "s"}`);
+        showToast(`Auto scan: ${parts.join(", ")}`);
+      }
+    } else {
+      if (commands.length || errors.length) {
+        showToast(`Scan complete: ${commands.length} command${commands.length === 1 ? "" : "s"}, ${errors.length} error${errors.length === 1 ? "" : "s"}.`);
+      } else {
+        showToast("Scan complete: no commands.");
+      }
+    }
+    lastScanCommandCount = commands.length;
+    lastScanErrorCount = errors.length;
   };
 
   preserveSidebarScroll(applyUpdates);
@@ -976,8 +998,7 @@ async function runCommands(entries) {
     resultEl.value = joined;
     if (chkAutoCopy && chkAutoCopy.checked) {
       await window.operator.copyToClipboard(joined);
-      copyStatusEl.textContent = "Copied.";
-      setTimeout(() => (copyStatusEl.textContent = ""), 1200);
+      showToast("Copied.");
     }
   }
 
@@ -1185,7 +1206,8 @@ btnClear.onclick = () => {
   resultEl.value = "";
   setErrors([]);
   setStatus("");
-  copyStatusEl.textContent = "";
+  lastScanCommandCount = 0;
+  lastScanErrorCount = 0;
   renderInbox();
 };
 
@@ -1201,8 +1223,7 @@ btnCopyBootstrap.onclick = async () => {
     await window.operator.copyToClipboard(text);
     const label = res?.profileLabel || res?.profileId || "";
     setStatus(label ? `Bootstrap prompt copied (${label}). Paste it into the new chat.` : "Bootstrap prompt copied. Paste it into the new chat.");
-    copyStatusEl.textContent = label ? `Copied bootstrap prompt (${label}).` : "Copied bootstrap prompt.";
-    setTimeout(() => (copyStatusEl.textContent = ""), 1200);
+    showToast("Copied bootstrap prompt.");
   } catch (e) {
     setStatus("Failed to copy bootstrap prompt.");
     setErrors([String(e)]);
@@ -1236,23 +1257,21 @@ if (btnBase64Copy && base64Output) {
   btnBase64Copy.onclick = async () => {
     const text = base64Output.value || "";
     if (!text) {
-      copyStatusEl.textContent = "No base64 to copy.";
+      showToast("No base64 to copy.", "error");
       return;
     }
     await window.operator.copyToClipboard(text);
-    copyStatusEl.textContent = "Copied base64.";
-    setTimeout(() => (copyStatusEl.textContent = ""), 1200);
+    showToast("Copied base64.");
   };
 }
 
 btnCopyResult.onclick = async () => {
   if (!lastResultText) {
-    copyStatusEl.textContent = "No result to copy.";
+    showToast("No result to copy.", "error");
     return;
   }
   await window.operator.copyToClipboard(lastResultText);
-  copyStatusEl.textContent = "Copied.";
-  setTimeout(() => (copyStatusEl.textContent = ""), 1200);
+  showToast("Copied.");
 };
 
 btnCopyDecoded.onclick = async () => {
@@ -1260,14 +1279,12 @@ btnCopyDecoded.onclick = async () => {
   const decoded = decodeDetailsB64FromResultText(sourceText);
 
   if (!decoded.ok) {
-    copyStatusEl.textContent = decoded.error || "Nothing to decode.";
-    setTimeout(() => (copyStatusEl.textContent = ""), 1600);
+    showToast(decoded.error || "Nothing to decode.", "error");
     return;
   }
 
   await window.operator.copyToClipboard(decoded.decodedText);
-  copyStatusEl.textContent = "Copied decoded details_b64.";
-  setTimeout(() => (copyStatusEl.textContent = ""), 1200);
+  showToast("Copied decoded details_b64.");
 };
 
 // boot
@@ -1275,13 +1292,13 @@ btnCopyDecoded.onclick = async () => {
   window.addEventListener("error", (event) => {
     const message = event?.error?.stack || event?.message || "Unknown error";
     addErrorMessage(`UI error: ${message}`);
-    setStatus("UI error detected.");
+    showToast("UI error detected.", "error");
   });
   window.addEventListener("unhandledrejection", (event) => {
     const reason = event?.reason;
     const message = reason?.stack || String(reason || "Unknown rejection");
     addErrorMessage(`UI rejection: ${message}`);
-    setStatus("UI error detected.");
+    showToast("UI error detected.", "error");
   });
   loadAccordionState(errorsSection, ACCORDION_ERRORS_KEY, false);
   loadAccordionState(actionsSection, ACCORDION_ACTIONS_KEY, true);

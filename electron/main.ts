@@ -1299,6 +1299,8 @@ function createWindow() {
 
   const SIDEBAR_WIDTH = 360;
   const TOPBAR_HEIGHT = 44;
+  const TOAST_WIDTH = 360;
+  const TOAST_HEIGHT = 200;
 
   const win = new BrowserWindow({
     width: 1200,
@@ -1368,9 +1370,24 @@ function createWindow() {
     },
   });
 
+  const toastView = new BrowserView({
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+      preload: path.join(__dirname, "preload.js"),
+    },
+  });
+  if (typeof (toastView.webContents as any).setIgnoreMouseEvents === "function") {
+    (toastView.webContents as any).setIgnoreMouseEvents(true, { forward: true });
+  }
+
   win.addBrowserView(sidebarView);
   win.addBrowserView(topbarView);
   win.addBrowserView(chatView);
+  win.addBrowserView(toastView);
   win.addBrowserView(overlayView);
 
   function setActiveProfile(id: LLMId) {
@@ -1416,9 +1433,18 @@ function createWindow() {
       width: Math.max(0, w - SIDEBAR_WIDTH),
       height: Math.max(0, h - TOPBAR_HEIGHT),
     });
+    const toastWidth = Math.min(TOAST_WIDTH, Math.max(0, w - SIDEBAR_WIDTH));
+    const toastHeight = Math.min(TOAST_HEIGHT, Math.max(0, h - TOPBAR_HEIGHT));
+    toastView.setBounds({
+      x: SIDEBAR_WIDTH + Math.max(0, w - SIDEBAR_WIDTH - toastWidth),
+      y: TOPBAR_HEIGHT + Math.max(0, h - TOPBAR_HEIGHT - toastHeight),
+      width: toastWidth,
+      height: toastHeight,
+    });
     sidebarView.setAutoResize({ height: true });
     topbarView.setAutoResize({ width: true });
     chatView.setAutoResize({ width: true, height: true });
+    toastView.setAutoResize({ width: true, height: true });
     overlayView.setAutoResize({ width: true, height: true });
     applyOverlayBounds();
     // debug logging removed
@@ -1440,10 +1466,12 @@ function createWindow() {
   hardenWebContents(sidebarView.webContents);
   hardenWebContents(topbarView.webContents);
   hardenWebContents(chatView.webContents);
+  hardenWebContents(toastView.webContents);
 
   // Load Operator UI views
   sidebarView.webContents.loadFile(path.join(app.getAppPath(), "renderer", "index.html")).catch(() => { });
   topbarView.webContents.loadFile(path.join(app.getAppPath(), "renderer", "topbar.html")).catch(() => { });
+  toastView.webContents.loadFile(path.join(app.getAppPath(), "renderer", "toast.html")).catch(() => { });
   overlayView.webContents.loadFile(path.join(app.getAppPath(), "renderer", "overlay.html")).catch(() => { });
 
   // Load webchat
@@ -1489,6 +1517,11 @@ function createWindow() {
   ipcMain.handle("operator:closeGettingStarted", async () => {
     overlayVisible = false;
     applyOverlayBounds();
+    return { ok: true };
+  });
+
+  ipcMain.handle("operator:showToast", async (_evt, payload: { message: string; kind?: string }) => {
+    toastView.webContents.send("operator:toast", payload);
     return { ok: true };
   });
 

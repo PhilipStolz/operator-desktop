@@ -42,6 +42,9 @@ contextBridge.exposeInMainWorld("operator", {
   onWorkspaceChanged: (cb: (workspaceRoot: string | null) => void) =>
     ipcRenderer.on("operator:workspaceChanged", (_evt, payload: { workspaceRoot: string | null }) => cb(payload.workspaceRoot)),
   closeGettingStarted: () => ipcRenderer.invoke("operator:closeGettingStarted"),
+  showToast: (payload: { message: string; kind?: string }) => ipcRenderer.invoke("operator:showToast", payload),
+  onToast: (cb: (payload: { message: string; kind?: string }) => void) =>
+    ipcRenderer.on("operator:toast", (_evt, payload: { message: string; kind?: string }) => cb(payload)),
 
 });
 

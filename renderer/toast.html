@@ -1,0 +1,47 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <title>Operator Toasts</title>
+  <style>
+    body {
+      margin: 0;
+      background: transparent;
+      font-family: sans-serif;
+    }
+
+    .toastRoot {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: flex-end;
+      pointer-events: none;
+    }
+
+    .toast {
+      background: rgba(25, 25, 25, 0.92);
+      color: #fff;
+      font-size: 12px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      max-width: 320px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+      pointer-events: none;
+    }
+
+    .toast.error {
+      background: rgba(160, 0, 0, 0.92);
+    }
+  </style>
+</head>
+
+<body>
+  <div id="toastRoot" class="toastRoot"></div>
+  <script src="./toast.js"></script>
+</body>
+
+</html>

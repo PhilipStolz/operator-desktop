@@ -323,16 +323,6 @@
       user-select: none;
     }
 
-    #copyStatus {
-      display: inline-block;
-      min-width: 240px;
-      min-height: 16px;
-      line-height: 16px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
     /* Modal (command details) */
     .modalOverlay {
       position: fixed;
@@ -470,7 +460,6 @@
           <button id="btnClear">Clear</button>
           <button id="btnCopyBootstrap">Copy LLM Bootstrap Prompt</button>
         </div>
-        <div id="status" class="small" style="margin-top:6px;"></div>
       </div>
     </details>
 
@@ -496,7 +485,6 @@
         <div class="row" style="margin-top:6px; align-items:center;">
           <button id="btnResetExecuted" class="resetBtn" title="Reset executed states" aria-label="Reset executed states"></button>
           <span class="small">Reset executed states</span>
-          <span id="resetStatus" class="small"></span>
         </div>
         <div id="inboxResizeHandle" class="resizeHandle horizontal"></div>
       </div>
@@ -510,7 +498,6 @@
         <div class="row">
           <button id="btnCopyResult">Copy Result</button>
           <button id="btnCopyDecoded">Copy decoded details_b64</button>
-          <span id="copyStatus" class="small"></span>
         </div>
         <div class="small">If fs.read fails due to size, Use fs.readSlice.</div>
       </div>

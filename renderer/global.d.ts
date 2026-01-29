@@ -27,6 +27,8 @@ declare global {
       onOpenGettingStarted: (cb: () => void) => void;
       onWorkspaceChanged: (cb: (workspaceRoot: string | null) => void) => void;
       closeGettingStarted: () => Promise<{ ok: boolean }>;
+      showToast: (payload: { message: string; kind?: string }) => Promise<{ ok: boolean }>;
+      onToast: (cb: (payload: { message: string; kind?: string }) => void) => void;
     };
   }
 }
