@@ -461,14 +461,17 @@
 
 <body>
   <div class="sidebar">
-    <div>
-      <div class="row" style="margin-top:8px;">
-        <button id="btnScanClipboard">Scan Clipboard</button>
-        <button id="btnExtract">Extract &amp; Scan</button>
-        <button id="btnClear">Clear</button>
+    <details class="accordion" id="actionsSection" open>
+      <summary>Actions</summary>
+      <div class="accordionBody">
+        <div class="row">
+          <button id="btnScanClipboard">Scan Clipboard</button>
+          <button id="btnExtract">Extract &amp; Scan</button>
+          <button id="btnClear">Clear</button>
+        </div>
+        <div id="status" class="small" style="margin-top:6px;"></div>
       </div>
-      <div id="status" class="small" style="margin-top:6px;"></div>
-    </div>
+    </details>
 
     <details class="accordion" id="errorsSection">
       <summary id="errorsSummary">Errors (0)</summary>
