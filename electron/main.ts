@@ -7,6 +7,7 @@ import {
   ipcMain,
   clipboard,
   dialog,
+  Menu,
 } from "electron";
 import * as path from "path";
 import * as fs from "fs/promises";
@@ -27,7 +28,7 @@ import {
   type OperatorResult,
 } from "./operator_cmd";
 
-const APP_NAME = "Operator";
+const APP_NAME = "Operator — Human-in-the-Loop";
 const MAX_READ_BYTES = 200_000;
 const MAX_READSLICE_BYTES = 2_000_000;
 const MAX_SEARCH_BYTES = 2_000_000;
@@ -35,6 +36,69 @@ const MAX_SEARCHTREE_BYTES = 500_000;
 const MAX_SEARCHTREE_FILES = 300;
 const MAX_SEARCHTREE_MATCHES = 200;
 const EXTRACT_LIMIT_CHARS = 200_000;
+
+type Appearance = {
+  id: string;
+  label: string;
+  vars: Record<string, string>;
+};
+
+const DEFAULT_APPEARANCES: Appearance[] = [
+  {
+    id: "operator-classic",
+    label: "Operator Classic",
+    vars: {
+      "--app-bg": "#e7edf4",
+      "--panel-bg": "#f9fbfe",
+      "--panel-bg-alt": "#eef3f8",
+      "--text": "#1b2430",
+      "--text-muted": "#5a6778",
+      "--border": "#c9d3df",
+      "--accent": "#1a5fbf",
+      "--accent-muted": "#d9e6f7",
+      "--error": "#8a0b0b",
+      "--warning": "#a26100",
+      "--toast-bg": "rgba(25, 25, 25, 0.92)",
+      "--toast-error-bg": "rgba(160, 0, 0, 0.92)",
+    },
+  },
+  {
+    id: "slate",
+    label: "Slate",
+    vars: {
+      "--app-bg": "#eef1f5",
+      "--panel-bg": "#ffffff",
+      "--panel-bg-alt": "#f0f3f7",
+      "--text": "#1f2933",
+      "--text-muted": "#6b7785",
+      "--border": "#cdd5df",
+      "--accent": "#1b65d1",
+      "--accent-muted": "#dbe6ff",
+      "--error": "#8a0b0b",
+      "--warning": "#8f5a00",
+      "--toast-bg": "rgba(20, 22, 26, 0.92)",
+      "--toast-error-bg": "rgba(140, 0, 0, 0.92)",
+    },
+  },
+  {
+    id: "paper",
+    label: "Paper",
+    vars: {
+      "--app-bg": "#fbfaf7",
+      "--panel-bg": "#ffffff",
+      "--panel-bg-alt": "#f6f1ea",
+      "--text": "#2a241b",
+      "--text-muted": "#6f675b",
+      "--border": "#e2d9cc",
+      "--accent": "#0b57d0",
+      "--accent-muted": "#e7eefc",
+      "--error": "#8a0b0b",
+      "--warning": "#8f5a00",
+      "--toast-bg": "rgba(30, 28, 24, 0.92)",
+      "--toast-error-bg": "rgba(140, 0, 0, 0.92)",
+    },
+  },
+];
 
 function normalizeStartUrl(raw?: string): string | null {
   if (!raw) return null;
@@ -48,12 +112,12 @@ function normalizeStartUrl(raw?: string): string | null {
 }
 
 function isLlmId(value: string): value is LLMId {
-  return Object.prototype.hasOwnProperty.call(LLM_PROFILES, value);
+  return Object.prototype.hasOwnProperty.call(currentProfiles, value);
 }
 
 function getProfile(id?: string | null): LLMProfile {
-  if (id && isLlmId(id)) return LLM_PROFILES[id];
-  return LLM_PROFILES[DEFAULT_LLM_ID];
+  if (id && isLlmId(id)) return currentProfiles[id];
+  return currentProfiles[DEFAULT_LLM_ID] ?? Object.values(currentProfiles)[0];
 }
 
 function buildAllowedHosts(profile: LLMProfile, overrideUrl?: string | null): Set<string> {
@@ -70,9 +134,11 @@ function buildAllowedHosts(profile: LLMProfile, overrideUrl?: string | null): Se
 
 const START_URL_OVERRIDE = normalizeStartUrl(process.env.OPERATOR_START_URL);
 const ENV_LLM_ID = process.env.OPERATOR_LLM_ID;
-const INITIAL_LLM_ID: LLMId = isLlmId(ENV_LLM_ID ?? "") ? (ENV_LLM_ID as LLMId) : DEFAULT_LLM_ID;
+const INITIAL_LLM_ID: LLMId = (ENV_LLM_ID ?? DEFAULT_LLM_ID) as LLMId;
 
 let allowedHosts = new Set<string>();
+let currentProfiles: Record<string, LLMProfile> = { ...LLM_PROFILES };
+let currentAppearances: Appearance[] = [...DEFAULT_APPEARANCES];
 
 function isAllowedUrl(rawUrl: string): boolean {
   try {
@@ -94,6 +160,136 @@ ipcMain.handle("operator:readClipboard", async () => {
 function getAssetPath(...segments: string[]) {
   const base = app.isPackaged ? process.resourcesPath : app.getAppPath();
   return path.join(base, "assets", ...segments);
+}
+
+function getUserAppearancePath() {
+  return path.join(app.getPath("userData"), "appearance.json");
+}
+
+function getUserAppearancesPath() {
+  return path.join(app.getPath("userData"), "appearances.json");
+}
+
+function getUserProfilesPath() {
+  return path.join(app.getPath("userData"), "llm_profiles.json");
+}
+
+function sanitizeProfile(raw: any): LLMProfile | null {
+  if (!raw) return null;
+  const id = typeof raw.id === "string" ? raw.id.trim() : "";
+  const label = typeof raw.label === "string" ? raw.label.trim() : "";
+  const startUrl = typeof raw.startUrl === "string" ? raw.startUrl.trim() : "";
+  if (!id || !startUrl) return null;
+  let url: URL;
+  try {
+    url = new URL(startUrl);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:") return null;
+  const allowed = Array.isArray(raw.allowedHosts) ? (raw.allowedHosts as unknown[]) : [];
+  const allowedHosts = Array.from(new Set(
+    allowed
+      .map((h: unknown) => String(h ?? "").trim())
+      .filter((h) => h.length > 0)
+  ));
+  const mergedHosts = allowedHosts.length ? allowedHosts : [url.hostname];
+  return {
+    id,
+    label: label || id,
+    startUrl: url.toString(),
+    allowedHosts: mergedHosts,
+    bootstrapPromptFile: "operator_llm_bootstrap.txt",
+  };
+}
+
+async function loadUserProfiles(): Promise<LLMProfile[] | null> {
+  try {
+    const raw = await fs.readFile(getUserProfilesPath(), "utf-8");
+    const parsed = JSON.parse(raw);
+    const list = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.profiles) ? parsed.profiles : [];
+    const out = list.map(sanitizeProfile).filter(Boolean) as LLMProfile[];
+    if (!out.length) return null;
+    const unique = new Map<string, LLMProfile>();
+    for (const profile of out) {
+      unique.set(profile.id, profile);
+    }
+    const deduped = Array.from(unique.values());
+    return deduped.length ? deduped : null;
+  } catch {
+    return null;
+  }
+}
+
+async function saveUserProfiles(profiles: LLMProfile[]) {
+  const payload = { profiles };
+  await fs.writeFile(getUserProfilesPath(), JSON.stringify(payload, null, 2), "utf-8");
+}
+
+async function resetUserProfiles() {
+  try {
+    await fs.rm(getUserProfilesPath(), { force: true });
+  } catch {}
+}
+
+async function loadAppearanceId(): Promise<string | null> {
+  try {
+    const raw = await fs.readFile(getUserAppearancePath(), "utf-8");
+    const parsed = JSON.parse(raw);
+    const id = typeof parsed?.id === "string" ? parsed.id : null;
+    return id;
+  } catch {
+    return null;
+  }
+}
+
+async function saveAppearanceId(id: string) {
+  const payload = { id };
+  await fs.writeFile(getUserAppearancePath(), JSON.stringify(payload, null, 2), "utf-8");
+}
+
+function sanitizeAppearance(raw: any): Appearance | null {
+  if (!raw) return null;
+  const id = typeof raw.id === "string" ? raw.id.trim() : "";
+  const label = typeof raw.label === "string" ? raw.label.trim() : "";
+  const vars = raw.vars && typeof raw.vars === "object" ? raw.vars : {};
+  if (!id) return null;
+  const cleaned: Record<string, string> = {};
+  for (const [key, value] of Object.entries(vars)) {
+    const k = String(key || "").trim();
+    const v = String(value || "").trim();
+    if (!k || !v) continue;
+    cleaned[k] = v;
+  }
+  return { id, label: label || id, vars: cleaned };
+}
+
+async function loadUserAppearances(): Promise<Appearance[] | null> {
+  try {
+    const raw = await fs.readFile(getUserAppearancesPath(), "utf-8");
+    const parsed = JSON.parse(raw);
+    const list = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.appearances) ? parsed.appearances : [];
+    const out = list.map(sanitizeAppearance).filter(Boolean) as Appearance[];
+    if (!out.length) return null;
+    const unique = new Map<string, Appearance>();
+    for (const appearance of out) {
+      unique.set(appearance.id, appearance);
+    }
+    return Array.from(unique.values());
+  } catch {
+    return null;
+  }
+}
+
+async function saveUserAppearances(list: Appearance[]) {
+  const payload = { appearances: list };
+  await fs.writeFile(getUserAppearancesPath(), JSON.stringify(payload, null, 2), "utf-8");
+}
+
+async function resetUserAppearances() {
+  try {
+    await fs.rm(getUserAppearancesPath(), { force: true });
+  } catch {}
 }
 
 function applyBranding(win: BrowserWindow) {
@@ -500,6 +696,13 @@ async function readInterfaceSpec(): Promise<{ ok: true; text: string } | { ok: f
 // --- Workspace + filesystem safety ---
 
 let workspaceRoot: string | null = null;
+let recentWorkspaces: string[] = [];
+
+function addRecentWorkspace(root: string) {
+  const trimmed = root.trim();
+  if (!trimmed) return;
+  recentWorkspaces = [trimmed, ...recentWorkspaces.filter((r) => r !== trimmed)].slice(0, 10);
+}
 
 function normalizeRelPath(p: string): string {
   // Normalize slashes, remove leading slashes
@@ -1288,11 +1491,28 @@ async function applyUnifiedPatchSingleFile(
 
 // --- Window + BrowserView ---
 
-function createWindow() {
+async function createWindow() {
   app.setName(APP_NAME);
 
+  const userProfiles = await loadUserProfiles();
+  const userAppearances = await loadUserAppearances();
+  const storedAppearanceId = await loadAppearanceId();
+  currentProfiles = userProfiles && userProfiles.length
+    ? Object.fromEntries(userProfiles.map((p) => [p.id, p]))
+    : { ...LLM_PROFILES };
+  currentAppearances = userAppearances && userAppearances.length
+    ? userAppearances
+    : [...DEFAULT_APPEARANCES];
+
   let activeProfileId = INITIAL_LLM_ID;
+  if (!isLlmId(activeProfileId)) {
+    activeProfileId = (currentProfiles[DEFAULT_LLM_ID] ? DEFAULT_LLM_ID : Object.keys(currentProfiles)[0]) as LLMId;
+  }
   let startUrlOverride: string | null = START_URL_OVERRIDE;
+  let activeAppearanceId = currentAppearances[0]?.id ?? "operator-classic";
+  if (storedAppearanceId && currentAppearances.some((a) => a.id === storedAppearanceId)) {
+    activeAppearanceId = storedAppearanceId;
+  }
   let activeProfile = getProfile(activeProfileId);
 
   allowedHosts = buildAllowedHosts(activeProfile, startUrlOverride);
@@ -1387,6 +1607,148 @@ function createWindow() {
   win.addBrowserView(toastView);
   win.addBrowserView(overlayView);
 
+  function broadcastWorkspaceChanged() {
+    const payload = { workspaceRoot };
+    topbarView.webContents.send("operator:workspaceChanged", payload);
+    sidebarView.webContents.send("operator:workspaceChanged", payload);
+  }
+
+  function broadcastLlmProfilesChanged() {
+    const profiles = Object.values(currentProfiles);
+    const payload = { profiles, activeId: activeProfileId };
+    topbarView.webContents.send("operator:llmProfilesChanged", payload);
+    sidebarView.webContents.send("operator:llmProfilesChanged", payload);
+  }
+
+  function broadcastAppearanceChanged() {
+    const appearance = currentAppearances.find((a) => a.id === activeAppearanceId) ?? currentAppearances[0];
+    if (!appearance) return;
+    const payload = { id: appearance.id, label: appearance.label, vars: appearance.vars };
+    topbarView.webContents.send("operator:appearanceChanged", payload);
+    sidebarView.webContents.send("operator:appearanceChanged", payload);
+    overlayView.webContents.send("operator:appearanceChanged", payload);
+    toastView.webContents.send("operator:appearanceChanged", payload);
+  }
+
+  function applyProfiles(list: LLMProfile[]) {
+    if (!list.length) {
+      currentProfiles = { ...LLM_PROFILES };
+    } else {
+      currentProfiles = Object.fromEntries(list.map((p) => [p.id, p]));
+    }
+    if (!isLlmId(activeProfileId)) {
+      activeProfileId = (currentProfiles[DEFAULT_LLM_ID] ? DEFAULT_LLM_ID : Object.keys(currentProfiles)[0]) as LLMId;
+    }
+    activeProfile = getProfile(activeProfileId);
+    allowedHosts = buildAllowedHosts(activeProfile, startUrlOverride);
+    chatView.webContents.loadURL(activeProfile.startUrl);
+    broadcastLlmProfilesChanged();
+  }
+
+  async function setAppearance(id: string) {
+    const next = currentAppearances.find((a) => a.id === id) ? id : currentAppearances[0]?.id;
+    if (!next) return;
+    activeAppearanceId = next;
+    await saveAppearanceId(activeAppearanceId);
+    broadcastAppearanceChanged();
+  }
+
+  async function applyWorkspace(candidate: string): Promise<{ ok: boolean; error?: string }> {
+    const raw = typeof candidate === "string" ? candidate.trim() : "";
+    if (!raw) return { ok: false, error: "Workspace path is empty" };
+    try {
+      const resolved = path.resolve(raw);
+      const stat = await fs.stat(resolved);
+      if (!stat.isDirectory()) {
+        return { ok: false, error: "Workspace path is not a directory" };
+      }
+      workspaceRoot = resolved;
+      addRecentWorkspace(resolved);
+      broadcastWorkspaceChanged();
+      buildWorkspaceMenu();
+      return { ok: true };
+    } catch (e: any) {
+      return { ok: false, error: String(e?.message ?? e) };
+    }
+  }
+
+  async function closeWorkspace() {
+    workspaceRoot = null;
+    broadcastWorkspaceChanged();
+    buildWorkspaceMenu();
+  }
+
+  function buildWorkspaceMenu() {
+    const recentItems = recentWorkspaces.length
+      ? recentWorkspaces.map((entry) => ({
+        label: entry,
+        click: async () => {
+          const res = await applyWorkspace(entry);
+          if (!res.ok) {
+            dialog.showMessageBox(win, {
+              type: "error",
+              title: APP_NAME,
+              message: `Failed to set workspace: ${res.error ?? "Unknown error"}`,
+            }).catch(() => {});
+          }
+        },
+      }))
+      : [{ label: "No recent workspaces", enabled: false }];
+
+    const menu = Menu.buildFromTemplate([
+      {
+        label: "Workspace",
+        submenu: [
+          {
+            label: "Select Workspace\u2026",
+            click: async () => {
+              const res = await dialog.showOpenDialog(win, {
+                title: "Choose workspace root",
+                properties: ["openDirectory", "createDirectory"],
+              });
+              if (res.canceled || res.filePaths.length === 0) return;
+              const applyRes = await applyWorkspace(res.filePaths[0]);
+              if (!applyRes.ok) {
+                dialog.showMessageBox(win, {
+                  type: "error",
+                  title: APP_NAME,
+                  message: `Failed to set workspace: ${applyRes.error ?? "Unknown error"}`,
+                }).catch(() => {});
+              }
+            },
+          },
+          { label: "Recent Workspaces", submenu: recentItems },
+          { type: "separator" },
+          {
+            label: "Close Workspace",
+            click: async () => {
+              await closeWorkspace();
+            },
+          },
+        ],
+      },
+      {
+        label: "Settings",
+        submenu: [
+          {
+            label: "LLM Profiles\u2026",
+            click: () => {
+              openOverlay("llm-profiles");
+            },
+          },
+          {
+            label: "Appearance\u2026",
+            click: () => {
+              openOverlay("appearance");
+            },
+          },
+        ],
+      },
+    ]);
+
+    Menu.setApplicationMenu(menu);
+  }
+
   function setActiveProfile(id: LLMId) {
     activeProfileId = id;
     activeProfile = getProfile(activeProfileId);
@@ -1423,6 +1785,21 @@ function createWindow() {
       return;
     }
     overlayView.setBounds({ x: 0, y: 0, width: w, height: h });
+  }
+
+  function openOverlay(kind: "getting-started" | "llm-profiles" | "appearance") {
+    overlayVisible = true;
+    applyOverlayBounds();
+    if (kind === "getting-started") {
+      overlayView.webContents.send("operator:openGettingStarted");
+      overlayView.webContents.executeJavaScript("window.__openGettingStarted && window.__openGettingStarted()").catch(() => {});
+    } else if (kind === "appearance") {
+      overlayView.webContents.send("operator:openAppearance");
+      overlayView.webContents.executeJavaScript("window.__openAppearance && window.__openAppearance()").catch(() => {});
+    } else {
+      overlayView.webContents.send("operator:openLlmProfiles");
+      overlayView.webContents.executeJavaScript("window.__openLlmProfiles && window.__openLlmProfiles()").catch(() => {});
+    }
   }
 
   function layout() {
@@ -1484,6 +1861,8 @@ function createWindow() {
   }
 
   layout();
+  buildWorkspaceMenu();
+  broadcastAppearanceChanged();
   win.on("resize", layout);
 
   // Harden the UI views and webchat view
@@ -1510,20 +1889,8 @@ function createWindow() {
   });
 
   ipcMain.handle("operator:setWorkspace", async (_evt, { path: candidate }: { path: string }) => {
-    const raw = typeof candidate === "string" ? candidate.trim() : "";
-    if (!raw) return { ok: false, workspaceRoot, error: "Workspace path is empty" };
-    try {
-      const resolved = path.resolve(raw);
-      const stat = await fs.stat(resolved);
-      if (!stat.isDirectory()) {
-        return { ok: false, workspaceRoot, error: "Workspace path is not a directory" };
-      }
-      workspaceRoot = resolved;
-      topbarView.webContents.send("operator:workspaceChanged", { workspaceRoot });
-      return { ok: true, workspaceRoot };
-    } catch (e: any) {
-      return { ok: false, workspaceRoot, error: String(e?.message ?? e) };
-    }
+    const res = await applyWorkspace(candidate);
+    return res.ok ? { ok: true, workspaceRoot } : { ok: false, workspaceRoot, error: res.error };
   });
 
   ipcMain.handle("operator:setSidebarWidth", async (_evt, { width }: { width: number }) => {
@@ -1532,14 +1899,33 @@ function createWindow() {
   });
 
   ipcMain.handle("operator:openGettingStarted", async () => {
-    overlayVisible = true;
-    applyOverlayBounds();
-    overlayView.webContents.send("operator:openGettingStarted");
-    overlayView.webContents.executeJavaScript("window.__openGettingStarted && window.__openGettingStarted()").catch(() => {});
+    openOverlay("getting-started");
     return { ok: true };
   });
 
   ipcMain.handle("operator:closeGettingStarted", async () => {
+    overlayVisible = false;
+    applyOverlayBounds();
+    return { ok: true };
+  });
+
+  ipcMain.handle("operator:openLlmProfiles", async () => {
+    openOverlay("llm-profiles");
+    return { ok: true };
+  });
+
+  ipcMain.handle("operator:closeLlmProfiles", async () => {
+    overlayVisible = false;
+    applyOverlayBounds();
+    return { ok: true };
+  });
+
+  ipcMain.handle("operator:openAppearance", async () => {
+    openOverlay("appearance");
+    return { ok: true };
+  });
+
+  ipcMain.handle("operator:closeAppearance", async () => {
     overlayVisible = false;
     applyOverlayBounds();
     return { ok: true };
@@ -1560,7 +1946,7 @@ function createWindow() {
 
   ipcMain.handle("operator:setToastSize", async (_evt, payload: { width: number; height: number }) => {
     const w = Math.max(180, Math.min(420, Math.floor(payload.width || TOAST_WIDTH)));
-    const h = Math.max(60, Math.min(240, Math.floor(payload.height || TOAST_HEIGHT)));
+    const h = Math.max(60, Math.min(420, Math.floor(payload.height || TOAST_HEIGHT)));
     toastSize = { width: w, height: h };
     if (toastVisible) applyToastBounds();
     return { ok: true };
@@ -1572,9 +1958,8 @@ function createWindow() {
       properties: ["openDirectory", "createDirectory"],
     });
     if (res.canceled || res.filePaths.length === 0) return { ok: false, workspaceRoot };
-    workspaceRoot = res.filePaths[0];
-    topbarView.webContents.send("operator:workspaceChanged", { workspaceRoot });
-    return { ok: true, workspaceRoot };
+    const applyRes = await applyWorkspace(res.filePaths[0]);
+    return applyRes.ok ? { ok: true, workspaceRoot } : { ok: false, workspaceRoot, error: applyRes.error };
   });
 
   ipcMain.handle("operator:copy", async (_evt, { text }: { text: string }) => {
@@ -1583,7 +1968,12 @@ function createWindow() {
   });
 
   ipcMain.handle("operator:getLlmProfiles", async () => {
-    const profiles = Object.values(LLM_PROFILES).map((p) => ({ id: p.id, label: p.label }));
+    const profiles = Object.values(currentProfiles).map((p) => ({
+      id: p.id,
+      label: p.label,
+      startUrl: p.startUrl,
+      allowedHosts: p.allowedHosts,
+    }));
     return { profiles };
   });
 
@@ -1595,6 +1985,79 @@ function createWindow() {
     if (!isLlmId(id)) return { ok: false, error: "Unknown LLM profile" };
     setActiveProfile(id);
     return { ok: true, id: activeProfile.id, label: activeProfile.label };
+  });
+
+  ipcMain.handle("operator:getAppearances", async () => {
+    const list = currentAppearances.map((a) => ({ id: a.id, label: a.label, vars: a.vars }));
+    return { appearances: list, activeId: activeAppearanceId };
+  });
+
+  ipcMain.handle("operator:getActiveAppearance", async () => {
+    const appearance = currentAppearances.find((a) => a.id === activeAppearanceId) ?? currentAppearances[0];
+    if (!appearance) return { id: "operator-classic" };
+    return { id: appearance.id, label: appearance.label, vars: appearance.vars };
+  });
+
+  ipcMain.handle("operator:setAppearance", async (_evt, { id }: { id: string }) => {
+    const exists = currentAppearances.find((a) => a.id === id);
+    if (!exists) return { ok: false, error: "Unknown appearance" };
+    await setAppearance(id);
+    return { ok: true, id: activeAppearanceId };
+  });
+
+  ipcMain.handle("operator:setAppearances", async (_evt, { appearances }: { appearances: any[] }) => {
+    const list = Array.isArray(appearances) ? appearances : [];
+    const sanitized = list.map(sanitizeAppearance).filter(Boolean) as Appearance[];
+    if (!sanitized.length) return { ok: false, error: "No valid appearances provided." };
+    const unique = new Map<string, Appearance>();
+    for (const appearance of sanitized) unique.set(appearance.id, appearance);
+    currentAppearances = Array.from(unique.values());
+    if (!currentAppearances.find((a) => a.id === activeAppearanceId)) {
+      activeAppearanceId = currentAppearances[0]?.id ?? "operator-classic";
+    }
+    try {
+      await saveUserAppearances(currentAppearances);
+      await saveAppearanceId(activeAppearanceId);
+    } catch (e: any) {
+      return { ok: false, error: String(e?.message ?? e) };
+    }
+    broadcastAppearanceChanged();
+    return { ok: true };
+  });
+
+  ipcMain.handle("operator:resetAppearances", async () => {
+    await resetUserAppearances();
+    currentAppearances = [...DEFAULT_APPEARANCES];
+    activeAppearanceId = currentAppearances[0]?.id ?? "operator-classic";
+    await saveAppearanceId(activeAppearanceId);
+    broadcastAppearanceChanged();
+    return { ok: true };
+  });
+
+  ipcMain.handle("operator:setLlmProfiles", async (_evt, { profiles }: { profiles: any[] }) => {
+    const list = Array.isArray(profiles) ? profiles : [];
+    const sanitized = list.map(sanitizeProfile).filter(Boolean) as LLMProfile[];
+    if (!sanitized.length) {
+      return { ok: false, error: "No valid profiles provided." };
+    }
+    const unique = new Map<string, LLMProfile>();
+    for (const profile of sanitized) {
+      unique.set(profile.id, profile);
+    }
+    const deduped = Array.from(unique.values());
+    applyProfiles(deduped);
+    try {
+      await saveUserProfiles(deduped);
+    } catch (e: any) {
+      return { ok: false, error: String(e?.message ?? e) };
+    }
+    return { ok: true };
+  });
+
+  ipcMain.handle("operator:resetLlmProfiles", async () => {
+    await resetUserProfiles();
+    applyProfiles(Object.values(LLM_PROFILES));
+    return { ok: true };
   });
 
   ipcMain.handle("operator:getBootstrapPrompt", async () => {
@@ -1750,7 +2213,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  createWindow();
+  void createWindow();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

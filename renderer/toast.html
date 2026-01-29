@@ -5,6 +5,11 @@
   <meta charset="utf-8" />
   <title>Operator Toasts</title>
   <style>
+    :root {
+      --text: #ffffff;
+      --toast-bg: rgba(25, 25, 25, 0.92);
+      --toast-error-bg: rgba(160, 0, 0, 0.92);
+    }
     body {
       margin: 0;
       background: transparent;
@@ -23,8 +28,8 @@
     }
 
     .toast {
-      background: rgba(25, 25, 25, 0.92);
-      color: #fff;
+      background: var(--toast-bg);
+      color: var(--text);
       font-size: 12px;
       padding: 8px 10px;
       border-radius: 8px;
@@ -34,7 +39,7 @@
     }
 
     .toast.error {
-      background: rgba(160, 0, 0, 0.92);
+      background: var(--toast-error-bg);
     }
   </style>
 </head>

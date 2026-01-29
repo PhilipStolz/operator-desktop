@@ -3,15 +3,27 @@
 
 <head>
   <meta charset="utf-8" />
-  <title>Operator</title>
+  <title>Operator — Human-in-the-Loop</title>
   <style>
     :root {
       --sidebar-width: 360px;
       --inbox-height: 220px;
+      --app-bg: #e7edf4;
+      --panel-bg: #f9fbfe;
+      --panel-bg-alt: #eef3f8;
+      --text: #1b2430;
+      --text-muted: #5a6778;
+      --border: #c9d3df;
+      --accent: #1a5fbf;
+      --accent-muted: #d9e6f7;
+      --error: #8a0b0b;
+      --warning: #a26100;
     }
     body {
       margin: 0;
-      font-family: sans-serif
+      font-family: sans-serif;
+      background: var(--app-bg);
+      color: var(--text);
     }
 
     .sidebar {
@@ -20,10 +32,10 @@
       top: 0;
       bottom: 0;
       width: var(--sidebar-width);
-      border-right: 1px solid #ddd;
+      border-right: 1px solid var(--border);
       padding: 12px;
       box-sizing: border-box;
-      background: #fff;
+      background: var(--panel-bg);
       display: flex;
       flex-direction: column;
       gap: 10px;
@@ -34,7 +46,7 @@
     .contentHint {
       margin-left: var(--sidebar-width);
       padding: 8px 12px;
-      color: #666;
+      color: var(--text-muted);
       font-size: 12px;
       user-select: none
     }
@@ -43,6 +55,55 @@
       padding: 8px 10px;
       margin: 0;
       cursor: pointer
+    }
+
+    input,
+    select,
+    textarea {
+      accent-color: var(--accent);
+    }
+
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible,
+    button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .btnPrimary {
+      background: var(--accent);
+      color: #fff;
+      border: 1px solid var(--accent);
+    }
+
+    .btnSecondary {
+      background: var(--panel-bg-alt);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btnGhost {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid transparent;
+    }
+
+    .btnPrimary:hover,
+    .btnSecondary:hover,
+    .btnGhost:hover {
+      filter: brightness(0.97);
+    }
+
+    .btnPrimary:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+
+    .btnWide {
+      width: 100%;
+      padding: 10px 12px;
+      font-weight: 600;
     }
 
     select {
@@ -58,17 +119,17 @@
 
     .small {
       font-size: 12px;
-      color: #666
+      color: var(--text-muted)
     }
 
     .error {
-      color: #b00020
+      color: var(--error)
     }
 
     .accordion {
-      border: 1px solid #eee;
+      border: 1px solid var(--border);
       border-radius: 8px;
-      background: #fafafa;
+      background: var(--panel-bg-alt);
       overflow: visible;
     }
 
@@ -86,7 +147,7 @@
       padding: 8px 10px;
       font-size: 14px;
       font-weight: 600;
-      color: #222;
+      color: var(--text);
       user-select: none;
     }
 
@@ -97,7 +158,7 @@
     .accordion summary::after {
       content: "▸";
       font-size: 12px;
-      color: #666;
+      color: var(--text-muted);
       transition: transform 0.15s ease;
     }
 
@@ -106,8 +167,8 @@
     }
 
     .accordion[open] summary {
-      border-bottom: 1px solid #eee;
-      background: #f6f6f6;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel-bg-alt);
     }
 
     .accordionBody {
@@ -132,13 +193,13 @@
 
     .errorMessage {
       font-size: 12px;
-      color: #8a0b0b;
+      color: var(--error);
       word-break: break-word;
     }
 
     .errorMeta {
       font-size: 11px;
-      color: #666;
+      color: var(--text-muted);
     }
 
     .errorActions {
@@ -167,7 +228,7 @@
     .pill {
       display: inline-block;
       padding: 2px 6px;
-      border: 1px solid #ddd;
+      border: 1px solid var(--border);
       border-radius: 999px;
       font-size: 12px
     }
@@ -181,13 +242,13 @@
       flex: 0 0 auto;
       height: var(--inbox-height);
       overflow: auto;
-      border: 1px solid #eee;
+      border: 1px solid var(--border);
       border-radius: 8px;
       padding: 8px
     }
 
     .cmd {
-      border: 1px solid #eee;
+      border: 1px solid var(--border);
       padding: 4px 6px;
       margin: 4px 0;
       border-radius: 6px;
@@ -231,7 +292,7 @@
 
     .cmdCompact .cmdMeta {
       font-size: 11px;
-      color: #666;
+      color: var(--text-muted);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -301,8 +362,8 @@
     }
 
     .cmd.active {
-      border-color: #0b57d0;
-      background: #eef4ff;
+      border-color: var(--accent);
+      background: var(--accent-muted);
       outline: 2px solid rgba(11, 87, 208, 0.35);
     }
 
@@ -319,7 +380,7 @@
       gap: 6px;
       align-items: center;
       font-size: 12px;
-      color: #333;
+      color: var(--text);
       user-select: none;
     }
 
@@ -345,7 +406,7 @@
 
     .modal {
       background: #fff;
-      border: 1px solid #ddd;
+      border: 1px solid var(--border);
       border-radius: 12px;
       width: 100%;
       max-width: 900px;
@@ -362,7 +423,7 @@
       justify-content: space-between;
       gap: 10px;
       padding: 10px 12px;
-      border-bottom: 1px solid #eee;
+      border-bottom: 1px solid var(--border);
     }
 
     .modalBody {
@@ -377,7 +438,7 @@
     .modalSectionTitle {
       margin: 0 0 6px;
       font-size: 12px;
-      color: #666;
+      color: var(--text-muted);
     }
 
     .modalSection {
@@ -386,7 +447,7 @@
 
     .modalMeta {
       font-size: 12px;
-      color: #666;
+      color: var(--text-muted);
       margin-bottom: 10px;
     }
 
@@ -395,9 +456,10 @@
       justify-content: flex-end;
       gap: 8px;
       padding: 10px 12px;
-      border-top: 1px solid #eee;
+      border-top: 1px solid var(--border);
       flex-wrap: wrap;
     }
+
 
     .resizeHandle {
       background: transparent;
@@ -411,7 +473,7 @@
       left: calc(var(--sidebar-width) - 3px);
       width: 6px;
       cursor: ew-resize;
-      background: #eee;
+      background: var(--border);
     }
 
     .resizeHandle.horizontal {
@@ -419,15 +481,15 @@
       height: 6px;
       cursor: ns-resize;
       width: 100%;
-      background: #eee;
+      background: var(--border);
     }
 
     .resetBtn {
       width: 20px;
       height: 20px;
       border-radius: 999px;
-      border: 1px solid #bbb;
-      background: #f6f6f6;
+      border: 1px solid var(--border);
+      background: var(--panel-bg-alt);
       position: relative;
       padding: 0;
       cursor: pointer;
@@ -452,19 +514,21 @@
 <body>
   <div class="sidebar">
     <details class="accordion" id="actionsSection" open>
-      <summary>Actions</summary>
+      <summary>Operator Control</summary>
       <div class="accordionBody">
-        <div class="row">
-          <button id="btnScanClipboard">Scan Clipboard</button>
-          <button id="btnExtract">Extract &amp; Scan</button>
-          <button id="btnClear">Clear</button>
-          <button id="btnCopyBootstrap">Copy LLM Bootstrap Prompt</button>
+        <div class="row" style="flex-direction:column; align-items:stretch;">
+          <button id="btnExtract" class="btnPrimary btnWide">Extract &amp; Scan</button>
+          <div class="row" style="justify-content:space-between; align-items:center;">
+            <button id="btnScanClipboard" class="btnSecondary">Scan Clipboard</button>
+            <button id="btnCopyBootstrap" class="btnGhost">Copy LLM Bootstrap Prompt</button>
+            <button id="btnClear" class="btnGhost">Clear</button>
+          </div>
         </div>
       </div>
     </details>
 
     <details class="accordion" id="errorsSection">
-      <summary id="errorsSummary">Errors (0)</summary>
+      <summary id="errorsSummary">Execution Errors (0)</summary>
       <div class="accordionBody">
         <div id="errorList" class="errorList"></div>
       </div>
@@ -475,10 +539,7 @@
       <div class="accordionBody">
         <div class="row" style="margin-top:8px;">
           <label class="chk">
-            <input id="chkStopOnFail" type="checkbox" checked /> stop on fail
-          </label>
-          <label class="chk">
-            <input id="chkAutoCopy" type="checkbox" checked /> auto copy result
+            <input id="chkAutoCopy" type="checkbox" checked /> Copy execution results to clipboard
           </label>
         </div>
         <div id="inbox" class="inboxPane" style="margin-top:8px;"></div>
@@ -523,7 +584,7 @@
     </details>
 
     <details class="accordion" id="settingsSection">
-      <summary>Settings</summary>
+      <summary>Controls</summary>
       <div class="accordionBody">
         <div class="row" style="margin-top:8px;">
           <label class="chk">
@@ -571,6 +632,7 @@
       </div>
     </div>
   </div>
+
   <script src="./renderer.js"></script>
 </body>
 

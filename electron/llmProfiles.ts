@@ -1,6 +1,6 @@
 // electron/llmProfiles.ts
 
-export type LLMId = "chatgpt" | "deepseek";
+export type LLMId = string;
 
 export type LLMProfile = {
   id: LLMId;
@@ -13,7 +13,7 @@ export type LLMProfile = {
 export const DEFAULT_LLM_ID: LLMId = "chatgpt";
 
 // NOTE: This app embeds web UI (BrowserView). We do NOT use provider APIs here.
-export const LLM_PROFILES: Record<LLMId, LLMProfile> = {
+export const LLM_PROFILES: Record<string, LLMProfile> = {
   chatgpt: {
     id: "chatgpt",
     label: "ChatGPT",

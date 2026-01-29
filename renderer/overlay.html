@@ -5,10 +5,20 @@
   <meta charset="utf-8" />
   <title>Operator Overlay</title>
   <style>
+    :root {
+      --app-bg: #e7edf4;
+      --panel-bg: #f9fbfe;
+      --panel-bg-alt: #eef3f8;
+      --text: #1b2430;
+      --text-muted: #5a6778;
+      --border: #c9d3df;
+      --accent: #1a5fbf;
+    }
     body {
       margin: 0;
       background: transparent;
       font-family: sans-serif;
+      color: var(--text);
     }
 
     .overlay {
@@ -29,7 +39,7 @@
 
     .modal {
       background: #fff;
-      border: 1px solid #ddd;
+      border: 1px solid var(--border);
       border-radius: 12px;
       width: min(520px, 90vw);
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
@@ -41,7 +51,7 @@
       justify-content: space-between;
       gap: 10px;
       padding: 10px 12px;
-      border-bottom: 1px solid #eee;
+      border-bottom: 1px solid var(--border);
     }
 
     .modalBody {
@@ -51,17 +61,119 @@
       gap: 6px;
     }
 
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
     .modalFooter {
       display: flex;
       justify-content: flex-end;
       gap: 8px;
       padding: 10px 12px;
-      border-top: 1px solid #eee;
+      border-top: 1px solid var(--border);
     }
 
     .small {
       font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .wideModal {
+      width: min(980px, 96vw);
+    }
+
+    .llmTable {
+      display: grid;
+      grid-template-columns: 120px 160px 1fr 1fr 40px;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .llmTableHeader {
+      font-size: 11px;
       color: #666;
+      font-weight: 600;
+    }
+
+    .llmTable input {
+      width: 100%;
+      padding: 6px 8px;
+      box-sizing: border-box;
+      font-size: 12px;
+    }
+
+    .llmTable button {
+      padding: 4px 6px;
+      font-size: 12px;
+    }
+
+    .appearanceList {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .appearanceItem {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: var(--panel-bg);
+      cursor: pointer;
+    }
+
+    .appearanceItem.selected {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(26, 95, 191, 0.2);
+    }
+
+    .appearanceMeta {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .appearanceLabel {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .appearanceRow {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .appearanceEditor {
+      margin-top: 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      background: var(--panel-bg);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .appearanceGrid {
+      display: grid;
+      grid-template-columns: 140px 1fr 120px 1fr;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .appearanceGrid input[type="text"] {
+      width: 100%;
+      padding: 6px 8px;
+      box-sizing: border-box;
+      font-size: 12px;
     }
   </style>
 </head>
@@ -81,6 +193,83 @@
       </div>
       <div class="modalFooter">
         <button id="gettingStartedCloseFooter">Close</button>
+      </div>
+    </div>
+  </div>
+  <div id="llmProfilesOverlay" class="overlay" aria-hidden="true">
+    <div class="modal wideModal">
+      <div class="modalHeader">
+        <div>LLM Profiles</div>
+        <button id="llmClose">X</button>
+      </div>
+      <div class="modalBody">
+        <div class="small" style="margin-bottom:8px;">Add or edit LLM start URLs and allowed hosts (comma separated).</div>
+        <div class="llmTable llmTableHeader">
+          <div>ID</div>
+          <div>Label</div>
+          <div>Start URL</div>
+          <div>Allowed hosts</div>
+          <div></div>
+        </div>
+        <div id="llmProfilesBody" class="llmTable" style="margin-top:6px;"></div>
+        <div class="row" style="margin-top:10px;">
+          <button id="llmAdd">Add profile</button>
+        </div>
+      </div>
+      <div class="modalFooter">
+        <button id="llmReset">Reset to defaults</button>
+        <button id="llmCancel">Close</button>
+        <button id="llmSave">Save</button>
+      </div>
+    </div>
+  </div>
+  <div id="appearanceOverlay" class="overlay" aria-hidden="true">
+    <div class="modal wideModal">
+      <div class="modalHeader">
+        <div>Appearance</div>
+        <button id="appearanceClose">X</button>
+      </div>
+      <div class="modalBody">
+        <div class="small" style="margin-bottom:8px;">Choose a visual style for the Operator UI.</div>
+        <div id="appearanceList" class="appearanceList"></div>
+        <div class="appearanceEditor">
+          <div class="small">Edit selected appearance</div>
+          <div class="appearanceGrid">
+            <div class="small">ID</div>
+            <input id="appearanceId" type="text" />
+            <div class="small">Label</div>
+            <input id="appearanceLabel" type="text" />
+
+            <div class="small">App background</div>
+            <input id="appearanceAppBg" type="color" />
+            <div class="small">Panel background</div>
+            <input id="appearancePanelBg" type="color" />
+
+            <div class="small">Panel alt</div>
+            <input id="appearancePanelAlt" type="color" />
+            <div class="small">Text</div>
+            <input id="appearanceText" type="color" />
+
+            <div class="small">Text muted</div>
+            <input id="appearanceTextMuted" type="color" />
+            <div class="small">Border</div>
+            <input id="appearanceBorder" type="color" />
+
+            <div class="small">Accent</div>
+            <input id="appearanceAccent" type="color" />
+            <div class="small">Accent muted</div>
+            <input id="appearanceAccentMuted" type="color" />
+          </div>
+          <div class="row" style="justify-content:space-between;">
+            <button id="appearanceAdd">Add appearance</button>
+            <button id="appearanceRemove">Remove selected</button>
+          </div>
+        </div>
+      </div>
+      <div class="modalFooter">
+        <button id="appearanceReset">Reset to defaults</button>
+        <button id="appearanceCancel">Cancel</button>
+        <button id="appearanceSave">Save</button>
       </div>
     </div>
   </div>

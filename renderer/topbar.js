@@ -10,6 +10,14 @@ const FALLBACK_LLM_PROFILES = [
   { id: "deepseek", label: "DeepSeek" },
 ];
 
+function applyAppearanceVars(payload) {
+  const vars = payload?.vars;
+  if (!vars) return;
+  for (const [key, value] of Object.entries(vars)) {
+    document.documentElement.style.setProperty(key, String(value));
+  }
+}
+
 function setWorkspaceText(text) {
   if (!topbarWorkspaceEl) return;
   topbarWorkspaceEl.textContent = text || "Workspace: (not set)";
@@ -97,10 +105,27 @@ if (btnGettingStarted) {
 window.addEventListener("DOMContentLoaded", async () => {
   await refreshWorkspace();
   await loadLlmProfiles();
+  if (window.operator?.getActiveAppearance) {
+    try {
+      const res = await window.operator.getActiveAppearance();
+      applyAppearanceVars(res);
+    } catch {}
+  }
 });
 
 if (window.operator?.onWorkspaceChanged) {
   window.operator.onWorkspaceChanged((workspaceRoot) => {
     setWorkspaceText(workspaceRoot ? `Workspace: ${workspaceRoot}` : "Workspace: (not set)");
+  });
+}
+
+if (window.operator?.onAppearanceChanged) {
+  window.operator.onAppearanceChanged((payload) => {
+    applyAppearanceVars(payload);
+  });
+}
+if (window.operator?.onLlmProfilesChanged) {
+  window.operator.onLlmProfilesChanged(() => {
+    loadLlmProfiles();
   });
 }

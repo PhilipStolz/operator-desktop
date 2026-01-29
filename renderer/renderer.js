@@ -46,7 +46,6 @@ const cmdModalExecute = $("cmdModalExecute");
 const cmdModalDismiss = $("cmdModalDismiss");
 const cmdModalToggleDecoded = $("cmdModalToggleDecoded");
 
-const chkStopOnFail = $("chkStopOnFail");
 const chkAutoCopy = $("chkAutoCopy");
 
 let commands = [];
@@ -87,6 +86,14 @@ const FALLBACK_LLM_PROFILES = [
 let modalCmd = null;
 let modalKey = null;
 let modalDecodedVisible = false;
+
+function applyAppearanceVars(payload) {
+  const vars = payload?.vars;
+  if (!vars) return;
+  for (const [key, value] of Object.entries(vars)) {
+    document.documentElement.style.setProperty(key, String(value));
+  }
+}
 
 function loadExecutedIds() {
   try {
@@ -297,6 +304,13 @@ function loadAutoScanSettings() {
   } catch {}
 }
 
+function updateExtractButtonState() {
+  if (!btnExtract || !chkAutoScan) return;
+  const autoEnabled = chkAutoScan.checked;
+  btnExtract.disabled = autoEnabled;
+  btnExtract.textContent = autoEnabled ? "Extract & Scan (automatic)" : "Extract & Scan";
+}
+
 function stopAutoScan() {
   if (autoScanTimer) clearInterval(autoScanTimer);
   autoScanTimer = null;
@@ -492,7 +506,7 @@ async function copyErrorResult(item) {
 function renderErrors() {
   if (!errorsSummary || !errorsSection || !errorListEl) return;
   const count = errorItems.length;
-  errorsSummary.textContent = `Errors (${count})`;
+  errorsSummary.textContent = `Execution Errors (${count})`;
   errorListEl.innerHTML = "";
 
   if (count === 0) {
@@ -673,6 +687,7 @@ function setModalDecodedVisibility(visible) {
   if (cmdModalToggleDecoded) cmdModalToggleDecoded.textContent = visible ? "Hide decoded" : "Show decoded";
 }
 
+
 function openCommandModal(cmd, key) {
   if (!cmdModalOverlay || !cmdModalJson || !cmdModalTitle) return;
   modalCmd = cmd;
@@ -710,7 +725,7 @@ function renderInbox() {
   inboxEl.innerHTML = "";
 
   if (!commands.length) {
-    inboxEl.innerHTML = `<div class="small">No commands detected.</div>`;
+    inboxEl.innerHTML = `<div class="small">No pending commands.</div>`;
     return;
   }
 
@@ -988,7 +1003,6 @@ async function runCommands(entries) {
     if (res.resultText) results.push(res.resultText);
     if (!res.ok) {
       failed = true;
-      if (chkStopOnFail && chkStopOnFail.checked) break;
     }
   }
 
@@ -1142,6 +1156,7 @@ btnExtract.onclick = async () => {
 if (chkAutoScan) {
   chkAutoScan.onchange = () => {
     saveAutoScanSettings();
+    updateExtractButtonState();
     if (chkAutoScan.checked) startAutoScan();
     else stopAutoScan();
   };
@@ -1173,6 +1188,7 @@ if (cmdModalOverlay) {
     if (ev.target === cmdModalOverlay) closeCommandModal();
   };
 }
+
 
 if (cmdModalToggleDecoded) {
   cmdModalToggleDecoded.onclick = () => {
@@ -1300,6 +1316,22 @@ btnCopyDecoded.onclick = async () => {
     addErrorMessage(`UI rejection: ${message}`);
     showToast("UI error detected.", "error");
   });
+  if (window.operator?.getActiveAppearance) {
+    try {
+      const res = await window.operator.getActiveAppearance();
+      applyAppearanceVars(res);
+    } catch {}
+  }
+  if (window.operator?.onAppearanceChanged) {
+    window.operator.onAppearanceChanged((payload) => {
+      applyAppearanceVars(payload);
+    });
+  }
+  if (window.operator?.onLlmProfilesChanged) {
+    window.operator.onLlmProfilesChanged(() => {
+      loadLlmProfiles();
+    });
+  }
   loadAccordionState(errorsSection, ACCORDION_ERRORS_KEY, false);
   loadAccordionState(actionsSection, ACCORDION_ACTIONS_KEY, true);
   loadAccordionState(inboxSection, ACCORDION_INBOX_KEY, true);
@@ -1319,6 +1351,7 @@ btnCopyDecoded.onclick = async () => {
   setupSidebarResize();
   setupInboxResize();
   loadAutoScanSettings();
+  updateExtractButtonState();
   if (chkAutoScan && chkAutoScan.checked) startAutoScan();
   renderInbox();
   renderErrors();
