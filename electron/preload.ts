@@ -60,6 +60,8 @@ contextBridge.exposeInMainWorld("operator", {
   setAppearance: (id: string) => ipcRenderer.invoke("operator:setAppearance", { id }),
   setAppearances: (appearances: any[]) => ipcRenderer.invoke("operator:setAppearances", { appearances }),
   resetAppearances: () => ipcRenderer.invoke("operator:resetAppearances"),
+  previewAppearance: (vars: Record<string, string>) => ipcRenderer.invoke("operator:previewAppearance", { vars }),
+  clearAppearancePreview: () => ipcRenderer.invoke("operator:clearAppearancePreview"),
   onAppearanceChanged: (cb: (payload: { id: string; label?: string; vars?: Record<string, string> }) => void) =>
     ipcRenderer.on("operator:appearanceChanged", (_evt, payload: { id: string; label?: string; vars?: Record<string, string> }) => cb(payload)),
   onOpenAppearance: (cb: () => void) => ipcRenderer.on("operator:openAppearance", () => cb()),

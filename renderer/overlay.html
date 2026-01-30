@@ -132,6 +132,12 @@
       box-shadow: 0 0 0 2px rgba(26, 95, 191, 0.2);
     }
 
+    .appearanceActions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
     .appearanceMeta {
       display: flex;
       flex-direction: column;
@@ -164,9 +170,45 @@
 
     .appearanceGrid {
       display: grid;
-      grid-template-columns: 140px 1fr 120px 1fr;
       gap: 8px;
+    }
+
+    .appearanceSwatchGrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 6px 8px;
+    }
+
+    .appearanceSwatchRow {
+      display: grid;
+      grid-template-columns: 1fr auto;
       align-items: center;
+      gap: 6px;
+      padding: 4px 6px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--panel-bg-alt);
+    }
+
+    .appearanceSwatchInput {
+      width: 30px;
+      height: 20px;
+      padding: 0;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .appearanceSwatchControls {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+    }
+
+    .appearanceSwatchAlpha {
+      width: 62px;
     }
 
     .appearanceGrid input[type="text"] {
@@ -174,6 +216,56 @@
       padding: 6px 8px;
       box-sizing: border-box;
       font-size: 12px;
+    }
+
+    .appearancePreviewBox {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      background: var(--panel-bg-alt);
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 10px;
+    }
+
+    .appearancePreviewSidebar {
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .appearancePreviewButton {
+      background: var(--accent);
+      color: #fff;
+      border: 1px solid var(--accent);
+      padding: 6px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .appearancePreviewCard {
+      background: var(--panel-bg-alt);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px;
+      font-size: 11px;
+      color: var(--text);
+    }
+
+    .appearancePreviewMain {
+      background: var(--app-bg);
+      border: 1px dashed var(--border);
+      border-radius: 6px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      color: var(--text);
     }
   </style>
 </head>
@@ -232,44 +324,54 @@
       <div class="modalBody">
         <div class="small" style="margin-bottom:8px;">Choose a visual style for the Operator UI.</div>
         <div id="appearanceList" class="appearanceList"></div>
-        <div class="appearanceEditor">
-          <div class="small">Edit selected appearance</div>
-          <div class="appearanceGrid">
-            <div class="small">ID</div>
-            <input id="appearanceId" type="text" />
-            <div class="small">Label</div>
-            <input id="appearanceLabel" type="text" />
-
-            <div class="small">App background</div>
-            <input id="appearanceAppBg" type="color" />
-            <div class="small">Panel background</div>
-            <input id="appearancePanelBg" type="color" />
-
-            <div class="small">Panel alt</div>
-            <input id="appearancePanelAlt" type="color" />
-            <div class="small">Text</div>
-            <input id="appearanceText" type="color" />
-
-            <div class="small">Text muted</div>
-            <input id="appearanceTextMuted" type="color" />
-            <div class="small">Border</div>
-            <input id="appearanceBorder" type="color" />
-
-            <div class="small">Accent</div>
-            <input id="appearanceAccent" type="color" />
-            <div class="small">Accent muted</div>
-            <input id="appearanceAccentMuted" type="color" />
-          </div>
-          <div class="row" style="justify-content:space-between;">
-            <button id="appearanceAdd">Add appearance</button>
-            <button id="appearanceRemove">Remove selected</button>
-          </div>
+        <div class="row" style="justify-content:space-between; margin-top:10px;">
+          <button id="appearanceAdd">Add appearance</button>
+          <button id="appearanceRemove">Remove selected</button>
         </div>
       </div>
       <div class="modalFooter">
         <button id="appearanceReset">Reset to defaults</button>
         <button id="appearanceCancel">Cancel</button>
         <button id="appearanceSave">Save</button>
+      </div>
+    </div>
+  </div>
+  <div id="appearanceEditorOverlay" class="overlay" aria-hidden="true">
+    <div class="modal wideModal">
+      <div class="modalHeader">
+        <div>Edit appearance</div>
+        <button id="appearanceEditorClose">X</button>
+      </div>
+      <div class="modalBody">
+        <div class="appearanceEditor">
+          <div class="appearanceGrid">
+            <div class="small">ID</div>
+            <input id="appearanceId" type="text" />
+            <div class="small">Label</div>
+            <input id="appearanceLabel" type="text" />
+
+            <div id="appearanceSwatchGrid" class="appearanceSwatchGrid"></div>
+          </div>
+        </div>
+        <div class="appearancePreviewBox" id="appearanceEditorPreview">
+          <div class="appearancePreviewSidebar">
+            <div class="small">Sidebar</div>
+            <div class="appearancePreviewButton">Primary Action</div>
+            <div class="appearancePreviewCard">Secondary</div>
+            <div class="appearancePreviewCard">Muted text</div>
+          </div>
+          <div class="appearancePreviewMain">
+            <div class="small">Main area</div>
+            <div class="appearancePreviewCard">Card content</div>
+            <div class="appearancePreviewCard">Toast preview</div>
+          </div>
+        </div>
+      </div>
+      <div class="modalFooter">
+        <button id="appearanceEditorCopy">Copy definition</button>
+        <button id="appearanceEditorPaste">Paste definition</button>
+        <button id="appearanceEditorCancel">Cancel</button>
+        <button id="appearanceEditorSave">Save</button>
       </div>
     </div>
   </div>

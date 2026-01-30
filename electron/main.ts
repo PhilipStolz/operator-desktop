@@ -60,6 +60,7 @@ const DEFAULT_APPEARANCES: Appearance[] = [
       "--warning": "#a26100",
       "--toast-bg": "rgba(25, 25, 25, 0.92)",
       "--toast-error-bg": "rgba(160, 0, 0, 0.92)",
+      "--toast-text": "#ffffff",
     },
   },
   {
@@ -78,6 +79,7 @@ const DEFAULT_APPEARANCES: Appearance[] = [
       "--warning": "#8f5a00",
       "--toast-bg": "rgba(20, 22, 26, 0.92)",
       "--toast-error-bg": "rgba(140, 0, 0, 0.92)",
+      "--toast-text": "#ffffff",
     },
   },
   {
@@ -96,6 +98,7 @@ const DEFAULT_APPEARANCES: Appearance[] = [
       "--warning": "#8f5a00",
       "--toast-bg": "rgba(30, 28, 24, 0.92)",
       "--toast-error-bg": "rgba(140, 0, 0, 0.92)",
+      "--toast-text": "#ffffff",
     },
   },
 ];
@@ -139,6 +142,7 @@ const INITIAL_LLM_ID: LLMId = (ENV_LLM_ID ?? DEFAULT_LLM_ID) as LLMId;
 let allowedHosts = new Set<string>();
 let currentProfiles: Record<string, LLMProfile> = { ...LLM_PROFILES };
 let currentAppearances: Appearance[] = [...DEFAULT_APPEARANCES];
+let previewAppearanceVars: Record<string, string> | null = null;
 
 function isAllowedUrl(rawUrl: string): boolean {
   try {
@@ -1630,6 +1634,14 @@ async function createWindow() {
     toastView.webContents.send("operator:appearanceChanged", payload);
   }
 
+  function broadcastAppearanceVars(vars: Record<string, string>) {
+    const payload = { id: "preview", vars };
+    topbarView.webContents.send("operator:appearanceChanged", payload);
+    sidebarView.webContents.send("operator:appearanceChanged", payload);
+    overlayView.webContents.send("operator:appearanceChanged", payload);
+    toastView.webContents.send("operator:appearanceChanged", payload);
+  }
+
   function applyProfiles(list: LLMProfile[]) {
     if (!list.length) {
       currentProfiles = { ...LLM_PROFILES };
@@ -1649,6 +1661,7 @@ async function createWindow() {
     const next = currentAppearances.find((a) => a.id === id) ? id : currentAppearances[0]?.id;
     if (!next) return;
     activeAppearanceId = next;
+    previewAppearanceVars = null;
     await saveAppearanceId(activeAppearanceId);
     broadcastAppearanceChanged();
   }
@@ -2003,6 +2016,19 @@ async function createWindow() {
     if (!exists) return { ok: false, error: "Unknown appearance" };
     await setAppearance(id);
     return { ok: true, id: activeAppearanceId };
+  });
+
+  ipcMain.handle("operator:previewAppearance", async (_evt, { vars }: { vars: Record<string, string> }) => {
+    if (!vars || typeof vars !== "object") return { ok: false, error: "Invalid vars" };
+    previewAppearanceVars = vars;
+    broadcastAppearanceVars(vars);
+    return { ok: true };
+  });
+
+  ipcMain.handle("operator:clearAppearancePreview", async () => {
+    previewAppearanceVars = null;
+    broadcastAppearanceChanged();
+    return { ok: true };
   });
 
   ipcMain.handle("operator:setAppearances", async (_evt, { appearances }: { appearances: any[] }) => {
