@@ -158,6 +158,8 @@ const APPEARANCE_KEYS = [
   "--border",
   "--accent",
   "--accent-muted",
+  "--error",
+  "--warning",
   "--toast-bg",
   "--toast-error-bg",
   "--toast-text",
@@ -171,6 +173,8 @@ const APPEARANCE_LABELS = {
   "--border": "Border",
   "--accent": "Accent",
   "--accent-muted": "Accent muted",
+  "--error": "Error",
+  "--warning": "Warning",
   "--toast-bg": "Toast background",
   "--toast-error-bg": "Toast error",
   "--toast-text": "Toast text",
@@ -445,14 +449,21 @@ function attachAppearanceInputHandlers() {
 
 function openAlphaPopup(entry) {
   if (!alphaPopup || !alphaSlider || !alphaValue) return;
+  if (alphaPopupEntry === entry && alphaPopup.classList.contains("open")) {
+    closeAlphaPopup();
+    return;
+  }
   alphaPopupEntry = entry;
+  if (alphaPopupEntry?.alphaToggle) {
+    alphaPopupEntry.alphaToggle.classList.add("active");
+  }
   const rect = entry.alphaToggle?.getBoundingClientRect?.();
   const value = entry.alpha ? entry.alpha.value : "100";
   alphaSlider.value = value;
   alphaValue.value = formatAlpha(clamp(parseFloat(value) / 100, 0, 1));
   if (rect) {
     const left = Math.min(rect.left, window.innerWidth - 120);
-    const top = Math.min(rect.bottom + 6, window.innerHeight - 160);
+    const top = Math.max(8, rect.top - 170);
     alphaPopup.style.left = `${left}px`;
     alphaPopup.style.top = `${top}px`;
   }
@@ -462,6 +473,9 @@ function openAlphaPopup(entry) {
 
 function closeAlphaPopup() {
   if (!alphaPopup) return;
+  if (alphaPopupEntry?.alphaToggle) {
+    alphaPopupEntry.alphaToggle.classList.remove("active");
+  }
   alphaPopupEntry = null;
   alphaPopup.classList.remove("open");
   alphaPopup.setAttribute("aria-hidden", "true");
@@ -795,6 +809,11 @@ if (appearanceAdd) {
         "--border": "#c9d3df",
         "--accent": "#1a5fbf",
         "--accent-muted": "#d9e6f7",
+        "--error": "#8a0b0b",
+        "--warning": "#a26100",
+        "--toast-bg": "rgba(25, 25, 25, 0.92)",
+        "--toast-error-bg": "rgba(160, 0, 0, 0.92)",
+        "--toast-text": "#ffffff",
       },
     };
     appearanceDrafts.push(draft);
