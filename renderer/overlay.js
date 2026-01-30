@@ -348,6 +348,9 @@ function renderAppearanceList() {
         if (!id) return;
         selectedAppearanceId = id;
         renderAppearanceList();
+        if (item && item.vars) {
+          applyDraftPreview(item);
+        }
         try {
           await window.operator?.setAppearance?.(id);
         } catch {}
@@ -368,6 +371,7 @@ function openAppearanceEditor(id) {
   applyDraftToInputs(draft);
   applyDraftPreview(draft);
   attachAppearanceInputHandlers();
+  closeAlphaPopup();
   if (appearanceEditorOverlay) {
     appearanceEditorOverlay.classList.add("open");
     appearanceEditorOverlay.setAttribute("aria-hidden", "false");
@@ -377,6 +381,7 @@ function openAppearanceEditor(id) {
 function closeAppearanceEditor() {
   appearanceEditSnapshot = null;
   editingAppearanceId = null;
+  closeAlphaPopup();
   if (appearanceEditorOverlay) {
     appearanceEditorOverlay.classList.remove("open");
     appearanceEditorOverlay.setAttribute("aria-hidden", "true");
@@ -389,18 +394,31 @@ function attachAppearanceInputHandlers() {
   basicInputs.forEach((input) => {
     input.addEventListener("input", () => {
       const targetId = editingAppearanceId || selectedAppearanceId;
-      const draft = findDraft(targetId);
+      const draft = findDraft(targetId) || findDraft(appearanceId?.value.trim());
       if (!draft) return;
       if (input === appearanceId) autoIdEnabled = false;
       if (input === appearanceLabel && autoIdEnabled) {
-        const slug = String(appearanceLabel.value || "")
+        const base = String(appearanceLabel.value || "")
           .trim()
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, "-")
           .replace(/^-+|-+$/g, "");
-        if (slug) appearanceId.value = slug;
+        if (base) {
+          let candidate = base;
+          let suffix = 1;
+          while (appearanceDrafts.some((a) => a.id === candidate && a !== draft)) {
+            candidate = `${base}-${suffix++}`;
+          }
+          appearanceId.value = candidate;
+        }
       }
+      const previousId = draft.id;
       readInputsToDraft(draft);
+      if (draft.id && draft.id !== previousId) {
+        if (selectedAppearanceId === previousId) selectedAppearanceId = draft.id;
+        if (editingAppearanceId === previousId) editingAppearanceId = draft.id;
+        renderAppearanceList();
+      }
       applyDraftPreview(draft);
     });
   });
@@ -734,7 +752,7 @@ if (appearanceEditorCancel) appearanceEditorCancel.onclick = () => {
 if (appearanceEditorSave) {
   appearanceEditorSave.onclick = () => {
     if (!editingAppearanceId) return;
-    const draft = findDraft(editingAppearanceId);
+    const draft = findDraft(editingAppearanceId) || findDraft(appearanceId?.value.trim());
     if (!draft) return;
     readInputsToDraft(draft);
     const ids = appearanceDrafts.map((a) => a.id).filter(Boolean);
@@ -749,7 +767,6 @@ if (appearanceEditorSave) {
     }
     renderAppearanceList();
     if (draft.id === selectedAppearanceId) applyDraftPreview(draft);
-    window.operator?.clearAppearancePreview?.().catch(() => {});
     closeAppearanceEditor();
   };
 }
@@ -871,11 +888,7 @@ if (appearanceOverlay) {
   });
 }
 
-if (appearanceEditorOverlay) {
-  appearanceEditorOverlay.addEventListener("click", (ev) => {
-    if (ev.target === appearanceEditorOverlay) closeAppearanceEditor();
-  });
-}
+// Keep editor open on backdrop clicks.
 
 
 window.addEventListener("keydown", (ev) => {

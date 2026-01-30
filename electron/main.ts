@@ -101,6 +101,25 @@ const DEFAULT_APPEARANCES: Appearance[] = [
       "--toast-text": "#ffffff",
     },
   },
+  {
+    id: "operator-dark-ops",
+    label: "Operator Dark Ops",
+    vars: {
+      "--app-bg": "#0f141b",
+      "--panel-bg": "#151b23",
+      "--panel-bg-alt": "#1c2430",
+      "--text": "#e6edf3",
+      "--text-muted": "#9aa7b5",
+      "--border": "#2a3442",
+      "--accent": "#4da3ff",
+      "--accent-muted": "#223a55",
+      "--error": "#ff6b6b",
+      "--warning": "#f3b34c",
+      "--toast-bg": "rgba(10, 12, 15, 0.95)",
+      "--toast-error-bg": "rgba(92, 0, 120, 0.95)",
+      "--toast-text": "#ffffff",
+    },
+  },
 ];
 
 function normalizeStartUrl(raw?: string): string | null {
