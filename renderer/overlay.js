@@ -27,6 +27,9 @@ const appearanceId = document.getElementById("appearanceId");
 const appearanceLabel = document.getElementById("appearanceLabel");
 const appearanceSwatchGrid = document.getElementById("appearanceSwatchGrid");
 const appearanceEditorPreview = document.getElementById("appearanceEditorPreview");
+const alphaPopup = document.getElementById("alphaPopup");
+const alphaSlider = document.getElementById("alphaSlider");
+const alphaValue = document.getElementById("alphaValue");
 
 let activeOverlay = null;
 let llmOpenSeq = 0;
@@ -37,6 +40,7 @@ let appearanceDrafts = [];
 let editingAppearanceId = null;
 let autoIdEnabled = true;
 let appearanceEditSnapshot = null;
+let alphaPopupEntry = null;
 
 function setOverlayState(el, open) {
   if (!el) return;
@@ -192,6 +196,12 @@ function initSwatches(keys) {
     input.className = "appearanceSwatchInput";
     input.type = "color";
 
+    const alphaToggle = document.createElement("button");
+    alphaToggle.className = "appearanceAlphaToggle";
+    alphaToggle.type = "button";
+    alphaToggle.title = "Alpha";
+    alphaToggle.textContent = "α";
+
     const alpha = document.createElement("input");
     alpha.className = "appearanceSwatchAlpha";
     alpha.type = "range";
@@ -200,12 +210,13 @@ function initSwatches(keys) {
     alpha.step = "1";
 
     controls.appendChild(input);
+    controls.appendChild(alphaToggle);
     controls.appendChild(alpha);
 
     row.appendChild(label);
     row.appendChild(controls);
     appearanceSwatchGrid.appendChild(row);
-    swatchMap.set(key, { row, input, alpha });
+    swatchMap.set(key, { row, input, alpha, alphaToggle });
   });
 }
 
@@ -408,6 +419,11 @@ function attachAppearanceInputHandlers() {
       });
     }
     if (entry.alpha) {
+      if (entry.alphaToggle) {
+        entry.alphaToggle.addEventListener("click", () => {
+          openAlphaPopup(entry);
+        });
+      }
       entry.alpha.addEventListener("input", () => {
         const draft = findDraft(editingAppearanceId || selectedAppearanceId);
         if (!draft) return;
@@ -426,6 +442,50 @@ function attachAppearanceInputHandlers() {
     }
   }
 }
+
+function openAlphaPopup(entry) {
+  if (!alphaPopup || !alphaSlider || !alphaValue) return;
+  alphaPopupEntry = entry;
+  const rect = entry.alphaToggle?.getBoundingClientRect?.();
+  const value = entry.alpha ? entry.alpha.value : "100";
+  alphaSlider.value = value;
+  alphaValue.value = formatAlpha(clamp(parseFloat(value) / 100, 0, 1));
+  if (rect) {
+    const left = Math.min(rect.left, window.innerWidth - 120);
+    const top = Math.min(rect.bottom + 6, window.innerHeight - 160);
+    alphaPopup.style.left = `${left}px`;
+    alphaPopup.style.top = `${top}px`;
+  }
+  alphaPopup.classList.add("open");
+  alphaPopup.setAttribute("aria-hidden", "false");
+}
+
+function closeAlphaPopup() {
+  if (!alphaPopup) return;
+  alphaPopupEntry = null;
+  alphaPopup.classList.remove("open");
+  alphaPopup.setAttribute("aria-hidden", "true");
+}
+
+function updateAlphaFromPopup(source) {
+  if (!alphaPopupEntry || !alphaSlider || !alphaValue) return;
+  let alphaPercent = parseFloat(alphaSlider.value);
+  if (source === "value") {
+    const value = clamp(parseFloat(alphaValue.value || "1"), 0, 1);
+    alphaPercent = Math.round(value * 100);
+    alphaSlider.value = String(alphaPercent);
+  } else {
+    const value = clamp(alphaPercent / 100, 0, 1);
+    alphaValue.value = formatAlpha(value);
+  }
+  if (alphaPopupEntry.alpha) {
+    alphaPopupEntry.alpha.value = String(alphaPercent);
+    alphaPopupEntry.alpha.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+}
+
+if (alphaSlider) alphaSlider.addEventListener("input", () => updateAlphaFromPopup("slider"));
+if (alphaValue) alphaValue.addEventListener("input", () => updateAlphaFromPopup("value"));
 
 function openGettingStarted() {
   activeOverlay = "getting";
@@ -801,6 +861,10 @@ if (appearanceEditorOverlay) {
 
 window.addEventListener("keydown", (ev) => {
   if (ev.key !== "Escape") return;
+  if (alphaPopup && alphaPopup.classList.contains("open")) {
+    closeAlphaPopup();
+    return;
+  }
   if (appearanceEditorOverlay && appearanceEditorOverlay.classList.contains("open")) {
     closeAppearanceEditor();
     return;
@@ -845,3 +909,11 @@ window.__openLlmProfiles = openLlmProfiles;
 window.__openAppearance = openAppearance;
 
 attachAppearanceInputHandlers();
+
+document.addEventListener("click", (ev) => {
+  if (!alphaPopupEntry) return;
+  const target = ev.target;
+  if (alphaPopup && alphaPopup.contains(target)) return;
+  if (alphaPopupEntry.alphaToggle && alphaPopupEntry.alphaToggle.contains(target)) return;
+  closeAlphaPopup();
+});
