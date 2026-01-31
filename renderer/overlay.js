@@ -262,7 +262,7 @@ function initSwatches(keys) {
     alphaToggle.className = "appearanceAlphaToggle";
     alphaToggle.type = "button";
     alphaToggle.title = "Alpha";
-    alphaToggle.innerHTML = "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" focusable=\"false\"><text x=\"12\" y=\"16\" text-anchor=\"middle\" font-size=\"14\">α</text></svg>";
+    alphaToggle.textContent = "a";
 
     const alpha = document.createElement("input");
     alpha.className = "appearanceSwatchAlpha";
