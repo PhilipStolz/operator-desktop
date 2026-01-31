@@ -816,7 +816,7 @@ if (appearanceEditorPaste) {
       }
       if (parsed.label) draft.label = String(parsed.label);
       if (parsed.vars && typeof parsed.vars === "object") {
-        draft.vars = { ...parsed.vars };
+        draft.vars = { ...(draft.vars || {}), ...parsed.vars };
       }
       applyDraftToInputs(draft);
       applyDraftPreview(draft);
