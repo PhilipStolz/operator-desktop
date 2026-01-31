@@ -4,6 +4,9 @@ const topbarWorkspaceEl = $("topbarWorkspace");
 const btnWorkspace = $("btnWorkspace");
 const llmProfileSelect = $("llmProfile");
 const btnGettingStarted = $("btnGettingStarted");
+const menuWorkspaceBtn = $("menuWorkspaceBtn");
+const menuSettingsBtn = $("menuSettingsBtn");
+const menuHelpBtn = $("menuHelpBtn");
 
 const FALLBACK_LLM_PROFILES = [
   { id: "chatgpt", label: "ChatGPT" },
@@ -31,6 +34,15 @@ async function refreshWorkspace() {
   } catch {
     setWorkspaceText("Workspace: (unknown)");
   }
+}
+
+function openMenu(kind, btn) {
+  if (!btn) return;
+  const rect = btn.getBoundingClientRect();
+  window.operator?.openMenu?.({
+    menu: kind,
+    rect: { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom },
+  }).catch(() => {});
 }
 
 async function loadLlmProfiles() {
@@ -84,6 +96,25 @@ if (btnWorkspace) {
   };
 }
 
+if (menuWorkspaceBtn) {
+  menuWorkspaceBtn.onclick = (ev) => {
+    ev.stopPropagation();
+    openMenu("workspace", menuWorkspaceBtn);
+  };
+}
+if (menuSettingsBtn) {
+  menuSettingsBtn.onclick = (ev) => {
+    ev.stopPropagation();
+    openMenu("settings", menuSettingsBtn);
+  };
+}
+if (menuHelpBtn) {
+  menuHelpBtn.onclick = (ev) => {
+    ev.stopPropagation();
+    openMenu("help", menuHelpBtn);
+  };
+}
+
 if (llmProfileSelect) {
   llmProfileSelect.onchange = async () => {
     const id = llmProfileSelect.value;
@@ -129,3 +160,7 @@ if (window.operator?.onLlmProfilesChanged) {
     loadLlmProfiles();
   });
 }
+
+window.addEventListener("click", () => {
+  window.operator?.closeMenu?.().catch(() => {});
+});

@@ -23,6 +23,14 @@ contextBridge.exposeInMainWorld("operator", {
   chooseWorkspace: () => ipcRenderer.invoke("operator:chooseWorkspace"),
   setWorkspace: (path: string) => ipcRenderer.invoke("operator:setWorkspace", { path }),
   getWorkspace: () => ipcRenderer.invoke("operator:getWorkspace"),
+  getRecentWorkspaces: () => ipcRenderer.invoke("operator:getRecentWorkspaces"),
+  closeWorkspace: () => ipcRenderer.invoke("operator:closeWorkspace"),
+  openMenu: (payload: { menu: "workspace" | "settings" | "help"; rect: { left: number; right: number; top: number; bottom: number } }) =>
+    ipcRenderer.invoke("operator:openMenu", payload),
+  closeMenu: () => ipcRenderer.invoke("operator:closeMenu"),
+  onOpenMenu: (cb: (payload: { menu: "workspace" | "settings" | "help"; rect: { left: number; right: number; top: number; bottom: number } }) => void) =>
+    ipcRenderer.on("operator:openMenu", (_evt, payload) => cb(payload)),
+  onCloseMenu: (cb: () => void) => ipcRenderer.on("operator:closeMenu", () => cb()),
 
   // Clipboard
   copyToClipboard: (text: string) => ipcRenderer.invoke("operator:copy", { text }),
@@ -44,6 +52,7 @@ contextBridge.exposeInMainWorld("operator", {
   onLlmProfilesChanged: (cb: (payload: { profiles: any[]; activeId?: string }) => void) =>
     ipcRenderer.on("operator:llmProfilesChanged", (_evt, payload: { profiles: any[]; activeId?: string }) => cb(payload)),
   onOpenLlmProfiles: (cb: () => void) => ipcRenderer.on("operator:openLlmProfiles", () => cb()),
+  openLlmProfiles: () => ipcRenderer.invoke("operator:openLlmProfiles"),
   closeGettingStarted: () => ipcRenderer.invoke("operator:closeGettingStarted"),
   closeLlmProfiles: () => ipcRenderer.invoke("operator:closeLlmProfiles"),
   openAppearance: () => ipcRenderer.invoke("operator:openAppearance"),

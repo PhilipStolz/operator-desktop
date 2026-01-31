@@ -13,6 +13,34 @@
       --text-muted: #5a6778;
       --border: #c9d3df;
       --accent: #1a5fbf;
+      --accent-muted: #d9e6f7;
+      --error: #8a0b0b;
+      --warning: #a26100;
+      --overlay-bg: rgba(0, 0, 0, 0.35);
+      --modal-bg: #ffffff;
+      --modal-header-bg: #eef3f8;
+      --modal-footer-bg: #eef3f8;
+      --modal-shadow: rgba(0, 0, 0, 0.15);
+      --focus-ring: rgba(11, 87, 208, 0.35);
+      --button-primary-text: #ffffff;
+      --control-bg: #ffffff;
+      --control-text: #1b2430;
+      --control-border: #c9d3df;
+      --error-bg: #fff4f4;
+      --error-border: #f1c0c0;
+      --success: #2f8f59;
+      --success-border: #1f6b3b;
+      --success-bg: #f4fbf7;
+      --warning-bg: #fff7e0;
+      --warning-accent: #d78b10;
+      --danger: #d33;
+      --danger-active: #b21f1f;
+      --topbar-divider: rgba(11, 87, 208, 0.2);
+      --topbar-shadow: rgba(0, 0, 0, 0.04);
+      --toast-bg: rgba(25, 25, 25, 0.92);
+      --toast-error-bg: rgba(160, 0, 0, 0.92);
+      --toast-text: #ffffff;
+      --toast-shadow: rgba(0, 0, 0, 0.2);
     }
     body {
       margin: 0;
@@ -21,13 +49,30 @@
       color: var(--text);
     }
 
+    input,
+    select,
+    textarea {
+      accent-color: var(--accent);
+      background: var(--control-bg);
+      color: var(--control-text);
+      border: 1px solid var(--control-border);
+    }
+
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible,
+    button:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
     .overlay {
       position: fixed;
       inset: 0;
       display: none;
       align-items: center;
       justify-content: center;
-      background: rgba(0, 0, 0, 0.35);
+      background: var(--overlay-bg);
       z-index: 2000;
       padding: 20px;
       box-sizing: border-box;
@@ -38,11 +83,11 @@
     }
 
     .modal {
-      background: var(--panel-bg);
+      background: var(--modal-bg);
       border: 1px solid var(--border);
       border-radius: 12px;
       width: min(520px, 90vw);
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+      box-shadow: 0 10px 30px var(--modal-shadow);
     }
 
     .modalHeader {
@@ -52,7 +97,7 @@
       gap: 10px;
       padding: 10px 12px;
       border-bottom: 1px solid var(--border);
-      background: var(--panel-bg-alt);
+      background: var(--modal-header-bg);
     }
 
     .modalBody {
@@ -74,7 +119,7 @@
       gap: 8px;
       padding: 10px 12px;
       border-top: 1px solid var(--border);
-      background: var(--panel-bg-alt);
+      background: var(--modal-footer-bg);
     }
 
     .small {
@@ -95,7 +140,7 @@
 
     .llmTableHeader {
       font-size: 11px;
-      color: #666;
+      color: var(--text-muted);
       font-weight: 600;
     }
 
@@ -123,7 +168,7 @@
 
     button.primary {
       background: var(--accent);
-      color: #fff;
+      color: var(--button-primary-text);
       border-color: var(--accent);
     }
 
@@ -147,7 +192,7 @@
 
     .appearanceItem.selected {
       border-color: var(--accent);
-      box-shadow: 0 0 0 2px rgba(26, 95, 191, 0.2);
+      box-shadow: 0 0 0 2px var(--focus-ring);
     }
 
     .appearanceActions {
@@ -195,6 +240,9 @@
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: 6px 8px;
+      max-height: min(40vh, 320px);
+      overflow-y: auto;
+      padding-right: 4px;
     }
 
     .appearanceSwatchRow {
@@ -257,12 +305,68 @@
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 8px;
-      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+      box-shadow: 0 8px 18px var(--modal-shadow);
       z-index: 3000;
       display: none;
       flex-direction: column;
       align-items: center;
       gap: 6px;
+    }
+
+    .menuLayer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2500;
+    }
+
+    .menuLayer.active {
+      pointer-events: auto;
+    }
+
+    .menuPopup {
+      position: absolute;
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px;
+      min-width: 220px;
+      box-shadow: 0 8px 18px var(--modal-shadow);
+      display: none;
+      flex-direction: column;
+      gap: 4px;
+      pointer-events: auto;
+    }
+
+    .menuPopup.open {
+      display: flex;
+    }
+
+    .menuEntry {
+      padding: 6px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .menuEntry:hover {
+      background: var(--panel-bg-alt);
+    }
+
+    .menuGroupLabel {
+      font-size: 11px;
+      color: var(--text-muted);
+      padding: 4px 8px 0;
+    }
+
+    .menuSeparator {
+      height: 1px;
+      background: var(--border);
+      margin: 4px 0;
     }
 
     .alphaPopup.open {
@@ -291,30 +395,41 @@
     .appearancePreviewBox {
       border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 10px;
+      padding: 8px;
       background: var(--panel-bg-alt);
       display: grid;
-      grid-template-columns: 1fr 2fr;
-      gap: 10px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      max-height: min(40vh, 320px);
+      overflow: auto;
+    }
+
+    .appearanceSplitHandle {
+      height: 6px;
+      border-radius: 999px;
+      background: var(--border);
+      cursor: ns-resize;
+      margin: 6px 0;
+      opacity: 0.8;
     }
 
     .appearancePreviewSidebar {
       background: var(--panel-bg);
       border: 1px solid var(--border);
       border-radius: 6px;
-      padding: 8px;
+      padding: 6px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 4px;
     }
 
     .appearancePreviewButton {
       background: var(--accent);
-      color: #fff;
+      color: var(--button-primary-text);
       border: 1px solid var(--accent);
-      padding: 6px 8px;
+      padding: 4px 6px;
       border-radius: 6px;
-      font-size: 12px;
+      font-size: 11px;
       text-align: center;
     }
 
@@ -322,8 +437,8 @@
       background: var(--panel-bg-alt);
       border: 1px solid var(--border);
       border-radius: 6px;
-      padding: 6px;
-      font-size: 11px;
+      padding: 4px 6px;
+      font-size: 10px;
       color: var(--text);
     }
 
@@ -331,10 +446,10 @@
       background: var(--app-bg);
       border: 1px dashed var(--border);
       border-radius: 6px;
-      padding: 8px;
+      padding: 6px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 4px;
       color: var(--text);
     }
   </style>
@@ -423,23 +538,44 @@
             <div id="appearanceSwatchGrid" class="appearanceSwatchGrid"></div>
           </div>
         </div>
+        <div id="appearanceSplitHandle" class="appearanceSplitHandle" aria-hidden="true"></div>
         <div class="appearancePreviewBox" id="appearanceEditorPreview">
           <div class="appearancePreviewSidebar">
-            <div class="small">Sidebar</div>
+            <div class="small">Panels</div>
             <div class="appearancePreviewButton">Primary Action</div>
             <div class="appearancePreviewCard">Secondary</div>
             <div class="appearancePreviewCard" style="color: var(--text-muted);">Muted text</div>
             <div class="appearancePreviewCard" style="background: var(--accent-muted); border-color: var(--accent);">Accent muted</div>
-            <div class="appearancePreviewCard" style="color: var(--error);">Error text</div>
-            <div class="appearancePreviewCard" style="color: var(--warning);">Warning text</div>
-          </div>
-          <div class="appearancePreviewMain">
-            <div class="small">Main area</div>
-            <div class="appearancePreviewCard">Card content</div>
             <div class="appearancePreviewCard" style="background: var(--panel-bg-alt);">Panel alt</div>
             <div class="appearancePreviewCard" style="border-color: var(--border);">Border preview</div>
-            <div class="appearancePreviewCard" style="background: var(--toast-bg); color: var(--toast-text); border-color: var(--toast-bg);">Toast preview</div>
+            <div class="appearancePreviewCard" style="outline: 2px solid var(--focus-ring);">Focus ring</div>
+          </div>
+          <div class="appearancePreviewMain">
+            <div class="small">Status</div>
+            <div class="appearancePreviewCard" style="color: var(--error);">Error text</div>
+            <div class="appearancePreviewCard" style="color: var(--warning);">Warning text</div>
+            <div class="appearancePreviewCard" style="background: var(--error-bg); border-color: var(--error-border); color: var(--error);">Error panel</div>
+            <div class="appearancePreviewCard" style="background: var(--warning-bg);">Warning bg</div>
+            <div class="appearancePreviewCard" style="background: var(--success-bg);">Success bg</div>
+            <div class="appearancePreviewCard" style="background: var(--warning-accent); color: var(--text);">Warning accent</div>
+            <div class="appearancePreviewCard" style="background: var(--success); color: var(--button-primary-text); border-color: var(--success-border);">Success accent</div>
+            <div class="appearancePreviewCard" style="background: var(--danger); color: var(--button-primary-text);">Danger</div>
+            <div class="appearancePreviewCard" style="background: var(--danger-active); color: var(--button-primary-text);">Danger active</div>
+          </div>
+          <div class="appearancePreviewMain">
+            <div class="small">Controls</div>
+            <div class="appearancePreviewCard">
+              <input type="text" value="Control input" />
+            </div>
+            <div class="appearancePreviewCard" style="background: var(--modal-bg);">Modal bg</div>
+            <div class="appearancePreviewCard" style="background: var(--modal-header-bg);">Modal header</div>
+            <div class="appearancePreviewCard" style="background: var(--modal-footer-bg);">Modal footer</div>
+            <div class="appearancePreviewCard" style="background: var(--overlay-bg);">Overlay bg</div>
+            <div class="appearancePreviewCard" style="box-shadow: 0 10px 30px var(--modal-shadow);">Modal shadow</div>
+            <div class="appearancePreviewCard" style="border-bottom: 2px solid var(--topbar-divider); box-shadow: 0 1px 0 var(--topbar-shadow);">Topbar divider</div>
+            <div class="appearancePreviewCard" style="background: var(--toast-bg); color: var(--toast-text); border-color: var(--toast-bg);">Toast</div>
             <div class="appearancePreviewCard" style="background: var(--toast-error-bg); color: var(--toast-text); border-color: var(--toast-error-bg);">Toast error</div>
+            <div class="appearancePreviewCard" style="box-shadow: 0 6px 18px var(--toast-shadow);">Toast shadow</div>
           </div>
         </div>
       </div>
@@ -454,6 +590,22 @@
   <div id="alphaPopup" class="alphaPopup" aria-hidden="true">
     <input id="alphaSlider" class="alphaSlider" type="range" min="0" max="100" step="1" />
     <input id="alphaValue" class="alphaValueInput" type="number" min="0" max="1" step="0.01" />
+  </div>
+  <div id="menuLayer" class="menuLayer" aria-hidden="true">
+    <div class="menuPopup" id="menuWorkspace">
+      <div class="menuEntry" id="menuSelectWorkspace">Select Workspace…</div>
+      <div class="menuGroupLabel">Recent Workspaces</div>
+      <div id="menuRecentList"></div>
+      <div class="menuSeparator"></div>
+      <div class="menuEntry" id="menuCloseWorkspace">Close Workspace</div>
+    </div>
+    <div class="menuPopup" id="menuSettings">
+      <div class="menuEntry" id="menuLlmProfiles">LLM Profiles…</div>
+      <div class="menuEntry" id="menuAppearance">Appearance…</div>
+    </div>
+    <div class="menuPopup" id="menuHelp">
+      <div class="menuEntry" id="menuGettingStarted">Getting Started</div>
+    </div>
   </div>
   <script src="./overlay.js"></script>
 </body>

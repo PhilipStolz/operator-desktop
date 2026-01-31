@@ -27,9 +27,20 @@ const appearanceId = document.getElementById("appearanceId");
 const appearanceLabel = document.getElementById("appearanceLabel");
 const appearanceSwatchGrid = document.getElementById("appearanceSwatchGrid");
 const appearanceEditorPreview = document.getElementById("appearanceEditorPreview");
+const appearanceSplitHandle = document.getElementById("appearanceSplitHandle");
 const alphaPopup = document.getElementById("alphaPopup");
 const alphaSlider = document.getElementById("alphaSlider");
 const alphaValue = document.getElementById("alphaValue");
+const menuLayer = document.getElementById("menuLayer");
+const menuWorkspace = document.getElementById("menuWorkspace");
+const menuSettings = document.getElementById("menuSettings");
+const menuHelp = document.getElementById("menuHelp");
+const menuSelectWorkspace = document.getElementById("menuSelectWorkspace");
+const menuCloseWorkspace = document.getElementById("menuCloseWorkspace");
+const menuRecentList = document.getElementById("menuRecentList");
+const menuLlmProfiles = document.getElementById("menuLlmProfiles");
+const menuAppearance = document.getElementById("menuAppearance");
+const menuGettingStarted = document.getElementById("menuGettingStarted");
 
 let activeOverlay = null;
 let llmOpenSeq = 0;
@@ -42,6 +53,8 @@ let autoIdEnabled = true;
 let appearanceEditSnapshot = null;
 let alphaPopupEntry = null;
 let appearanceHandlersBound = false;
+let openMenuId = null;
+let splitDragActive = false;
 
 function setOverlayState(el, open) {
   if (!el) return;
@@ -161,9 +174,31 @@ const APPEARANCE_KEYS = [
   "--accent-muted",
   "--error",
   "--warning",
+  "--overlay-bg",
+  "--modal-bg",
+  "--modal-header-bg",
+  "--modal-footer-bg",
+  "--modal-shadow",
+  "--focus-ring",
+  "--button-primary-text",
+  "--control-bg",
+  "--control-text",
+  "--control-border",
+  "--error-bg",
+  "--error-border",
+  "--success",
+  "--success-border",
+  "--success-bg",
+  "--warning-bg",
+  "--warning-accent",
+  "--danger",
+  "--danger-active",
+  "--topbar-divider",
+  "--topbar-shadow",
   "--toast-bg",
   "--toast-error-bg",
   "--toast-text",
+  "--toast-shadow",
 ];
 const APPEARANCE_LABELS = {
   "--app-bg": "App background",
@@ -176,9 +211,31 @@ const APPEARANCE_LABELS = {
   "--accent-muted": "Accent muted",
   "--error": "Error",
   "--warning": "Warning",
+  "--overlay-bg": "Overlay background",
+  "--modal-bg": "Modal background",
+  "--modal-header-bg": "Modal header",
+  "--modal-footer-bg": "Modal footer",
+  "--modal-shadow": "Modal shadow",
+  "--focus-ring": "Focus ring",
+  "--button-primary-text": "Primary button text",
+  "--control-bg": "Control background",
+  "--control-text": "Control text",
+  "--control-border": "Control border",
+  "--error-bg": "Error background",
+  "--error-border": "Error border",
+  "--success": "Success accent",
+  "--success-border": "Success border",
+  "--success-bg": "Success background",
+  "--warning-bg": "Warning background",
+  "--warning-accent": "Warning accent",
+  "--danger": "Danger",
+  "--danger-active": "Danger active",
+  "--topbar-divider": "Topbar divider",
+  "--topbar-shadow": "Topbar shadow",
   "--toast-bg": "Toast background",
   "--toast-error-bg": "Toast error",
   "--toast-text": "Toast text",
+  "--toast-shadow": "Toast shadow",
 };
 
 function initSwatches(keys) {
@@ -293,6 +350,9 @@ function applyDraftToInputs(draft) {
       setSwatchValue(key, "#ffffff");
     } else if (key === "--app-bg") {
       setSwatchValue(key, "#e7edf4");
+    } else {
+      const computed = getComputedStyle(document.documentElement).getPropertyValue(key).trim();
+      if (computed) setSwatchValue(key, computed);
     }
   });
 }
@@ -534,6 +594,73 @@ function updateAlphaFromPopup(source) {
 
 if (alphaSlider) alphaSlider.addEventListener("input", () => updateAlphaFromPopup("slider"));
 if (alphaValue) alphaValue.addEventListener("input", () => updateAlphaFromPopup("value"));
+
+function closeMenus() {
+  [menuWorkspace, menuSettings, menuHelp].forEach((menu) => {
+    if (menu) menu.classList.remove("open");
+  });
+  if (menuLayer) {
+    menuLayer.setAttribute("aria-hidden", "true");
+    menuLayer.classList.remove("active");
+  }
+  openMenuId = null;
+}
+
+function requestCloseMenu() {
+  if (window.operator?.closeMenu) {
+    window.operator.closeMenu().catch(() => {});
+    return;
+  }
+  closeMenus();
+}
+
+function openMenu(payload) {
+  if (!payload) return;
+  const { menu, rect } = payload;
+  closeMenus();
+  let target = null;
+  if (menu === "workspace") target = menuWorkspace;
+  if (menu === "settings") target = menuSettings;
+  if (menu === "help") target = menuHelp;
+  if (!target) return;
+  if (rect) {
+    target.style.left = `${Math.max(8, rect.left)}px`;
+    target.style.top = `${Math.max(8, rect.bottom + 4)}px`;
+  }
+  target.classList.add("open");
+  if (menuLayer) {
+    menuLayer.setAttribute("aria-hidden", "false");
+    menuLayer.classList.add("active");
+  }
+  openMenuId = menu;
+}
+
+async function loadRecentWorkspaces() {
+  if (!menuRecentList) return;
+  menuRecentList.innerHTML = "";
+  try {
+    const res = await window.operator?.getRecentWorkspaces?.();
+    const list = Array.isArray(res?.recentWorkspaces) ? res.recentWorkspaces : [];
+    if (!list.length) {
+      const empty = document.createElement("div");
+      empty.className = "menuEntry";
+      empty.textContent = "No recent workspaces";
+      empty.style.opacity = "0.6";
+      menuRecentList.appendChild(empty);
+      return;
+    }
+    for (const entry of list) {
+      const item = document.createElement("div");
+      item.className = "menuEntry";
+      item.textContent = entry;
+      item.onclick = async () => {
+        requestCloseMenu();
+        await window.operator?.setWorkspace?.(entry);
+      };
+      menuRecentList.appendChild(item);
+    }
+  } catch {}
+}
 
 function openGettingStarted() {
   activeOverlay = "getting";
@@ -845,9 +972,31 @@ if (appearanceAdd) {
         "--accent-muted": "#d9e6f7",
         "--error": "#8a0b0b",
         "--warning": "#a26100",
+        "--overlay-bg": "rgba(0, 0, 0, 0.25)",
+        "--modal-bg": "#f9fbfe",
+        "--modal-header-bg": "#eef3f8",
+        "--modal-footer-bg": "#eef3f8",
+        "--modal-shadow": "rgba(0, 0, 0, 0.16)",
+        "--focus-ring": "rgba(26, 95, 191, 0.38)",
+        "--button-primary-text": "#ffffff",
+        "--control-bg": "#f9fbfe",
+        "--control-text": "#1b2430",
+        "--control-border": "#c9d3df",
+        "--error-bg": "#fff4f4",
+        "--error-border": "#f1c0c0",
+        "--success": "#2f8f59",
+        "--success-border": "#1f6b3b",
+        "--success-bg": "#f4fbf7",
+        "--warning-bg": "#fff7e0",
+        "--warning-accent": "#d08a0f",
+        "--danger": "#c62828",
+        "--danger-active": "#a31f1f",
+        "--topbar-divider": "rgba(26, 95, 191, 0.2)",
+        "--topbar-shadow": "rgba(0, 0, 0, 0.06)",
         "--toast-bg": "rgba(25, 25, 25, 0.92)",
-        "--toast-error-bg": "rgba(160, 0, 0, 0.92)",
+        "--toast-error-bg": "rgba(110, 0, 0, 0.92)",
         "--toast-text": "#ffffff",
+        "--toast-shadow": "rgba(0, 0, 0, 0.2)",
       },
     };
     appearanceDrafts.push(draft);
@@ -907,11 +1056,24 @@ if (appearanceOverlay) {
 
 // Keep editor open on backdrop clicks.
 
+if (menuLayer) {
+  menuLayer.addEventListener("click", (ev) => {
+    const target = ev.target;
+    if (menuWorkspace && menuWorkspace.contains(target)) return;
+    if (menuSettings && menuSettings.contains(target)) return;
+    if (menuHelp && menuHelp.contains(target)) return;
+    requestCloseMenu();
+  });
+}
 
 window.addEventListener("keydown", (ev) => {
   if (ev.key !== "Escape") return;
   if (alphaPopup && alphaPopup.classList.contains("open")) {
     closeAlphaPopup();
+    return;
+  }
+  if (openMenuId) {
+    requestCloseMenu();
     return;
   }
   if (appearanceEditorOverlay && appearanceEditorOverlay.classList.contains("open")) {
@@ -947,6 +1109,19 @@ if (window.operator?.onAppearanceChanged) {
   });
 }
 
+if (window.operator?.onOpenMenu) {
+  window.operator.onOpenMenu((payload) => {
+    if (payload?.menu === "workspace") loadRecentWorkspaces();
+    openMenu(payload);
+  });
+}
+
+if (window.operator?.onCloseMenu) {
+  window.operator.onCloseMenu(() => {
+    closeMenus();
+  });
+}
+
 if (window.operator?.getActiveAppearance) {
   window.operator.getActiveAppearance().then((res) => {
     applyAppearanceVars(res);
@@ -959,6 +1134,39 @@ window.__openAppearance = openAppearance;
 
 attachAppearanceInputHandlers();
 
+function initAppearanceSplit() {
+  if (!appearanceSplitHandle || !appearanceSwatchGrid || !appearanceEditorPreview) return;
+  appearanceSplitHandle.addEventListener("mousedown", (ev) => {
+    ev.preventDefault();
+    splitDragActive = true;
+    const startY = ev.clientY;
+    const swatchStart = appearanceSwatchGrid.getBoundingClientRect().height;
+    const previewStart = appearanceEditorPreview.getBoundingClientRect().height;
+    const modalBody = appearanceEditorOverlay?.querySelector(".modalBody");
+    const maxTotal = modalBody ? modalBody.getBoundingClientRect().height - 80 : swatchStart + previewStart;
+
+    const onMove = (moveEv) => {
+      if (!splitDragActive) return;
+      const delta = moveEv.clientY - startY;
+      const nextSwatch = Math.max(120, Math.min(maxTotal - 120, swatchStart + delta));
+      const nextPreview = Math.max(120, Math.min(maxTotal - 120, previewStart - delta));
+      appearanceSwatchGrid.style.maxHeight = `${nextSwatch}px`;
+      appearanceEditorPreview.style.maxHeight = `${nextPreview}px`;
+    };
+
+    const onUp = () => {
+      splitDragActive = false;
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  });
+}
+
+initAppearanceSplit();
+
 document.addEventListener("click", (ev) => {
   if (!alphaPopupEntry) return;
   const target = ev.target;
@@ -966,3 +1174,38 @@ document.addEventListener("click", (ev) => {
   if (alphaPopupEntry.alphaToggle && alphaPopupEntry.alphaToggle.contains(target)) return;
   closeAlphaPopup();
 });
+
+if (menuSelectWorkspace) {
+  menuSelectWorkspace.onclick = async () => {
+    requestCloseMenu();
+    await window.operator?.chooseWorkspace?.();
+  };
+}
+
+if (menuCloseWorkspace) {
+  menuCloseWorkspace.onclick = async () => {
+    requestCloseMenu();
+    await window.operator?.closeWorkspace?.();
+  };
+}
+
+if (menuLlmProfiles) {
+  menuLlmProfiles.onclick = async () => {
+    requestCloseMenu();
+    await window.operator?.openLlmProfiles?.();
+  };
+}
+
+if (menuAppearance) {
+  menuAppearance.onclick = async () => {
+    requestCloseMenu();
+    await window.operator?.openAppearance?.();
+  };
+}
+
+if (menuGettingStarted) {
+  menuGettingStarted.onclick = async () => {
+    requestCloseMenu();
+    await window.operator?.openGettingStarted?.();
+  };
+}

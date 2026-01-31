@@ -13,6 +13,13 @@
       --text-muted: #5a6778;
       --border: #c9d3df;
       --accent: #1a5fbf;
+      --topbar-divider: rgba(11, 87, 208, 0.2);
+      --topbar-shadow: rgba(0, 0, 0, 0.04);
+      --control-bg: #ffffff;
+      --control-text: #1b2430;
+      --control-border: #c9d3df;
+      --button-primary-text: #ffffff;
+      --modal-shadow: rgba(0, 0, 0, 0.15);
     }
     body {
       margin: 0;
@@ -23,16 +30,17 @@
 
     .topBar {
       height: 100vh;
+      position: relative;
       display: flex;
       align-items: center;
       padding: 6px 12px;
       box-sizing: border-box;
       gap: 8px;
       background: var(--panel-bg-alt);
-      border-bottom: 1px solid rgba(11, 87, 208, 0.2);
-      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+      border-bottom: 1px solid var(--topbar-divider);
+      box-shadow: 0 1px 0 var(--topbar-shadow);
     }
-    .topBar{border-bottom:1px solid rgba(11, 87, 208, 0.2);}
+    .topBar{border-bottom:1px solid var(--topbar-divider);}
     /* \.topBar\s\{border-bottom\s: */
 
     .topBarRow {
@@ -43,6 +51,31 @@
       width: 100%;
       flex-wrap: nowrap;
     }
+
+    .menuBar {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+      margin-right: auto;
+    }
+
+    .menuItem {
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      user-select: none;
+      color: var(--text);
+      background: transparent;
+    }
+
+    .menuItem.active,
+    .menuItem:hover {
+      border-color: var(--border);
+      background: var(--panel-bg-alt);
+    }
+
 
     .row {
       display: flex;
@@ -64,6 +97,10 @@
       padding: 6px 8px;
       font-size: 12px;
       cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--panel-bg-alt);
+      color: var(--text);
+      border-radius: 6px;
     }
 
     .topBarIconBtn {
@@ -74,6 +111,10 @@
       align-items: center;
       justify-content: center;
       cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--panel-bg-alt);
+      color: var(--text);
+      border-radius: 6px;
     }
 
     .topBarIconBtn svg {
@@ -85,6 +126,9 @@
     select {
       padding: 6px 8px;
       font-size: 12px;
+      background: var(--control-bg);
+      color: var(--control-text);
+      border: 1px solid var(--control-border);
     }
 
     .small {
@@ -97,6 +141,11 @@
 <body>
   <div class="topBar">
     <div class="topBarRow">
+      <div class="menuBar">
+        <div class="menuItem" id="menuWorkspaceBtn">Workspace</div>
+        <div class="menuItem" id="menuSettingsBtn">Settings</div>
+        <div class="menuItem" id="menuHelpBtn">Help</div>
+      </div>
       <div class="row">
         <div id="topbarWorkspace" class="topBarItem">Workspace: (not set)</div>
         <button id="btnWorkspace" class="topBarIconBtn" title="Choose Workspace" aria-label="Choose Workspace">

@@ -9,6 +9,7 @@
       --toast-text: #ffffff;
       --toast-bg: rgba(25, 25, 25, 0.92);
       --toast-error-bg: rgba(160, 0, 0, 0.92);
+      --toast-shadow: rgba(0, 0, 0, 0.2);
     }
     body {
       margin: 0;
@@ -34,7 +35,7 @@
       padding: 8px 10px;
       border-radius: 8px;
       max-width: 320px;
-      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 6px 18px var(--toast-shadow);
       pointer-events: none;
     }
 

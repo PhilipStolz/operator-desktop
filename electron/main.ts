@@ -58,9 +58,31 @@ const DEFAULT_APPEARANCES: Appearance[] = [
       "--accent-muted": "#d9e6f7",
       "--error": "#8a0b0b",
       "--warning": "#a26100",
+      "--overlay-bg": "rgba(0, 0, 0, 0.25)",
+      "--modal-bg": "#f9fbfe",
+      "--modal-header-bg": "#eef3f8",
+      "--modal-footer-bg": "#eef3f8",
+      "--modal-shadow": "rgba(0, 0, 0, 0.16)",
+      "--focus-ring": "rgba(26, 95, 191, 0.38)",
+      "--button-primary-text": "#ffffff",
+      "--control-bg": "#f9fbfe",
+      "--control-text": "#1b2430",
+      "--control-border": "#c9d3df",
+      "--error-bg": "#fff4f4",
+      "--error-border": "#f1c0c0",
+      "--success": "#2f8f59",
+      "--success-border": "#1f6b3b",
+      "--success-bg": "#f4fbf7",
+      "--warning-bg": "#fff7e0",
+      "--warning-accent": "#d08a0f",
+      "--danger": "#c62828",
+      "--danger-active": "#a31f1f",
+      "--topbar-divider": "rgba(26, 95, 191, 0.2)",
+      "--topbar-shadow": "rgba(0, 0, 0, 0.06)",
       "--toast-bg": "rgba(25, 25, 25, 0.92)",
-      "--toast-error-bg": "rgba(160, 0, 0, 0.92)",
+      "--toast-error-bg": "rgba(110, 0, 0, 0.92)",
       "--toast-text": "#ffffff",
+      "--toast-shadow": "rgba(0, 0, 0, 0.2)",
     },
   },
   {
@@ -80,6 +102,28 @@ const DEFAULT_APPEARANCES: Appearance[] = [
       "--toast-bg": "rgba(10, 12, 15, 0.95)",
       "--toast-error-bg": "rgba(92, 0, 120, 0.95)",
       "--toast-text": "#ffffff",
+      "--overlay-bg": "rgba(0, 0, 0, 0.55)",
+      "--modal-bg": "#10151c",
+      "--modal-header-bg": "#151b23",
+      "--modal-footer-bg": "#151b23",
+      "--modal-shadow": "rgba(0, 0, 0, 0.65)",
+      "--focus-ring": "rgba(77, 163, 255, 0.45)",
+      "--button-primary-text": "#ffffff",
+      "--control-bg": "#0f141b",
+      "--control-text": "#e6edf3",
+      "--control-border": "#2a3442",
+      "--error-bg": "#2a1416",
+      "--error-border": "#5a2a2f",
+      "--success": "#35a46a",
+      "--success-border": "#2a7f54",
+      "--success-bg": "#0f1e16",
+      "--warning-bg": "#2a1f0b",
+      "--warning-accent": "#f3b34c",
+      "--danger": "#dd3333",
+      "--danger-active": "#b21f1f",
+      "--topbar-divider": "rgba(77, 163, 255, 0.22)",
+      "--topbar-shadow": "rgba(0, 0, 0, 0.2)",
+      "--toast-shadow": "rgba(0, 0, 0, 0.55)",
     },
   },
   {
@@ -95,10 +139,32 @@ const DEFAULT_APPEARANCES: Appearance[] = [
       "--accent": "#1b65d1",
       "--accent-muted": "#dbe6ff",
       "--error": "#8a0b0b",
-      "--warning": "#8f5a00",
+      "--warning": "#a26100",
+      "--overlay-bg": "rgba(0, 0, 0, 0.25)",
+      "--modal-bg": "#ffffff",
+      "--modal-header-bg": "#f0f3f7",
+      "--modal-footer-bg": "#f0f3f7",
+      "--modal-shadow": "rgba(0, 0, 0, 0.15)",
+      "--focus-ring": "rgba(27, 101, 209, 0.38)",
+      "--button-primary-text": "#ffffff",
+      "--control-bg": "#ffffff",
+      "--control-text": "#1f2933",
+      "--control-border": "#cdd5df",
+      "--error-bg": "#fff4f4",
+      "--error-border": "#f1c0c0",
+      "--success": "#2f8f59",
+      "--success-border": "#1f6b3b",
+      "--success-bg": "#f4fbf7",
+      "--warning-bg": "#fff7e0",
+      "--warning-accent": "#d08a0f",
+      "--danger": "#c62828",
+      "--danger-active": "#a31f1f",
+      "--topbar-divider": "rgba(27, 101, 209, 0.2)",
+      "--topbar-shadow": "rgba(0, 0, 0, 0.06)",
       "--toast-bg": "rgba(20, 22, 26, 0.92)",
-      "--toast-error-bg": "rgba(140, 0, 0, 0.92)",
+      "--toast-error-bg": "rgba(110, 0, 0, 0.92)",
       "--toast-text": "#ffffff",
+      "--toast-shadow": "rgba(0, 0, 0, 0.2)",
     },
   },
   {
@@ -109,15 +175,37 @@ const DEFAULT_APPEARANCES: Appearance[] = [
       "--panel-bg": "#ffffff",
       "--panel-bg-alt": "#f6f1ea",
       "--text": "#2a241b",
-      "--text-muted": "#6f675b",
+      "--text-muted": "#766e63",
       "--border": "#e2d9cc",
-      "--accent": "#0b57d0",
-      "--accent-muted": "#e7eefc",
+      "--accent": "#2a5ea8",
+      "--accent-muted": "#e4ecf6",
       "--error": "#8a0b0b",
-      "--warning": "#8f5a00",
+      "--warning": "#a26100",
+      "--overlay-bg": "rgba(0, 0, 0, 0.2)",
+      "--modal-bg": "#ffffff",
+      "--modal-header-bg": "#f6f1ea",
+      "--modal-footer-bg": "#f6f1ea",
+      "--modal-shadow": "rgba(0, 0, 0, 0.16)",
+      "--focus-ring": "rgba(42, 94, 168, 0.3)",
+      "--button-primary-text": "#ffffff",
+      "--control-bg": "#ffffff",
+      "--control-text": "#2a241b",
+      "--control-border": "#e2d9cc",
+      "--error-bg": "#fff4f4",
+      "--error-border": "#f1c0c0",
+      "--success": "#2f8f59",
+      "--success-border": "#1f6b3b",
+      "--success-bg": "#f4fbf7",
+      "--warning-bg": "#fff7e0",
+      "--warning-accent": "#d08a0f",
+      "--danger": "#c62828",
+      "--danger-active": "#a31f1f",
+      "--topbar-divider": "rgba(42, 94, 168, 0.16)",
+      "--topbar-shadow": "rgba(0, 0, 0, 0.06)",
       "--toast-bg": "rgba(30, 28, 24, 0.92)",
-      "--toast-error-bg": "rgba(140, 0, 0, 0.92)",
+      "--toast-error-bg": "rgba(110, 0, 0, 0.92)",
       "--toast-text": "#ffffff",
+      "--toast-shadow": "rgba(0, 0, 0, 0.22)",
     },
   },
 ];
@@ -721,10 +809,32 @@ async function readInterfaceSpec(): Promise<{ ok: true; text: string } | { ok: f
 let workspaceRoot: string | null = null;
 let recentWorkspaces: string[] = [];
 
+function getRecentWorkspacesPath() {
+  return path.join(app.getPath("userData"), "recent_workspaces.json");
+}
+
+async function loadRecentWorkspaces(): Promise<string[]> {
+  try {
+    const raw = await fs.readFile(getRecentWorkspacesPath(), "utf-8");
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((item) => typeof item === "string");
+    }
+  } catch {}
+  return [];
+}
+
+async function saveRecentWorkspaces() {
+  try {
+    await fs.writeFile(getRecentWorkspacesPath(), JSON.stringify(recentWorkspaces, null, 2), "utf-8");
+  } catch {}
+}
+
 function addRecentWorkspace(root: string) {
   const trimmed = root.trim();
   if (!trimmed) return;
   recentWorkspaces = [trimmed, ...recentWorkspaces.filter((r) => r !== trimmed)].slice(0, 10);
+  saveRecentWorkspaces().catch(() => {});
 }
 
 function normalizeRelPath(p: string): string {
@@ -1520,6 +1630,7 @@ async function createWindow() {
   const userProfiles = await loadUserProfiles();
   const userAppearances = await loadUserAppearances();
   const storedAppearanceId = await loadAppearanceId();
+  recentWorkspaces = await loadRecentWorkspaces();
   currentProfiles = userProfiles && userProfiles.length
     ? Object.fromEntries(userProfiles.map((p) => [p.id, p]))
     : { ...LLM_PROFILES };
@@ -1711,74 +1822,8 @@ async function createWindow() {
   }
 
   function buildWorkspaceMenu() {
-    const recentItems = recentWorkspaces.length
-      ? recentWorkspaces.map((entry) => ({
-        label: entry,
-        click: async () => {
-          const res = await applyWorkspace(entry);
-          if (!res.ok) {
-            dialog.showMessageBox(win, {
-              type: "error",
-              title: APP_NAME,
-              message: `Failed to set workspace: ${res.error ?? "Unknown error"}`,
-            }).catch(() => {});
-          }
-        },
-      }))
-      : [{ label: "No recent workspaces", enabled: false }];
-
-    const menu = Menu.buildFromTemplate([
-      {
-        label: "Workspace",
-        submenu: [
-          {
-            label: "Select Workspace\u2026",
-            click: async () => {
-              const res = await dialog.showOpenDialog(win, {
-                title: "Choose workspace root",
-                properties: ["openDirectory", "createDirectory"],
-              });
-              if (res.canceled || res.filePaths.length === 0) return;
-              const applyRes = await applyWorkspace(res.filePaths[0]);
-              if (!applyRes.ok) {
-                dialog.showMessageBox(win, {
-                  type: "error",
-                  title: APP_NAME,
-                  message: `Failed to set workspace: ${applyRes.error ?? "Unknown error"}`,
-                }).catch(() => {});
-              }
-            },
-          },
-          { label: "Recent Workspaces", submenu: recentItems },
-          { type: "separator" },
-          {
-            label: "Close Workspace",
-            click: async () => {
-              await closeWorkspace();
-            },
-          },
-        ],
-      },
-      {
-        label: "Settings",
-        submenu: [
-          {
-            label: "LLM Profiles\u2026",
-            click: () => {
-              openOverlay("llm-profiles");
-            },
-          },
-          {
-            label: "Appearance\u2026",
-            click: () => {
-              openOverlay("appearance");
-            },
-          },
-        ],
-      },
-    ]);
-
-    Menu.setApplicationMenu(menu);
+    // Custom in-app menu is used instead of native Electron menu.
+    Menu.setApplicationMenu(null);
   }
 
   function setActiveProfile(id: LLMId) {
@@ -1794,6 +1839,7 @@ async function createWindow() {
   let pendingSidebarWidth: number | null = null;
 
   let overlayVisible = false;
+  let menuVisible = false;
   let toastVisible = false;
   let toastSize = { width: TOAST_WIDTH, height: TOAST_HEIGHT };
 
@@ -1812,7 +1858,7 @@ async function createWindow() {
 
   function applyOverlayBounds() {
     const [w, h] = win.getContentSize();
-    if (!overlayVisible) {
+    if (!overlayVisible && !menuVisible) {
       overlayView.setBounds({ x: 0, y: 0, width: 0, height: 0 });
       return;
     }
@@ -1920,6 +1966,15 @@ async function createWindow() {
     return { workspaceRoot };
   });
 
+  ipcMain.handle("operator:getRecentWorkspaces", async () => {
+    return { recentWorkspaces: [...recentWorkspaces] };
+  });
+
+  ipcMain.handle("operator:closeWorkspace", async () => {
+    await closeWorkspace();
+    return { ok: true, workspaceRoot };
+  });
+
   ipcMain.handle("operator:setWorkspace", async (_evt, { path: candidate }: { path: string }) => {
     const res = await applyWorkspace(candidate);
     return res.ok ? { ok: true, workspaceRoot } : { ok: false, workspaceRoot, error: res.error };
@@ -1960,6 +2015,29 @@ async function createWindow() {
   ipcMain.handle("operator:closeAppearance", async () => {
     overlayVisible = false;
     applyOverlayBounds();
+    return { ok: true };
+  });
+
+  ipcMain.handle("operator:openMenu", async (_evt, payload: { menu: "workspace" | "settings" | "help"; rect: { left: number; right: number; top: number; bottom: number } }) => {
+    menuVisible = true;
+    applyOverlayBounds();
+    const rect = payload?.rect;
+    const adjusted = rect
+      ? {
+        left: rect.left + sidebarWidth,
+        right: rect.right + sidebarWidth,
+        top: rect.top,
+        bottom: rect.bottom,
+      }
+      : rect;
+    overlayView.webContents.send("operator:openMenu", { ...payload, rect: adjusted });
+    return { ok: true };
+  });
+
+  ipcMain.handle("operator:closeMenu", async () => {
+    menuVisible = false;
+    applyOverlayBounds();
+    overlayView.webContents.send("operator:closeMenu");
     return { ok: true };
   });
 
