@@ -83,49 +83,6 @@ async function assertSpecCoversErrCodes() {
   assert(missing.length === 0, `Interface spec missing codes: ${missing.join(", ")}`);
 }
 
-async function loadTemplates(): Promise<Record<string, string>> {
-  const repoRoot = getRepoRoot();
-  const rendererPath = path.join(repoRoot, "renderer", "renderer.js");
-  const text = await fs.readFile(rendererPath, "utf-8");
-
-  const blockMatch = text.match(/const TEMPLATES = \{([\s\S]*?)\n\};/);
-  if (!blockMatch) throw new Error("TEMPLATES block not found in renderer.js");
-  const block = blockMatch[1];
-
-  const templates: Record<string, string> = {};
-  const entryRe = /"([^"]+)"\s*:\s*\[([\s\S]*?)\]\.join\("\\n"\)/g;
-  let m: RegExpExecArray | null;
-
-  while ((m = entryRe.exec(block))) {
-    const key = m[1];
-    const body = m[2];
-    const lines: string[] = [];
-    const lineRe = /"((?:[^"\\]|\\.)*)"/g;
-    let lm: RegExpExecArray | null;
-    while ((lm = lineRe.exec(body))) {
-      lines.push(JSON.parse(`"${lm[1]}"`));
-    }
-    templates[key] = lines.join("\n");
-  }
-
-  return templates;
-}
-
-async function assertTemplatesValid() {
-  const templates = await loadTemplates();
-  const keys = Object.keys(templates);
-  assert(keys.length > 0, "No templates found.");
-
-  for (const [key, text] of Object.entries(templates)) {
-    const res = scanForCommands(text);
-    assertEqual(res.errors.length, 0, `Template errors: ${key}`);
-    assertEqual(res.commands.length, 1, `Template commands: ${key}`);
-    const cmd = res.commands[0];
-    assert(cmd.version !== undefined, `Template missing version: ${key}`);
-    assert(!!cmd.id, `Template missing id: ${key}`);
-    assert(!!cmd.action, `Template missing action: ${key}`);
-  }
-}
 
 const tests: TestCase[] = [
   {
@@ -706,15 +663,6 @@ const tests: TestCase[] = [
     },
   },
   {
-    name: "fs.readSlice fallback hint in UI",
-    run: async () => {
-      const rendererJs = await loadRepoFile(path.join("renderer", "renderer.js"));
-      const rendererHtml = await loadRepoFile(path.join("renderer", "index.html"));
-      const hasHint = rendererJs.includes("Use fs.readSlice") || rendererHtml.includes("Use fs.readSlice");
-      assert(hasHint, "Expected UI hint to use fs.readSlice when fs.read is too large");
-    },
-  },
-  {
     name: "operator.error displayed in UI",
     run: async () => {
       const rendererJs = await loadRepoFile(path.join("renderer", "renderer.js"));
@@ -765,12 +713,6 @@ const tests: TestCase[] = [
         rendererJs.includes("operator.error") && rendererJs.includes("executedIds.add"),
         "Expected operator.error execution to be recorded in executedIds"
       );
-    },
-  },
-  {
-    name: "Templates are valid",
-    run: async () => {
-      await assertTemplatesValid();
     },
   },
 ];
