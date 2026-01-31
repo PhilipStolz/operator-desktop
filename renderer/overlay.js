@@ -816,10 +816,11 @@ if (appearanceEditorPaste) {
       }
       if (parsed.label) draft.label = String(parsed.label);
       if (parsed.vars && typeof parsed.vars === "object") {
-        draft.vars = { ...(draft.vars || {}), ...parsed.vars };
+        draft.vars = { ...parsed.vars };
       }
       applyDraftToInputs(draft);
       applyDraftPreview(draft);
+      attachAppearanceInputHandlers();
       showToast("Appearance definition pasted.");
     } catch (e) {
       showToast("Paste failed: invalid JSON.", "error");
