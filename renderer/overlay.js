@@ -41,6 +41,7 @@ let editingAppearanceId = null;
 let autoIdEnabled = true;
 let appearanceEditSnapshot = null;
 let alphaPopupEntry = null;
+let appearanceHandlersBound = false;
 
 function setOverlayState(el, open) {
   if (!el) return;
@@ -204,7 +205,7 @@ function initSwatches(keys) {
     alphaToggle.className = "appearanceAlphaToggle";
     alphaToggle.type = "button";
     alphaToggle.title = "Alpha";
-    alphaToggle.textContent = "α";
+    alphaToggle.innerHTML = "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" focusable=\"false\"><text x=\"12\" y=\"16\" text-anchor=\"middle\" font-size=\"14\">α</text></svg>";
 
     const alpha = document.createElement("input");
     alpha.className = "appearanceSwatchAlpha";
@@ -220,7 +221,7 @@ function initSwatches(keys) {
     row.appendChild(label);
     row.appendChild(controls);
     appearanceSwatchGrid.appendChild(row);
-    swatchMap.set(key, { row, input, alpha, alphaToggle });
+    swatchMap.set(key, { row, input, alpha, alphaToggle, hasValue: false, bound: false });
   });
 }
 
@@ -231,16 +232,24 @@ function setSwatchValue(key, hexValue) {
   if (parsed) {
     if (entry.input) entry.input.value = rgbToHex(parsed);
     if (entry.alpha) entry.alpha.value = String(Math.round(clamp(parsed.a, 0, 1) * 100));
+    entry.hasValue = true;
     return;
   }
   const hex = toHex(hexValue, "#000000");
   if (entry.input) entry.input.value = hex;
   if (entry.alpha) entry.alpha.value = "100";
+  entry.hasValue = true;
 }
 
 function buildDraftVarsFromSwatches(existing) {
   const vars = { ...(existing || {}) };
   for (const [key, entry] of swatchMap.entries()) {
+    if (!entry.hasValue) {
+      if (existing && Object.prototype.hasOwnProperty.call(existing, key)) {
+        vars[key] = existing[key];
+      }
+      continue;
+    }
     const hex = entry.input?.value || "#000000";
     const base = toHex(hex, "#000000");
     const alphaValue = entry.alpha ? clamp(parseFloat(entry.alpha.value) / 100, 0, 1) : 1;
@@ -390,39 +399,43 @@ function closeAppearanceEditor() {
 
 
 function attachAppearanceInputHandlers() {
-  const basicInputs = [appearanceId, appearanceLabel].filter(Boolean);
-  basicInputs.forEach((input) => {
-    input.addEventListener("input", () => {
-      const targetId = editingAppearanceId || selectedAppearanceId;
-      const draft = findDraft(targetId) || findDraft(appearanceId?.value.trim());
-      if (!draft) return;
-      if (input === appearanceId) autoIdEnabled = false;
-      if (input === appearanceLabel && autoIdEnabled) {
-        const base = String(appearanceLabel.value || "")
-          .trim()
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-+|-+$/g, "");
-        if (base) {
-          let candidate = base;
-          let suffix = 1;
-          while (appearanceDrafts.some((a) => a.id === candidate && a !== draft)) {
-            candidate = `${base}-${suffix++}`;
+  if (!appearanceHandlersBound) {
+    const basicInputs = [appearanceId, appearanceLabel].filter(Boolean);
+    basicInputs.forEach((input) => {
+      input.addEventListener("input", () => {
+        const targetId = editingAppearanceId || selectedAppearanceId;
+        const draft = findDraft(targetId) || findDraft(appearanceId?.value.trim());
+        if (!draft) return;
+        if (input === appearanceId) autoIdEnabled = false;
+        if (input === appearanceLabel && autoIdEnabled) {
+          const base = String(appearanceLabel.value || "")
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "");
+          if (base) {
+            let candidate = base;
+            let suffix = 1;
+            while (appearanceDrafts.some((a) => a.id === candidate && a !== draft)) {
+              candidate = `${base}-${suffix++}`;
+            }
+            appearanceId.value = candidate;
           }
-          appearanceId.value = candidate;
         }
-      }
-      const previousId = draft.id;
-      readInputsToDraft(draft);
-      if (draft.id && draft.id !== previousId) {
-        if (selectedAppearanceId === previousId) selectedAppearanceId = draft.id;
-        if (editingAppearanceId === previousId) editingAppearanceId = draft.id;
-        renderAppearanceList();
-      }
-      applyDraftPreview(draft);
+        const previousId = draft.id;
+        readInputsToDraft(draft);
+        if (draft.id && draft.id !== previousId) {
+          if (selectedAppearanceId === previousId) selectedAppearanceId = draft.id;
+          if (editingAppearanceId === previousId) editingAppearanceId = draft.id;
+          renderAppearanceList();
+        }
+        applyDraftPreview(draft);
+      });
     });
-  });
+    appearanceHandlersBound = true;
+  }
   for (const [key, entry] of swatchMap.entries()) {
+    if (entry.bound) continue;
     if (entry.input) {
       entry.input.addEventListener("input", () => {
         const draft = findDraft(editingAppearanceId || selectedAppearanceId);
@@ -436,6 +449,7 @@ function attachAppearanceInputHandlers() {
         } else {
           draft.vars[key] = base;
         }
+        entry.hasValue = true;
         setSwatchValue(key, draft.vars[key]);
         applyDraftPreview(draft);
       });
@@ -458,10 +472,12 @@ function attachAppearanceInputHandlers() {
         } else {
           draft.vars[key] = base;
         }
+        entry.hasValue = true;
         setSwatchValue(key, draft.vars[key]);
         applyDraftPreview(draft);
       });
     }
+    entry.bound = true;
   }
 }
 
