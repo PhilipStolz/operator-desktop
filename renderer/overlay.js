@@ -1447,7 +1447,7 @@ function buildGuideNav(nodes, container, level) {
   for (const node of nodes) {
     const row = document.createElement("div");
     row.className = "guideTreeNode";
-    row.style.paddingLeft = `${level * 6}px`;
+    row.style.paddingLeft = `${level * 12}px`;
 
     const toggle = document.createElement("button");
     toggle.className = "guideTreeToggle";
@@ -1475,7 +1475,7 @@ function buildGuideNav(nodes, container, level) {
       childrenWrap.className = "guideTreeChildren open";
       childrenWrap.style.marginLeft = "0";
       childrenWrap.style.paddingLeft = "0";
-      childrenWrap.style.setProperty("--guide-line-offset", `${level * 6}px`);
+      childrenWrap.style.setProperty("--guide-line-offset", `${level * 12}px`);
       container.appendChild(childrenWrap);
       childrenState = buildGuideNav(node.children, childrenWrap, level + 1);
       toggle.onclick = () => {
