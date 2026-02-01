@@ -74,6 +74,8 @@ contextBridge.exposeInMainWorld("operator", {
   onAppearanceChanged: (cb: (payload: { id: string; label?: string; vars?: Record<string, string> }) => void) =>
     ipcRenderer.on("operator:appearanceChanged", (_evt, payload: { id: string; label?: string; vars?: Record<string, string> }) => cb(payload)),
   onOpenAppearance: (cb: () => void) => ipcRenderer.on("operator:openAppearance", () => cb()),
+  getGuidedRect: (payload: { selector: string; view: "sidebar" | "topbar" }) =>
+    ipcRenderer.invoke("operator:getGuidedRect", payload),
 
 });
 

@@ -10,10 +10,17 @@ export type LLMProfile = {
   bootstrapPromptFile: string;
 };
 
-export const DEFAULT_LLM_ID: LLMId = "chatgpt";
+export const DEFAULT_LLM_ID: LLMId = "lechat";
 
 // NOTE: This app embeds web UI (BrowserView). We do NOT use provider APIs here.
 export const LLM_PROFILES: Record<string, LLMProfile> = {
+  lechat: {
+    id: "lechat",
+    label: "LeChat",
+    startUrl: "https://chat.mistral.ai/",
+    allowedHosts: ["chat.mistral.ai"],
+    bootstrapPromptFile: "operator_llm_bootstrap.txt",
+  },
   chatgpt: {
     id: "chatgpt",
     label: "ChatGPT",

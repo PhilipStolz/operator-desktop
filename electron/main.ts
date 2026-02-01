@@ -2034,6 +2034,35 @@ async function createWindow() {
     return { ok: true };
   });
 
+  ipcMain.handle("operator:getGuidedRect", async (_evt, payload: { selector: string; view: "sidebar" | "topbar" }) => {
+    const selector = payload?.selector;
+    const view = payload?.view === "topbar" ? topbarView : sidebarView;
+    if (!selector || !view || view.webContents.isDestroyed()) return null;
+    const bounds = view.getBounds();
+    try {
+      const rect = await view.webContents.executeJavaScript(
+        `(function() {
+          const el = document.querySelector(${JSON.stringify(selector)});
+          if (!el) return null;
+          const details = el.closest && el.closest('details');
+          if (details && !details.open) details.open = true;
+          try { el.scrollIntoView({ block: 'center', inline: 'center' }); } catch {}
+          const r = el.getBoundingClientRect();
+          return { left: r.left, top: r.top, width: r.width, height: r.height };
+        })()`
+      );
+      if (!rect || typeof rect.left !== "number") return null;
+      return {
+        left: rect.left + bounds.x,
+        top: rect.top + bounds.y,
+        width: rect.width,
+        height: rect.height,
+      };
+    } catch {
+      return null;
+    }
+  });
+
   ipcMain.handle("operator:closeMenu", async () => {
     menuVisible = false;
     applyOverlayBounds();

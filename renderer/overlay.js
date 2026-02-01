@@ -41,6 +41,15 @@ const menuRecentList = document.getElementById("menuRecentList");
 const menuLlmProfiles = document.getElementById("menuLlmProfiles");
 const menuAppearance = document.getElementById("menuAppearance");
 const menuGettingStarted = document.getElementById("menuGettingStarted");
+const guidedOverlay = document.getElementById("guidedOverlay");
+const guidedSpotlight = document.getElementById("guidedSpotlight");
+const guidedTooltip = document.getElementById("guidedTooltip");
+const guidedStep = document.getElementById("guidedStep");
+const guidedTitle = document.getElementById("guidedTitle");
+const guidedBody = document.getElementById("guidedBody");
+const guidedPrev = document.getElementById("guidedPrev");
+const guidedNext = document.getElementById("guidedNext");
+const guidedClose = document.getElementById("guidedClose");
 
 let activeOverlay = null;
 let llmOpenSeq = 0;
@@ -55,6 +64,16 @@ let alphaPopupEntry = null;
 let appearanceHandlersBound = false;
 let openMenuId = null;
 let splitDragActive = false;
+let guidedIndex = 0;
+let guidedSeq = 0;
+const guidedSteps = [
+  { title: "Choose workspace", body: "Pick a workspace root to enable file commands.", selector: "#btnWorkspace", view: "topbar" },
+  { title: "Select LLM provider", body: "Choose the LLM provider in the top bar.", selector: "#llmProfile", view: "topbar" },
+  { title: "Copy bootstrap prompt", body: "Click to copy the prompt, then paste it into the LLM chat (Ctrl+V on Windows/Linux, Cmd+V on macOS).", selector: "#btnCopyBootstrap", view: "sidebar" },
+  { title: "Run Extract & Scan", body: "Extract commands from the chat.", selector: "#btnExtract", view: "sidebar" },
+  { title: "Review the Command Inbox", body: "Inspect commands and execute them.", selector: "#inboxSection", view: "sidebar" },
+  { title: "Copy result back to the LLM", body: "Copy the execution result, then paste it into the LLM chat (Ctrl+V on Windows/Linux, Cmd+V on macOS).", selector: "#btnCopyResult", view: "sidebar" },
+];
 
 function setOverlayState(el, open) {
   if (!el) return;
@@ -614,6 +633,127 @@ function requestCloseMenu() {
   closeMenus();
 }
 
+function positionGuidedElements(rect) {
+  if (!guidedSpotlight || !guidedTooltip) return;
+  const pad = 6;
+  guidedSpotlight.style.left = `${rect.left - pad}px`;
+  guidedSpotlight.style.top = `${rect.top - pad}px`;
+  guidedSpotlight.style.width = `${rect.width + pad * 2}px`;
+  guidedSpotlight.style.height = `${rect.height + pad * 2}px`;
+  const tooltipTop = Math.min(window.innerHeight - 10, rect.bottom + 12);
+  const tooltipLeft = Math.min(window.innerWidth - 340, Math.max(10, rect.left));
+  guidedTooltip.style.left = `${tooltipLeft}px`;
+  guidedTooltip.style.top = `${tooltipTop}px`;
+}
+
+async function resolveGuidedRect(step) {
+  if (!step || !step.selector) return null;
+  if (window.operator?.getGuidedRect) {
+    try {
+      const rect = await window.operator.getGuidedRect({
+        selector: step.selector,
+        view: step.view || "sidebar",
+      });
+      // scrollIntoView is executed in the target view before returning its rect.
+      if (rect && typeof rect.left === "number") {
+        return { left: rect.left, top: rect.top, width: rect.width, height: rect.height, bottom: rect.top + rect.height };
+      }
+    } catch (err) {
+      console.warn("guided rect lookup failed", err);
+    }
+  }
+  return null;
+}
+
+async function showGuidedStep(index) {
+  if (!guidedOverlay || !guidedSpotlight || !guidedTooltip) return;
+  const seq = ++guidedSeq;
+  guidedTooltip.style.opacity = "0";
+  guidedSpotlight.style.opacity = "0";
+  guidedTooltip.style.visibility = "hidden";
+  guidedSpotlight.style.visibility = "hidden";
+  const steps = guidedSteps;
+  let i = index;
+  let found = null;
+  const direction = index >= guidedIndex ? 1 : -1;
+  while (i >= 0 && i < steps.length) {
+    const step = steps[i];
+    const rect = await resolveGuidedRect(step);
+    if (seq !== guidedSeq) return;
+    if (!rect) {
+      i += direction;
+      continue;
+    }
+    found = { step, index: i, rect };
+    break;
+  }
+  if (!found) {
+    guidedIndex = 0;
+    if (guidedStep) guidedStep.textContent = `Step 1 / ${steps.length}`;
+    if (guidedTitle) guidedTitle.textContent = steps[0]?.title || "Getting Started";
+    if (guidedBody) guidedBody.textContent = steps[0]?.body || "";
+    if (guidedSpotlight) {
+      guidedSpotlight.style.left = "20px";
+      guidedSpotlight.style.top = "20px";
+      guidedSpotlight.style.width = "180px";
+      guidedSpotlight.style.height = "40px";
+    }
+    if (guidedTooltip) {
+      guidedTooltip.style.left = "20px";
+      guidedTooltip.style.top = "70px";
+    }
+    guidedTooltip.style.opacity = "1";
+    guidedSpotlight.style.opacity = "1";
+    guidedTooltip.style.visibility = "visible";
+    guidedSpotlight.style.visibility = "visible";
+    if (guidedPrev) {
+      guidedPrev.disabled = true;
+      guidedPrev.style.display = "none";
+    }
+    if (guidedNext) guidedNext.textContent = steps.length <= 1 ? "Done" : "Next";
+    return;
+  }
+  guidedIndex = found.index;
+  if (guidedStep) guidedStep.textContent = `Step ${found.index + 1} / ${steps.length}`;
+  if (guidedTitle) guidedTitle.textContent = found.step.title;
+  if (guidedBody) guidedBody.textContent = found.step.body;
+  positionGuidedElements(found.rect);
+  guidedTooltip.style.opacity = "1";
+  guidedSpotlight.style.opacity = "1";
+  guidedTooltip.style.visibility = "visible";
+  guidedSpotlight.style.visibility = "visible";
+  if (guidedPrev) {
+    guidedPrev.disabled = found.index === 0;
+    guidedPrev.style.display = found.index === 0 ? "none" : "";
+  }
+  if (guidedNext) guidedNext.textContent = found.index === steps.length - 1 ? "Done" : "Next";
+}
+
+function openGuidedGettingStarted() {
+  if (!guidedOverlay) return;
+  guidedOverlay.classList.add("open");
+  guidedOverlay.setAttribute("aria-hidden", "false");
+  guidedIndex = 0;
+  if (guidedTooltip) {
+    guidedTooltip.style.opacity = "0";
+    guidedTooltip.style.visibility = "hidden";
+  }
+  if (guidedSpotlight) {
+    guidedSpotlight.style.opacity = "0";
+    guidedSpotlight.style.visibility = "hidden";
+  }
+  void showGuidedStep(guidedIndex);
+}
+
+function closeGuidedGettingStarted() {
+  if (!guidedOverlay) return;
+  guidedOverlay.classList.remove("open");
+  guidedOverlay.setAttribute("aria-hidden", "true");
+  try {
+    window.operator?.closeGettingStarted?.();
+  } catch {}
+}
+
 function openMenu(payload) {
   if (!payload) return;
   const { menu, rect } = payload;
@@ -664,9 +804,10 @@ async function loadRecentWorkspaces() {
 
 function openGettingStarted() {
   activeOverlay = "getting";
-  setOverlayState(gettingOverlay, true);
+  setOverlayState(gettingOverlay, false);
   setOverlayState(llmOverlay, false);
   setOverlayState(appearanceOverlay, false);
+  openGuidedGettingStarted();
 }
 
 async function closeGettingStarted() {
@@ -1131,8 +1272,25 @@ if (window.operator?.getActiveAppearance) {
 window.__openGettingStarted = openGettingStarted;
 window.__openLlmProfiles = openLlmProfiles;
 window.__openAppearance = openAppearance;
+window.__openGuidedGettingStarted = openGuidedGettingStarted;
+window.__closeGuidedGettingStarted = closeGuidedGettingStarted;
 
 attachAppearanceInputHandlers();
+if (guidedPrev) {
+  guidedPrev.onclick = () => {
+    void showGuidedStep(Math.max(0, guidedIndex - 1));
+  };
+}
+if (guidedNext) {
+  guidedNext.onclick = () => {
+    if (guidedIndex >= guidedSteps.length - 1) {
+      closeGuidedGettingStarted();
+      return;
+    }
+    void showGuidedStep(guidedIndex + 1);
+  };
+}
+if (guidedClose) guidedClose.onclick = () => closeGuidedGettingStarted();
 
 function initAppearanceSplit() {
   if (!appearanceSplitHandle || !appearanceSwatchGrid || !appearanceEditorPreview) return;
