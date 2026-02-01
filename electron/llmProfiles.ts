@@ -18,7 +18,7 @@ export const LLM_PROFILES: Record<string, LLMProfile> = {
     id: "lechat",
     label: "LeChat",
     startUrl: "https://chat.mistral.ai/",
-    allowedHosts: ["chat.mistral.ai"],
+    allowedHosts: ["chat.mistral.ai", "v2.auth.mistral.ai", "auth.mistral.ai", "mistral.ai"],
     bootstrapPromptFile: "operator_llm_bootstrap.txt",
   },
   chatgpt: {

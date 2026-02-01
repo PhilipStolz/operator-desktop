@@ -212,6 +212,7 @@ const APPEARANCE_KEYS = [
   "--control-bg",
   "--control-text",
   "--control-border",
+  "--icon-fg",
   "--error-bg",
   "--error-border",
   "--success",
@@ -249,6 +250,7 @@ const APPEARANCE_LABELS = {
   "--control-bg": "Control background",
   "--control-text": "Control text",
   "--control-border": "Control border",
+  "--icon-fg": "Icon color",
   "--error-bg": "Error background",
   "--error-border": "Error border",
   "--success": "Success accent",
@@ -942,15 +944,25 @@ function getGuideSections() {
         <p>This mini map shows the main areas: Top Bar, Sidebar, and the chat view.</p>
         <div class="guideDemo">
           <div class="guidePreviewLayout">
-            <div class="guidePreviewSidebar">
-              <div class="guidePreviewBlock">Operator Control</div>
-              <div class="guidePreviewBlock">Command Inbox</div>
-              <div class="guidePreviewBlock">Execution Errors</div>
-              <div class="guidePreviewBlock">Results</div>
+            <div class="guidePreviewScale">
+              <div class="guidePreviewSidebarFrame">
+                <div class="guidePreviewLabel">Sidebar</div>
+                <div class="guidePreviewSidebar">
+                  <div class="guidePreviewBlock">Operator Control</div>
+                  <div class="guidePreviewBlock">Command Inbox</div>
+                  <div class="guidePreviewBlock">Execution Errors</div>
+                  <div class="guidePreviewBlock">Results</div>
+                </div>
+              </div>
             </div>
-            <div class="guidePreviewMain">
-              ${renderTopbarPreview()}
-              <div class="guidePreviewChat">LLM chat / web view</div>
+            <div class="guidePreviewScale">
+              <div class="guidePreviewTopbarFrame">
+                <div class="guidePreviewLabel">Top Bar</div>
+                <div class="guidePreviewMain">
+                  ${renderTopbarPreview()}
+                  <div class="guidePreviewChat">LLM chat / web view</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1677,6 +1689,7 @@ if (appearanceAdd) {
         "--control-bg": "#f9fbfe",
         "--control-text": "#1b2430",
         "--control-border": "#c9d3df",
+        "--icon-fg": "#1b2430",
         "--error-bg": "#fff4f4",
         "--error-border": "#f1c0c0",
         "--success": "#2f8f59",

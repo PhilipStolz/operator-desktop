@@ -98,7 +98,7 @@
     }
 
     .wideModal {
-      width: min(980px, 96vw);
+      width: min(1180px, 98vw);
     }
 
     .llmTable {
@@ -679,6 +679,13 @@
       border-radius: 12px;
       overflow: hidden;
       background: var(--panel-bg);
+      position: relative;
+    }
+
+    .guidePreviewScale {
+      transform: scale(0.8);
+      transform-origin: top left;
+      width: 125%;
     }
 
     .guidePreviewSidebar {
@@ -688,6 +695,33 @@
       gap: 6px;
     }
 
+    .guidePreviewLabel {
+      font-size: 13px;
+      color: var(--text);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 8px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--panel-bg);
+    }
+
+    .guidePreviewLabel::after {
+      content: none;
+    }
+
+    .guidePreviewSidebarFrame,
+    .guidePreviewTopbarFrame {
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      padding: 6px;
+    }
+
     .guidePreviewBlock {
       border: 1px solid var(--border);
       border-radius: 8px;
@@ -695,6 +729,7 @@
       background: var(--panel-bg-alt);
       font-size: 11px;
       color: var(--text);
+      white-space: nowrap;
     }
 
     .guidePreviewMain {
@@ -1095,6 +1130,28 @@
             <div class="appearancePreviewCard" style="background: var(--overlay-bg);">Overlay bg</div>
             <div class="appearancePreviewCard" style="box-shadow: 0 10px 30px var(--modal-shadow);">Modal shadow</div>
             <div class="appearancePreviewCard" style="border-bottom: 2px solid var(--topbar-divider); box-shadow: 0 1px 0 var(--topbar-shadow);">Topbar divider</div>
+            <div class="appearancePreviewCard">
+              <div class="row" style="justify-content:space-between; align-items:center;">
+                <span>Icon buttons</span>
+                <div class="cmdCompact">
+                  <button class="cmdBtn" aria-label="Details" title="Details">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path d="M12 5c7 0 10 7 10 7s-3 7-10 7-10-7-10-7 3-7 10-7Zm0 2c-4.8 0-7.5 4.2-7.9 5 .4.8 3.1 5 7.9 5s7.5-4.2 7.9-5c-.4-.8-3.1-5-7.9-5Zm0 2.5A2.5 2.5 0 1 1 9.5 12 2.5 2.5 0 0 1 12 9.5Z"/>
+                    </svg>
+                  </button>
+                  <button class="cmdBtn" aria-label="Execute" title="Execute">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path d="M7 5v14l12-7-12-7Z"/>
+                    </svg>
+                  </button>
+                  <button class="cmdBtn" aria-label="Dismiss" title="Dismiss">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path d="M6.4 5l12.6 12.6-1.4 1.4L5 6.4 6.4 5Zm12.6 1.4L6.4 19l-1.4-1.4L17.6 5l1.4 1.4Z"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
             <div class="appearancePreviewCard" style="background: var(--toast-bg); color: var(--toast-text); border-color: var(--toast-bg);">Toast</div>
             <div class="appearancePreviewCard" style="background: var(--toast-error-bg); color: var(--toast-text); border-color: var(--toast-error-bg);">Toast error</div>
             <div class="appearancePreviewCard" style="box-shadow: 0 6px 18px var(--toast-shadow);">Toast shadow</div>

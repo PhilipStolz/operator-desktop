@@ -154,6 +154,7 @@ select {
   width: 14px;
   height: 14px;
   display: block;
+  fill: var(--icon-fg);
 }
 
 .cmdSelectCol {
@@ -307,7 +308,7 @@ select {
 .topBarIconBtn svg {
   width: 16px;
   height: 16px;
-  fill: currentColor;
+  fill: var(--icon-fg);
 }
 
 /* Modals */
