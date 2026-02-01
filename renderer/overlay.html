@@ -462,6 +462,7 @@
       padding-right: 4px;
       min-height: 0;
       overflow-x: hidden;
+      --guide-tree-line-indent: 10px;
       scrollbar-width: thin;
       scrollbar-color: var(--border) var(--panel-bg-alt);
     }
@@ -509,11 +510,21 @@
 
     .guideTreeChildren {
       display: none;
-      margin-left: 6px;
-      border-left: 1px solid var(--border);
-      padding-left: 6px;
+      margin-left: 0;
+      position: relative;
+      padding-left: 0;
       gap: 4px;
       flex-direction: column;
+    }
+
+    .guideTreeChildren::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: calc(var(--guide-line-offset, 0px) + var(--guide-tree-line-indent));
+      width: 1px;
+      background: var(--border);
     }
 
     .guideTreeChildren.open {
@@ -764,7 +775,7 @@
 
     .guideDialogPreview {
       width: 100%;
-      max-width: 520px;
+      max-width: 640px;
     }
 
     .guideField {

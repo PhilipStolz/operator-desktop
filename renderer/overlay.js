@@ -848,12 +848,30 @@ function renderResultsPreview() {
   `;
 }
 
-function renderMenuPreview() {
+function renderMenuPreview(kind) {
+  if (kind === "workspace") {
+    return `
+      <div class="menuPopup open guideMenuPreview">
+        <div class="menuEntry">Select Workspace...</div>
+        <div class="menuGroupLabel">Recent Workspaces</div>
+        <div class="menuEntry">/projects/operator-desktop</div>
+        <div class="menuEntry">/projects/alpha</div>
+        <div class="menuSeparator"></div>
+        <div class="menuEntry">Close Workspace</div>
+      </div>
+    `;
+  }
+  if (kind === "help") {
+    return `
+      <div class="menuPopup open guideMenuPreview">
+        <div class="menuEntry active">Getting Started</div>
+        <div class="menuEntry">User Guide</div>
+      </div>
+    `;
+  }
   return `
     <div class="menuPopup open guideMenuPreview">
-      <div class="menuEntry">Workspace</div>
-      <div class="menuEntry">Settings</div>
-      <div class="menuEntry active">LLM Profiles...</div>
+      <div class="menuEntry">LLM Profiles...</div>
       <div class="menuEntry">Appearance...</div>
     </div>
   `;
@@ -863,21 +881,32 @@ function renderLlmProfilesDialogPreview() {
   return `
     <div class="modal guideDialogPreview">
       <div class="modalHeader">
-        <div class="sectionTitle">LLM Profiles</div>
+        <div>LLM Profiles</div>
         <button>Close</button>
       </div>
       <div class="modalBody">
-        <div class="row">
-          <input class="guideField" value="id" />
-          <input class="guideField" value="label" />
-          <input class="guideField" value="startUrl" />
+        <div class="small" style="margin-bottom:8px;">Add or edit LLM start URLs and allowed hosts (comma separated).</div>
+        <div class="llmTable llmTableHeader">
+          <div>ID</div>
+          <div>Label</div>
+          <div>Start URL</div>
+          <div>Allowed hosts</div>
+          <div></div>
         </div>
-        <div class="row">
-          <input class="guideField" value="allowedHosts" />
+        <div class="llmTable" style="margin-top:6px;">
+          <input value="chat" />
+          <input value="Chat" />
+          <input value="https://chat.example.com/" />
+          <input value="chat.example.com" />
+          <button>×</button>
+        </div>
+        <div class="row" style="margin-top:10px;">
+          <button>Add profile</button>
         </div>
       </div>
       <div class="modalFooter">
-        <button>Reset</button>
+        <button>Reset to defaults</button>
+        <button>Close</button>
         <button class="btnPrimary">Save</button>
       </div>
     </div>
@@ -888,19 +917,104 @@ function renderAppearanceDialogPreview() {
   return `
     <div class="modal guideDialogPreview">
       <div class="modalHeader">
-        <div class="sectionTitle">Appearance</div>
+        <div>Appearance</div>
         <button>Close</button>
       </div>
       <div class="modalBody">
-        <div class="row">
-          <div class="guideSwatch"></div>
-          <div class="guideSwatch" style="background: var(--panel-bg-alt);"></div>
-          <div class="guideSwatch" style="background: var(--error);"></div>
-          <div class="guideSwatch" style="background: var(--warning);"></div>
+        <div class="small" style="margin-bottom:8px;">Choose a visual style for the Operator UI.</div>
+        <div class="appearanceList">
+          <div class="appearanceItem selected">
+            <div class="appearanceRow">
+              <div class="appearanceMeta">
+                <div class="appearanceLabel">Operator Classic</div>
+                <div class="small">operator-classic</div>
+              </div>
+            </div>
+            <div class="appearanceActions">
+              <button>Edit</button>
+            </div>
+          </div>
+          <div class="appearanceItem">
+            <div class="appearanceRow">
+              <div class="appearanceMeta">
+                <div class="appearanceLabel">Operator Dark Ops</div>
+                <div class="small">operator-dark-ops</div>
+              </div>
+            </div>
+            <div class="appearanceActions">
+              <button>Edit</button>
+            </div>
+          </div>
+        </div>
+        <div class="row" style="justify-content:space-between; margin-top:10px;">
+          <button>Add appearance</button>
+          <button>Remove selected</button>
         </div>
       </div>
       <div class="modalFooter">
-        <button>Edit</button>
+        <button>Reset to defaults</button>
+        <button>Cancel</button>
+        <button class="btnPrimary">Save</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderAppearanceEditorPreview() {
+  return `
+    <div class="modal guideDialogPreview">
+      <div class="modalHeader">
+        <div>Edit appearance</div>
+        <button>Close</button>
+      </div>
+      <div class="modalBody">
+        <div class="appearanceEditor" style="max-height: 220px; overflow: auto;">
+          <div class="appearanceGrid">
+            <div class="small">ID</div>
+            <input type="text" value="operator-classic" />
+            <div class="small">Label</div>
+            <input type="text" value="Operator Classic" />
+            <div class="appearanceSwatchGrid" style="max-height: 120px; overflow: auto;">
+              <div class="appearanceSwatchRow">
+                <div style="font-size: 11px;">App background</div>
+                <div class="appearanceSwatchControls">
+                  <input class="appearanceSwatchInput" type="color" value="#e7edf4" />
+                  <button class="appearanceAlphaToggle" aria-label="Alpha">a</button>
+                </div>
+              </div>
+              <div class="appearanceSwatchRow">
+                <div style="font-size: 11px;">Accent</div>
+                <div class="appearanceSwatchControls">
+                  <input class="appearanceSwatchInput" type="color" value="#1a5fbf" />
+                  <button class="appearanceAlphaToggle" aria-label="Alpha">a</button>
+                </div>
+              </div>
+              <div class="appearanceSwatchRow">
+                <div style="font-size: 11px;">Icon color</div>
+                <div class="appearanceSwatchControls">
+                  <input class="appearanceSwatchInput" type="color" value="#153c6f" />
+                  <button class="appearanceAlphaToggle" aria-label="Alpha">a</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="appearancePreviewBox" style="max-height: 160px; overflow: auto;">
+          <div class="appearancePreviewSidebar">
+            <div class="small">Preview</div>
+            <div class="appearancePreviewCard">Secondary</div>
+            <div class="appearancePreviewCard" style="background: var(--panel-bg-alt);">Panel alt</div>
+          </div>
+          <div class="appearancePreviewMain">
+            <div class="appearancePreviewCard" style="background: var(--error-bg); border-color: var(--error-border); color: var(--error);">Error panel</div>
+            <div class="appearancePreviewCard" style="background: var(--warning-bg);">Warning bg</div>
+          </div>
+        </div>
+      </div>
+      <div class="modalFooter">
+        <button>Copy definition</button>
+        <button>Paste definition</button>
+        <button>Cancel</button>
         <button class="btnPrimary">Save</button>
       </div>
     </div>
@@ -973,29 +1087,182 @@ function getGuideSections() {
           id: "topbar",
           title: "Top Bar",
           body: `
-            <p>The top bar contains workspace status, LLM provider selection, and the Getting Started entry point.</p>
+            <p>The top bar is the control strip above the chat area. It is always visible and is where you connect Operator to your workspace and LLM provider.</p>
+            <p>Use the menu items on the left to access Workspace, Settings, and Help. The controls on the right show your current workspace and LLM provider and let you change them quickly.</p>
             ${renderTopbarPreview()}
-            <ul class="guideList">
-              <li>Workspace status text</li>
-              <li>Folder icon button (choose workspace)</li>
-              <li>LLM provider dropdown</li>
-              <li>Getting Started button</li>
-            </ul>
           `,
           children: [
+            {
+              id: "topbar-workspace-menu",
+              title: "Workspace menu",
+              body: `
+                <p>The Workspace menu is the primary place to set or change the workspace root.</p>
+                <p>It also lists recent workspaces and lets you close the current workspace.</p>
+                <div class="guideDemo">${renderMenuPreview("workspace")}</div>
+              `,
+            },
+            {
+              id: "topbar-settings-menu",
+              title: "Settings menu",
+              body: `
+                <p>Settings contains configuration dialogs for LLM Profiles and Appearance.</p>
+                <div class="guideDemo">${renderMenuPreview("settings")}</div>
+              `,
+              children: [
+            {
+              id: "settings-llm-profiles",
+              title: "LLM Profiles",
+              body: `
+                    <p>Manage the list of LLM providers that can be chosen from the top bar.</p>
+                    <div class="guideDemo">${renderLlmProfilesDialogPreview()}</div>
+                  `,
+              children: [
+                {
+                  id: "settings-llm-id",
+                  title: "ID",
+                  body: `<p>Unique identifier used internally and stored with commands.</p>`,
+                },
+                {
+                  id: "settings-llm-label",
+                  title: "Label",
+                  body: `<p>Human-readable name shown in the top bar dropdown.</p>`,
+                },
+                {
+                  id: "settings-llm-start-url",
+                  title: "Start URL",
+                  body: `<p>The URL that loads in the chat view when this provider is selected.</p>`,
+                },
+                {
+                  id: "settings-llm-allowed-hosts",
+                  title: "Allowed hosts",
+                  body: `<p>Comma-separated list of domains permitted for this provider.</p>`,
+                },
+                {
+                  id: "settings-llm-delete",
+                  title: "Delete profile",
+                  body: `<p>Use the delete (x) button to remove a profile.</p>`,
+                },
+                {
+                  id: "settings-llm-add",
+                  title: "Add profile",
+                  body: `<p>Add a new provider entry to the list.</p>`,
+                },
+                {
+                  id: "settings-llm-reset",
+                  title: "Reset to defaults",
+                  body: `<p>Restore the built-in list of providers.</p>`,
+                },
+              ],
+            },
+            {
+              id: "settings-appearance",
+              title: "Appearance",
+              body: `
+                <p>Choose and edit appearance themes for the UI.</p>
+                <div class="guideDemo">${renderAppearanceDialogPreview()}</div>
+              `,
+              children: [
+                {
+                  id: "appearance-select",
+                  title: "Select appearance",
+                  body: `<p>Choose an appearance from the list. The UI updates immediately for preview, but the selection only becomes permanent after Save.</p>`,
+                },
+                {
+                  id: "appearance-add",
+                  title: "Add appearance",
+                  body: `<p>Add a new appearance entry to the list.</p>`,
+                },
+                {
+                  id: "appearance-remove",
+                  title: "Remove selected",
+                  body: `<p>Remove the currently selected appearance.</p>`,
+                },
+                {
+                  id: "appearance-reset",
+                  title: "Reset to default",
+                  body: `<p>Restore the built-in appearance defaults.</p>`,
+                },
+                {
+                  id: "appearance-edit",
+                  title: "Edit",
+                  body: `
+                    <p>Open the Edit Appearance dialog for the selected appearance.</p>
+                    <div class="guideDemo">${renderAppearanceEditorPreview()}</div>
+                  `,
+                  children: [
+                    {
+                      id: "appearance-edit-id",
+                      title: "ID",
+                      body: `<p>Unique identifier for the appearance.</p>`,
+                    },
+                    {
+                      id: "appearance-edit-label",
+                      title: "Label",
+                      body: `<p>Display name shown in the appearance list.</p>`,
+                    },
+                    {
+                      id: "appearance-edit-colors",
+                      title: "Colors",
+                      body: `
+                        <p>Color swatches define the UI theme variables.</p>
+                        <div class="guideDemo">
+                          <div class="appearanceSwatchRow" style="max-width: 260px;">
+                            <div style="font-size: 11px;">Accent</div>
+                            <div class="appearanceSwatchControls">
+                              <input class="appearanceSwatchInput" type="color" value="#1a5fbf" />
+                              <button class="appearanceAlphaToggle" aria-label="Alpha">a</button>
+                            </div>
+                          </div>
+                        </div>
+                      `,
+                    },
+                    {
+                      id: "appearance-edit-alpha",
+                      title: "Alpha",
+                      body: `
+                        <p>Adjust transparency for colors that support alpha.</p>
+                        <div class="guideDemo">
+                          <button class="appearanceAlphaToggle" aria-label="Alpha">a</button>
+                        </div>
+                      `,
+                    },
+                    {
+                      id: "appearance-edit-copy",
+                      title: "Copy definition",
+                      body: `<p>Copy the current appearance definition to the clipboard.</p>`,
+                    },
+                    {
+                      id: "appearance-edit-paste",
+                      title: "Paste definition",
+                      body: `<p>Paste a previously copied appearance definition.</p>`,
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+            {
+              id: "topbar-help-menu",
+              title: "Help menu",
+              body: `
+                <p>Help provides Getting Started and the User Guide for quick reference.</p>
+                <div class="guideDemo">${renderMenuPreview("help")}</div>
+              `,
+            },
             {
               id: "topbar-workspace",
               title: "Workspace status",
               body: `
-                <p><strong>Why set a workspace?</strong> File commands (read/write/search) are only allowed inside a workspace root.</p>
-                <p>The status text shows which workspace is active.</p>
+                <p><strong>Why set a workspace?</strong> File commands (read/write/search) are only allowed inside the workspace root.</p>
+                <p>The status text shows which workspace is active, so you can confirm commands will target the right files.</p>
               `,
             },
             {
               id: "topbar-folder",
               title: "Choose workspace (folder icon)",
               body: `
-                <p>Click the folder icon to pick a workspace directory.</p>
+                <p>Click the folder icon to pick a workspace directory. This updates the workspace status text immediately.</p>
                 <div class="guideDemo">
                   <button class="topBarIconBtn" aria-label="Choose Workspace">${GUIDE_ICON_FOLDER}</button>
                 </div>
@@ -1005,21 +1272,20 @@ function getGuideSections() {
               id: "topbar-llm",
               title: "LLM provider dropdown",
               body: `
-                <p>Select which LLM provider to use for the web chat view.</p>
+                <p>Select which LLM provider to use for the web chat view. This determines the URL loaded in the chat area.</p>
                 <div class="guideDemo">
                   <select>
                     <option>Chat</option>
                   </select>
                 </div>
                 <p>Manage providers via Settings -> LLM Profiles...</p>
-                <div class="guideDemo">${renderMenuPreview()}</div>
               `,
             },
             {
               id: "topbar-getting-started",
               title: "Getting Started button",
               body: `
-                <p>Opens the guided tour that walks you through the core workflow.</p>
+                <p>Opens the guided tour that walks you through the core workflow step by step.</p>
                 <div class="guideDemo">
                   <button class="topBarButton">Getting Started</button>
                 </div>
@@ -1181,7 +1447,7 @@ function buildGuideNav(nodes, container, level) {
   for (const node of nodes) {
     const row = document.createElement("div");
     row.className = "guideTreeNode";
-    row.style.paddingLeft = `${level * 12}px`;
+    row.style.paddingLeft = `${level * 6}px`;
 
     const toggle = document.createElement("button");
     toggle.className = "guideTreeToggle";
@@ -1207,6 +1473,9 @@ function buildGuideNav(nodes, container, level) {
       toggle.textContent = "v";
       childrenWrap = document.createElement("div");
       childrenWrap.className = "guideTreeChildren open";
+      childrenWrap.style.marginLeft = "0";
+      childrenWrap.style.paddingLeft = "0";
+      childrenWrap.style.setProperty("--guide-line-offset", `${level * 6}px`);
       container.appendChild(childrenWrap);
       childrenState = buildGuideNav(node.children, childrenWrap, level + 1);
       toggle.onclick = () => {
