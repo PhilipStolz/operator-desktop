@@ -392,6 +392,183 @@
       margin: 4px 0;
     }
 
+    .guideOverlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: var(--overlay-bg);
+      z-index: 2200;
+      padding: 24px;
+    }
+
+    .guideOverlay.open {
+      display: flex;
+    }
+
+    .guideModal {
+      width: min(1100px, 92vw);
+      height: min(780px, 88vh);
+      background: var(--modal-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 16px 40px var(--modal-shadow);
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      overflow: hidden;
+    }
+
+    .guideSidebar {
+      border-right: 1px solid var(--border);
+      background: var(--panel-bg-alt);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 16px;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .guideSearch {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .guideSearch input {
+      width: 100%;
+      border: 1px solid var(--control-border);
+      background: var(--control-bg);
+      color: var(--control-text);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 12px;
+    }
+
+    .guideNav {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      overflow: auto;
+      padding-right: 4px;
+      min-height: 0;
+    }
+
+    .guideNav button {
+      text-align: left;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text);
+      font-size: 12px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .guideNav button.active {
+      border-color: var(--accent);
+      background: var(--accent-muted);
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .guideContent {
+      padding: 18px;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      min-height: 0;
+    }
+
+    .guideSection {
+      border: 1px solid var(--border);
+      background: var(--panel-bg);
+      border-radius: 12px;
+      padding: 14px 16px;
+    }
+
+    .guideSection h3 {
+      margin: 0 0 8px 0;
+      font-size: 14px;
+    }
+
+    .guideSection p {
+      margin: 6px 0;
+      font-size: 12px;
+      color: var(--text);
+    }
+
+    .guideDemo {
+      margin-top: 10px;
+      border: 1px solid var(--border);
+      background: var(--panel-bg-alt);
+      border-radius: 10px;
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .guideRow {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .guideBtnPrimary {
+      background: var(--accent);
+      color: var(--button-primary-text);
+      border: none;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+
+    .guideBtnGhost {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+
+    .guidePill {
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      border: 1px solid var(--border);
+      background: var(--panel-bg);
+      color: var(--text-muted);
+    }
+
+    .guideCard {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 10px;
+      background: var(--panel-bg);
+      display: grid;
+      gap: 4px;
+      font-size: 12px;
+    }
+
+    .guideSwatch {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--accent);
+    }
+
+    .guideCloseRow {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
     .alphaPopup.open {
       display: inline-flex;
     }
@@ -630,6 +807,7 @@
     </div>
     <div class="menuPopup" id="menuHelp">
       <div class="menuEntry" id="menuGettingStarted">Getting Started</div>
+      <div class="menuEntry" id="menuUserGuide">User Guide</div>
     </div>
   </div>
   <div id="guidedOverlay" class="guidedOverlay" aria-hidden="true">
@@ -642,6 +820,22 @@
         <button id="guidedPrev">Back</button>
         <button id="guidedNext">Next</button>
         <button id="guidedClose">Close</button>
+      </div>
+    </div>
+  </div>
+  <div id="guideOverlay" class="guideOverlay" aria-hidden="true">
+    <div class="guideModal" role="dialog" aria-modal="true" aria-label="User Guide">
+      <div class="guideSidebar">
+        <div class="guideSearch">
+          <input id="guideSearchInput" type="text" placeholder="Search the guide" />
+        </div>
+        <div id="guideNav" class="guideNav"></div>
+      </div>
+      <div class="guideContent" id="guideContent">
+        <div class="guideCloseRow">
+          <strong>User Guide</strong>
+          <button id="guideCloseBtn">Close</button>
+        </div>
       </div>
     </div>
   </div>

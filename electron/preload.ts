@@ -47,6 +47,8 @@ contextBridge.exposeInMainWorld("operator", {
   setSidebarWidth: (width: number) => ipcRenderer.invoke("operator:setSidebarWidth", { width }),
   openGettingStarted: () => ipcRenderer.invoke("operator:openGettingStarted"),
   onOpenGettingStarted: (cb: () => void) => ipcRenderer.on("operator:openGettingStarted", () => cb()),
+  openUserGuide: () => ipcRenderer.invoke("operator:openUserGuide"),
+  onOpenUserGuide: (cb: () => void) => ipcRenderer.on("operator:openUserGuide", () => cb()),
   onWorkspaceChanged: (cb: (workspaceRoot: string | null) => void) =>
     ipcRenderer.on("operator:workspaceChanged", (_evt, payload: { workspaceRoot: string | null }) => cb(payload.workspaceRoot)),
   onLlmProfilesChanged: (cb: (payload: { profiles: any[]; activeId?: string }) => void) =>
@@ -54,6 +56,7 @@ contextBridge.exposeInMainWorld("operator", {
   onOpenLlmProfiles: (cb: () => void) => ipcRenderer.on("operator:openLlmProfiles", () => cb()),
   openLlmProfiles: () => ipcRenderer.invoke("operator:openLlmProfiles"),
   closeGettingStarted: () => ipcRenderer.invoke("operator:closeGettingStarted"),
+  closeUserGuide: () => ipcRenderer.invoke("operator:closeUserGuide"),
   closeLlmProfiles: () => ipcRenderer.invoke("operator:closeLlmProfiles"),
   openAppearance: () => ipcRenderer.invoke("operator:openAppearance"),
   closeAppearance: () => ipcRenderer.invoke("operator:closeAppearance"),

@@ -1865,12 +1865,15 @@ async function createWindow() {
     overlayView.setBounds({ x: 0, y: 0, width: w, height: h });
   }
 
-  function openOverlay(kind: "getting-started" | "llm-profiles" | "appearance") {
+  function openOverlay(kind: "getting-started" | "llm-profiles" | "appearance" | "user-guide") {
     overlayVisible = true;
     applyOverlayBounds();
     if (kind === "getting-started") {
       overlayView.webContents.send("operator:openGettingStarted");
       overlayView.webContents.executeJavaScript("window.__openGettingStarted && window.__openGettingStarted()").catch(() => {});
+    } else if (kind === "user-guide") {
+      overlayView.webContents.send("operator:openUserGuide");
+      overlayView.webContents.executeJavaScript("window.__openUserGuide && window.__openUserGuide()").catch(() => {});
     } else if (kind === "appearance") {
       overlayView.webContents.send("operator:openAppearance");
       overlayView.webContents.executeJavaScript("window.__openAppearance && window.__openAppearance()").catch(() => {});
@@ -1991,6 +1994,17 @@ async function createWindow() {
   });
 
   ipcMain.handle("operator:closeGettingStarted", async () => {
+    overlayVisible = false;
+    applyOverlayBounds();
+    return { ok: true };
+  });
+
+  ipcMain.handle("operator:openUserGuide", async () => {
+    openOverlay("user-guide");
+    return { ok: true };
+  });
+
+  ipcMain.handle("operator:closeUserGuide", async () => {
     overlayVisible = false;
     applyOverlayBounds();
     return { ok: true };

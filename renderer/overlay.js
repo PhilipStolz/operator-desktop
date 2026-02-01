@@ -41,6 +41,7 @@ const menuRecentList = document.getElementById("menuRecentList");
 const menuLlmProfiles = document.getElementById("menuLlmProfiles");
 const menuAppearance = document.getElementById("menuAppearance");
 const menuGettingStarted = document.getElementById("menuGettingStarted");
+const menuUserGuide = document.getElementById("menuUserGuide");
 const guidedOverlay = document.getElementById("guidedOverlay");
 const guidedSpotlight = document.getElementById("guidedSpotlight");
 const guidedTooltip = document.getElementById("guidedTooltip");
@@ -50,6 +51,11 @@ const guidedBody = document.getElementById("guidedBody");
 const guidedPrev = document.getElementById("guidedPrev");
 const guidedNext = document.getElementById("guidedNext");
 const guidedClose = document.getElementById("guidedClose");
+const guideOverlay = document.getElementById("guideOverlay");
+const guideSearchInput = document.getElementById("guideSearchInput");
+const guideNav = document.getElementById("guideNav");
+const guideContent = document.getElementById("guideContent");
+const guideCloseBtn = document.getElementById("guideCloseBtn");
 
 let activeOverlay = null;
 let llmOpenSeq = 0;
@@ -66,6 +72,8 @@ let openMenuId = null;
 let splitDragActive = false;
 let guidedIndex = 0;
 let guidedSeq = 0;
+let guideInitialized = false;
+let guideActiveId = null;
 const guidedSteps = [
   { title: "Choose workspace", body: "Pick a workspace root to enable file commands.", selector: "#btnWorkspace", view: "topbar" },
   { title: "Select LLM provider", body: "Choose the LLM provider in the top bar.", selector: "#llmProfile", view: "topbar" },
@@ -754,6 +762,216 @@ function closeGuidedGettingStarted() {
   } catch {}
 }
 
+function getGuideSections() {
+  return [
+    {
+      id: "overview",
+      title: "Overview",
+      body: `
+        <p>Operator helps you run file and UI commands safely while keeping the LLM in the loop.</p>
+        <p>The usual flow is: choose a workspace, select an LLM provider, copy the bootstrap prompt, extract commands, then execute and paste results back.</p>
+        <div class="guideDemo">
+          <div class="guideRow">
+            <span class="guidePill">Workspace</span>
+            <span class="guidePill">LLM provider</span>
+            <span class="guidePill">Inbox</span>
+            <span class="guidePill">Results</span>
+          </div>
+        </div>
+      `,
+    },
+    {
+      id: "workspace-llm",
+      title: "Workspace and LLM provider",
+      body: `
+        <p>Select a workspace to enable file commands. Then pick the LLM provider you want to use.</p>
+        <div class="guideDemo">
+          <div class="guideRow">
+            <button class="guideBtnGhost">Choose Workspace</button>
+            <span class="guidePill">Workspace: (not set)</span>
+            <span class="guidePill">LLM provider: Chat</span>
+          </div>
+        </div>
+      `,
+    },
+    {
+      id: "bootstrap",
+      title: "Bootstrap prompt",
+      body: `
+        <p>Use the copy button to place the bootstrap prompt on your clipboard, then paste it into the LLM chat (Ctrl+V on Windows/Linux, Cmd+V on macOS).</p>
+        <div class="guideDemo">
+          <div class="guideRow">
+            <button class="guideBtnGhost">Copy LLM Bootstrap Prompt</button>
+            <span class="guidePill">Clipboard</span>
+          </div>
+        </div>
+      `,
+    },
+    {
+      id: "extract",
+      title: "Extract and scan",
+      body: `
+        <p>Click the primary Extract & Scan button to capture commands from the chat.</p>
+        <p>If auto extract & scan is enabled, the app runs this step in short intervals.</p>
+        <div class="guideDemo">
+          <div class="guideRow">
+            <button class="guideBtnPrimary">Extract & Scan</button>
+            <button class="guideBtnGhost">Scan Clipboard</button>
+          </div>
+        </div>
+      `,
+    },
+    {
+      id: "inbox",
+      title: "Command Inbox",
+      body: `
+        <p>Review commands, inspect details, then execute or dismiss them.</p>
+        <div class="guideDemo">
+          <div class="guideCard">
+            <strong>cmd-1024</strong>
+            <span>fs.readFile path=notes.md</span>
+            <div class="guideRow">
+              <span class="guidePill">NOT RUN</span>
+              <button class="guideBtnGhost">Details</button>
+              <button class="guideBtnPrimary">Execute</button>
+            </div>
+          </div>
+        </div>
+      `,
+    },
+    {
+      id: "results",
+      title: "Results",
+      body: `
+        <p>After execution, copy the result and paste it back into the LLM chat.</p>
+        <div class="guideDemo">
+          <div class="guideRow">
+            <button class="guideBtnGhost">Copy Result</button>
+            <span class="guidePill">Ctrl/Cmd+V</span>
+          </div>
+        </div>
+      `,
+    },
+    {
+      id: "errors",
+      title: "Execution errors",
+      body: `
+        <p>Error cards explain what went wrong and let you copy an error result for the LLM.</p>
+        <div class="guideDemo">
+          <div class="guideCard">
+            <strong>Invalid OPERATOR_CMD (ERR_INVALID_BASE64)</strong>
+            <span>related id: badb64-001</span>
+            <div class="guideRow">
+              <button class="guideBtnGhost">Copy result</button>
+              <button class="guideBtnGhost">Dismiss</button>
+            </div>
+          </div>
+        </div>
+      `,
+    },
+    {
+      id: "appearance",
+      title: "Appearance",
+      body: `
+        <p>Appearances let you tweak colors without touching code.</p>
+        <div class="guideDemo">
+          <div class="guideRow">
+            <div class="guideSwatch"></div>
+            <div class="guideSwatch" style="background: var(--panel-bg-alt);"></div>
+            <div class="guideSwatch" style="background: var(--error);"></div>
+            <div class="guideSwatch" style="background: var(--warning);"></div>
+          </div>
+        </div>
+      `,
+    },
+  ];
+}
+
+function setActiveGuideNav(id) {
+  guideActiveId = id;
+  if (!guideNav) return;
+  const buttons = Array.from(guideNav.querySelectorAll("button"));
+  for (const btn of buttons) {
+    btn.classList.toggle("active", btn.dataset.target === id);
+  }
+}
+
+function applyGuideSearch() {
+  if (!guideSearchInput || !guideNav || !guideContent) return;
+  const q = (guideSearchInput.value || "").trim().toLowerCase();
+  const sections = Array.from(guideContent.querySelectorAll(".guideSection"));
+  let firstVisible = null;
+  for (const section of sections) {
+    const hay = (section.dataset.search || "").toLowerCase();
+    const visible = !q || hay.includes(q);
+    section.style.display = visible ? "" : "none";
+    if (visible && !firstVisible) firstVisible = section;
+  }
+  const navButtons = Array.from(guideNav.querySelectorAll("button"));
+  for (const btn of navButtons) {
+    const targetId = btn.dataset.target;
+    const section = targetId ? document.getElementById(targetId) : null;
+    btn.style.display = section && section.style.display === "none" ? "none" : "";
+  }
+  if (firstVisible && firstVisible.id) setActiveGuideNav(firstVisible.id);
+}
+
+function initGuide() {
+  if (!guideContent || !guideNav || guideInitialized) return;
+  guideInitialized = true;
+  const closeRow = guideContent.querySelector(".guideCloseRow");
+  const sections = getGuideSections();
+  for (const section of sections) {
+    const navBtn = document.createElement("button");
+    navBtn.textContent = section.title;
+    navBtn.dataset.target = `guide-${section.id}`;
+    navBtn.onclick = () => {
+      const target = document.getElementById(`guide-${section.id}`);
+      if (!target) return;
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      setActiveGuideNav(`guide-${section.id}`);
+    };
+    guideNav.appendChild(navBtn);
+  }
+  if (closeRow) guideContent.innerHTML = "";
+  if (closeRow) guideContent.appendChild(closeRow);
+  for (const section of sections) {
+    const sectionEl = document.createElement("section");
+    sectionEl.className = "guideSection";
+    sectionEl.id = `guide-${section.id}`;
+    sectionEl.innerHTML = `<h3>${section.title}</h3>${section.body}`;
+    const textContent = sectionEl.textContent || "";
+    sectionEl.dataset.search = `${section.title} ${textContent}`.trim();
+    guideContent.appendChild(sectionEl);
+  }
+  if (guideSearchInput) {
+    guideSearchInput.addEventListener("input", applyGuideSearch);
+  }
+  if (sections.length) setActiveGuideNav(`guide-${sections[0].id}`);
+}
+
+function openUserGuide() {
+  initGuide();
+  activeOverlay = "guide";
+  setOverlayState(guideOverlay, true);
+  setOverlayState(gettingOverlay, false);
+  setOverlayState(llmOverlay, false);
+  setOverlayState(appearanceOverlay, false);
+  if (guideSearchInput) {
+    guideSearchInput.value = "";
+    guideSearchInput.focus();
+  }
+  applyGuideSearch();
+}
+
+async function closeUserGuide() {
+  setOverlayState(guideOverlay, false);
+  if (activeOverlay === "guide") activeOverlay = null;
+  try {
+    await window.operator?.closeUserGuide?.();
+  } catch {}
+}
+
 function openMenu(payload) {
   if (!payload) return;
   const { menu, rect } = payload;
@@ -1195,6 +1413,14 @@ if (appearanceOverlay) {
   });
 }
 
+if (guideOverlay) {
+  guideOverlay.addEventListener("click", (ev) => {
+    if (ev.target === guideOverlay) closeUserGuide();
+  });
+}
+
+if (guideCloseBtn) guideCloseBtn.onclick = () => closeUserGuide();
+
 // Keep editor open on backdrop clicks.
 
 if (menuLayer) {
@@ -1224,11 +1450,18 @@ window.addEventListener("keydown", (ev) => {
   if (activeOverlay === "llm") closeLlmProfiles();
   else if (activeOverlay === "getting") closeGettingStarted();
   else if (activeOverlay === "appearance") closeAppearance(true);
+  else if (activeOverlay === "guide") closeUserGuide();
 });
 
 if (window.operator?.onOpenGettingStarted) {
   window.operator.onOpenGettingStarted(() => {
     openGettingStarted();
+  });
+}
+
+if (window.operator?.onOpenUserGuide) {
+  window.operator.onOpenUserGuide(() => {
+    openUserGuide();
   });
 }
 
@@ -1270,6 +1503,7 @@ if (window.operator?.getActiveAppearance) {
 }
 
 window.__openGettingStarted = openGettingStarted;
+window.__openUserGuide = openUserGuide;
 window.__openLlmProfiles = openLlmProfiles;
 window.__openAppearance = openAppearance;
 window.__openGuidedGettingStarted = openGuidedGettingStarted;
@@ -1365,5 +1599,12 @@ if (menuGettingStarted) {
   menuGettingStarted.onclick = async () => {
     requestCloseMenu();
     await window.operator?.openGettingStarted?.();
+  };
+}
+
+if (menuUserGuide) {
+  menuUserGuide.onclick = async () => {
+    requestCloseMenu();
+    await window.operator?.openUserGuide?.();
   };
 }
