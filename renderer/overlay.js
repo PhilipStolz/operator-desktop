@@ -74,6 +74,7 @@ let guidedIndex = 0;
 let guidedSeq = 0;
 let guideInitialized = false;
 let guideActiveId = null;
+let guideNavState = [];
 const guidedSteps = [
   { title: "Choose workspace", body: "Pick a workspace root to enable file commands.", selector: "#btnWorkspace", view: "topbar" },
   { title: "Select LLM provider", body: "Choose the LLM provider in the top bar.", selector: "#llmProfile", view: "topbar" },
@@ -762,6 +763,175 @@ function closeGuidedGettingStarted() {
   } catch {}
 }
 
+const GUIDE_ICON_DETAILS = `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5c7 0 10 7 10 7s-3 7-10 7-10-7-10-7 3-7 10-7Zm0 2c-4.8 0-7.5 4.2-7.9 5 .4.8 3.1 5 7.9 5s7.5-4.2 7.9-5c-.4-.8-3.1-5-7.9-5Zm0 2.5A2.5 2.5 0 1 1 9.5 12 2.5 2.5 0 0 1 12 9.5Z"/></svg>`;
+const GUIDE_ICON_EXEC = `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 5v14l12-7-12-7Z"/></svg>`;
+const GUIDE_ICON_DISMISS = `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.4 5l12.6 12.6-1.4 1.4L5 6.4 6.4 5Zm12.6 1.4L6.4 19l-1.4-1.4L17.6 5l1.4 1.4Z"/></svg>`;
+const GUIDE_ICON_FOLDER = `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 6a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V6Zm0 4v6a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-6H4Z"/></svg>`;
+
+function renderTopbarPreview() {
+  return `
+    <div class="guidePreviewFrame">
+      <div class="topBar">
+        <div class="topBarRow">
+          <div class="menuBar">
+            <div class="menuItem active">Workspace</div>
+            <div class="menuItem">Settings</div>
+            <div class="menuItem">Help</div>
+          </div>
+          <div class="row">
+            <div class="topBarItem">Workspace: (not set)</div>
+            <button class="topBarIconBtn" aria-label="Choose Workspace">${GUIDE_ICON_FOLDER}</button>
+          </div>
+          <div class="row">
+            <span class="small">LLM</span>
+            <select>
+              <option>Chat</option>
+            </select>
+          </div>
+          <button class="topBarButton">Getting Started</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderCommandRowPreview(status) {
+  const statusClass = status === "executed" ? "executed" : "pending";
+  return `
+    <div class="cmd cmdCompact ${statusClass}">
+      <div class="cmdLine">
+        <div class="cmdLeft">
+          <div class="cmdSelectCol">
+            <input type="checkbox" />
+            <span class="cmdStatusIcon ${statusClass}"></span>
+          </div>
+          <div class="cmdLeftText">
+            <div class="cmdId">cmd-1024</div>
+            <div class="cmdMeta">fs.readFile path=notes.md</div>
+          </div>
+        </div>
+        <div class="cmdRight">
+          <button class="cmdBtn" title="Details">${GUIDE_ICON_DETAILS}</button>
+          <button class="cmdBtn" title="Execute">${GUIDE_ICON_EXEC}</button>
+          <button class="cmdBtn" title="Dismiss">${GUIDE_ICON_DISMISS}</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderErrorCardPreview() {
+  return `
+    <div class="errorCard">
+      <div class="errorMessage">Invalid OPERATOR_CMD (ERR_INVALID_BASE64)</div>
+      <div class="errorMeta">related: badb64-001</div>
+      <div class="errorActions">
+        <button>Copy result</button>
+        <button>Dismiss</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderResultsPreview() {
+  return `
+    <div class="guideResults">
+      <div class="sectionTitle">Last Result</div>
+      <textarea class="guideResult" readonly>OPERATOR_RESULT (ok: true)...</textarea>
+      <div class="row">
+        <button class="btnGhost">Copy Result</button>
+        <button class="btnGhost">Copy decoded details_b64</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderMenuPreview() {
+  return `
+    <div class="menuPopup open guideMenuPreview">
+      <div class="menuEntry">Workspace</div>
+      <div class="menuEntry">Settings</div>
+      <div class="menuEntry active">LLM Profiles...</div>
+      <div class="menuEntry">Appearance...</div>
+    </div>
+  `;
+}
+
+function renderLlmProfilesDialogPreview() {
+  return `
+    <div class="modal guideDialogPreview">
+      <div class="modalHeader">
+        <div class="sectionTitle">LLM Profiles</div>
+        <button>Close</button>
+      </div>
+      <div class="modalBody">
+        <div class="row">
+          <input class="guideField" value="id" />
+          <input class="guideField" value="label" />
+          <input class="guideField" value="startUrl" />
+        </div>
+        <div class="row">
+          <input class="guideField" value="allowedHosts" />
+        </div>
+      </div>
+      <div class="modalFooter">
+        <button>Reset</button>
+        <button class="btnPrimary">Save</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderAppearanceDialogPreview() {
+  return `
+    <div class="modal guideDialogPreview">
+      <div class="modalHeader">
+        <div class="sectionTitle">Appearance</div>
+        <button>Close</button>
+      </div>
+      <div class="modalBody">
+        <div class="row">
+          <div class="guideSwatch"></div>
+          <div class="guideSwatch" style="background: var(--panel-bg-alt);"></div>
+          <div class="guideSwatch" style="background: var(--error);"></div>
+          <div class="guideSwatch" style="background: var(--warning);"></div>
+        </div>
+      </div>
+      <div class="modalFooter">
+        <button>Edit</button>
+        <button class="btnPrimary">Save</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderCommandDetailsDialogPreview() {
+  return `
+    <div class="modal guideDialogPreview">
+      <div class="modalHeader">
+        <div class="sectionTitle">Command</div>
+        <button>Close</button>
+      </div>
+      <div class="modalBody">
+        <div class="modalMeta">status: NOT RUN</div>
+        <div class="modalSection">
+          <div class="modalSectionTitle">Command</div>
+          <div>fs.readFile path=notes.md</div>
+        </div>
+        <div class="modalSection">
+          <div class="modalSectionTitle">Decoded base64</div>
+          <div>{"{"} "sample": "data" {"}"}</div>
+        </div>
+      </div>
+      <div class="modalFooter">
+        <button>Execute</button>
+        <button>Dismiss</button>
+        <button>Show decoded</button>
+      </div>
+    </div>
+  `;
+}
+
 function getGuideSections() {
   return [
     {
@@ -769,228 +939,218 @@ function getGuideSections() {
       title: "Overview",
       body: `
         <p>Operator helps you run file and UI commands safely while keeping the LLM in the loop.</p>
-        <p>Below is a compact map of the UI so you can orient yourself quickly.</p>
+        <p>This mini map shows the main areas: Top Bar, Sidebar, and the chat view.</p>
         <div class="guideDemo">
-          <div class="guideMiniApp">
-            <div class="guideMiniSidebar">
-              <div class="guideMiniCard">Operator Control</div>
-              <div class="guideMiniCard">Command Inbox</div>
-              <div class="guideMiniCard">Execution Errors</div>
-              <div class="guideMiniCard">Results</div>
+          <div class="guidePreviewLayout">
+            <div class="guidePreviewSidebar">
+              <div class="guidePreviewBlock">Operator Control</div>
+              <div class="guidePreviewBlock">Command Inbox</div>
+              <div class="guidePreviewBlock">Execution Errors</div>
+              <div class="guidePreviewBlock">Results</div>
             </div>
-            <div class="guideMiniMain">
-              <div class="guideMiniTopbar">
-                <span class="guideMiniChip">Workspace</span>
-                <span class="guideMiniFolder">📁</span>
-                <span class="guideMiniChip">LLM provider</span>
-                <span class="guideMiniChip">Getting Started</span>
-              </div>
-              <div class="guideMiniChat">LLM chat / web view</div>
+            <div class="guidePreviewMain">
+              ${renderTopbarPreview()}
+              <div class="guidePreviewChat">LLM chat / web view</div>
             </div>
           </div>
         </div>
-        <p>Typical flow: set workspace → select LLM provider → copy bootstrap prompt → Extract & Scan → execute commands → copy results back.</p>
+        <p>Typical flow: set workspace -> select LLM provider -> copy bootstrap prompt -> Extract & Scan -> execute commands -> copy results back.</p>
       `,
-    },
-    {
-      id: "workspace-llm",
-      title: "Workspace and LLM provider",
-      body: `
-        <p><strong>Why set a workspace?</strong> File commands (read/write/search) are only allowed inside a workspace root. Without it, file actions cannot run.</p>
-        <p><strong>How to set it:</strong> Use the folder icon in the top bar or choose Workspace → Select Workspace… from the menu.</p>
-        <p><strong>LLM provider:</strong> Choose the provider in the top bar. Manage the list under Settings → LLM Profiles…</p>
-        <div class="guideDemo">
-          <div class="guideRow">
-            <div class="guideMiniTopbar" style="width: 100%;">
-              <span class="guideMiniChip">Workspace: (not set)</span>
-              <span class="guideMiniFolder">📁</span>
-              <span class="guideMiniChip">LLM provider: Chat</span>
-            </div>
-          </div>
-          <div class="guideRow">
-            <div class="guideMiniMenu">
-              <div class="guideMiniMenuItem">Workspace</div>
-              <div class="guideMiniMenuItem">Settings</div>
-              <div class="guideMiniMenuItem active">LLM Profiles…</div>
-              <div class="guideMiniMenuItem">Appearance…</div>
-            </div>
-          </div>
-          <p class="small">Elements:</p>
-          <div class="guideRow">
-            <span class="guidePill">Folder icon</span>
-            <span class="guidePill">Workspace status</span>
-            <span class="guidePill">LLM provider dropdown</span>
-          </div>
-        </div>
-      `,
-    },
-    {
-      id: "bootstrap",
-      title: "Bootstrap prompt",
-      body: `
-        <p>The bootstrap prompt tells the LLM how to talk to Operator. You must paste it into the LLM chat before scanning.</p>
-        <p><strong>Step:</strong> Click Copy LLM Bootstrap Prompt → paste into the LLM chat (Ctrl+V / Cmd+V).</p>
-        <div class="guideDemo">
-          <div class="guideRow">
-            <button class="guideBtnGhost">Copy LLM Bootstrap Prompt</button>
-            <span class="guidePill">Clipboard</span>
-          </div>
-          <p class="small">Elements:</p>
-          <div class="guideRow">
-            <span class="guidePill">Copy button</span>
-            <span class="guidePill">Clipboard output</span>
-          </div>
-        </div>
-      `,
-    },
-    {
-      id: "extract",
-      title: "Extract and scan",
-      body: `
-        <p>Extract & Scan reads the LLM chat and pulls out OPERATOR_CMD blocks.</p>
-        <p>If auto extract & scan is enabled, the app runs this step repeatedly.</p>
-        <div class="guideDemo">
-          <div class="guideRow">
-            <button class="guideBtnPrimary">Extract & Scan</button>
-            <button class="guideBtnGhost">Scan Clipboard</button>
-          </div>
-          <p class="small">Elements:</p>
-          <div class="guideRow">
-            <span class="guidePill">Extract & Scan (primary)</span>
-            <span class="guidePill">Scan Clipboard</span>
-          </div>
-        </div>
-      `,
-    },
-    {
-      id: "inbox",
-      title: "Command Inbox",
-      body: `
-        <p>Each command is listed with its ID and action. Click Details for full content or Execute to run.</p>
-        <p>Commands marked NOT RUN are pending. Executed commands are styled differently.</p>
-        <div class="guideDemo">
-          <div class="guideCard">
-            <strong>cmd-1024</strong>
-            <span>fs.readFile path=notes.md</span>
-            <div class="guideRow">
-              <span class="guidePill">NOT RUN</span>
-              <button class="guideBtnGhost">Details</button>
-              <button class="guideBtnPrimary">Execute</button>
-            </div>
-          </div>
-          <p class="small">Elements:</p>
-          <div class="guideRow">
-            <span class="guidePill">Command ID</span>
-            <span class="guidePill">Action line</span>
-            <span class="guidePill">Status</span>
-            <span class="guidePill">Details</span>
-            <span class="guidePill">Execute</span>
-          </div>
-        </div>
-      `,
-    },
-    {
-      id: "results",
-      title: "Results",
-      body: `
-        <p>After execution, copy the result and paste it back into the LLM chat so it can continue.</p>
-        <div class="guideDemo">
-          <div class="guideRow">
-            <button class="guideBtnGhost">Copy Result</button>
-            <span class="guidePill">Ctrl/Cmd+V</span>
-          </div>
-          <p class="small">Elements:</p>
-          <div class="guideRow">
-            <span class="guidePill">Copy Result</span>
-            <span class="guidePill">Clipboard</span>
-          </div>
-        </div>
-      `,
-    },
-    {
-      id: "errors",
-      title: "Execution errors",
-      body: `
-        <p>Error cards explain what went wrong and let you copy a result the LLM can understand.</p>
-        <div class="guideDemo">
-          <div class="guideCard">
-            <strong>Invalid OPERATOR_CMD (ERR_INVALID_BASE64)</strong>
-            <span>related id: badb64-001</span>
-            <div class="guideRow">
-              <button class="guideBtnGhost">Copy result</button>
-              <button class="guideBtnGhost">Dismiss</button>
-            </div>
-          </div>
-          <p class="small">Elements:</p>
-          <div class="guideRow">
-            <span class="guidePill">Error message</span>
-            <span class="guidePill">Related ID</span>
-            <span class="guidePill">Copy result</span>
-            <span class="guidePill">Dismiss</span>
-          </div>
-        </div>
-      `,
-    },
-    {
-      id: "appearance",
-      title: "Appearance",
-      body: `
-        <p>Appearances let you tweak colors without touching code.</p>
-        <div class="guideDemo">
-          <div class="guideMiniDialog">
-            <div><strong>Appearance</strong></div>
-            <div class="guideMiniField">Operator Classic</div>
-            <div class="guideRow">
-              <div class="guideSwatch"></div>
-              <div class="guideSwatch" style="background: var(--panel-bg-alt);"></div>
-              <div class="guideSwatch" style="background: var(--error);"></div>
-              <div class="guideSwatch" style="background: var(--warning);"></div>
-            </div>
-            <div class="guideRow">
-              <button class="guideBtnGhost">Edit</button>
-              <button class="guideBtnPrimary">Save</button>
-            </div>
-          </div>
-          <p class="small">Elements:</p>
-          <div class="guideRow">
-            <span class="guidePill">Appearance list</span>
-            <span class="guidePill">Color swatches</span>
-            <span class="guidePill">Edit/Save</span>
-          </div>
-        </div>
-      `,
-    },
-    {
-      id: "llm-profiles",
-      title: "LLM Profiles dialog",
-      body: `
-        <p>Use this dialog to add or edit LLM providers (name, URL, allowed hosts).</p>
-        <div class="guideDemo">
-          <div class="guideMiniDialog">
-            <div><strong>LLM Profiles</strong></div>
-            <div class="guideRow">
-              <div class="guideMiniField" style="width: 90px;">id</div>
-              <div class="guideMiniField" style="width: 120px;">label</div>
-              <div class="guideMiniField" style="flex:1;">startUrl</div>
-            </div>
-            <div class="guideRow">
-              <div class="guideMiniField" style="width: 120px;">allowedHosts</div>
-            </div>
-            <div class="guideRow">
-              <button class="guideBtnGhost">Reset</button>
-              <button class="guideBtnPrimary">Save</button>
-            </div>
-          </div>
-          <p class="small">Elements:</p>
-          <div class="guideRow">
-            <span class="guidePill">ID</span>
-            <span class="guidePill">Label</span>
-            <span class="guidePill">URL</span>
-            <span class="guidePill">Allowed hosts</span>
-            <span class="guidePill">Save/Reset</span>
-          </div>
-        </div>
-      `,
+      children: [
+        {
+          id: "topbar",
+          title: "Top Bar",
+          body: `
+            <p>The top bar contains workspace status, LLM provider selection, and the Getting Started entry point.</p>
+            ${renderTopbarPreview()}
+            <ul class="guideList">
+              <li>Workspace status text</li>
+              <li>Folder icon button (choose workspace)</li>
+              <li>LLM provider dropdown</li>
+              <li>Getting Started button</li>
+            </ul>
+          `,
+          children: [
+            {
+              id: "topbar-workspace",
+              title: "Workspace status",
+              body: `
+                <p><strong>Why set a workspace?</strong> File commands (read/write/search) are only allowed inside a workspace root.</p>
+                <p>The status text shows which workspace is active.</p>
+              `,
+            },
+            {
+              id: "topbar-folder",
+              title: "Choose workspace (folder icon)",
+              body: `
+                <p>Click the folder icon to pick a workspace directory.</p>
+                <div class="guideDemo">
+                  <button class="topBarIconBtn" aria-label="Choose Workspace">${GUIDE_ICON_FOLDER}</button>
+                </div>
+              `,
+            },
+            {
+              id: "topbar-llm",
+              title: "LLM provider dropdown",
+              body: `
+                <p>Select which LLM provider to use for the web chat view.</p>
+                <div class="guideDemo">
+                  <select>
+                    <option>Chat</option>
+                  </select>
+                </div>
+                <p>Manage providers via Settings -> LLM Profiles...</p>
+                <div class="guideDemo">${renderMenuPreview()}</div>
+              `,
+            },
+            {
+              id: "topbar-getting-started",
+              title: "Getting Started button",
+              body: `
+                <p>Opens the guided tour that walks you through the core workflow.</p>
+                <div class="guideDemo">
+                  <button class="topBarButton">Getting Started</button>
+                </div>
+              `,
+            },
+          ],
+        },
+        {
+          id: "sidebar",
+          title: "Sidebar",
+          body: `
+            <p>The sidebar contains operational controls, inbox, errors, results, tools, and controls.</p>
+          `,
+          children: [
+            {
+              id: "sidebar-operator-control",
+              title: "Operator Control",
+              body: `
+                <p>Run scans and copy the bootstrap prompt.</p>
+                <div class="guideDemo">
+                  <button class="btnPrimary btnWide">Extract & Scan</button>
+                  <div class="row">
+                    <button class="btnSecondary">Scan Clipboard</button>
+                    <button class="btnGhost">Copy LLM Bootstrap Prompt</button>
+                    <button class="btnGhost">Clear</button>
+                  </div>
+                </div>
+                <ul class="guideList">
+                  <li><strong>Extract & Scan</strong> captures commands from the chat.</li>
+                  <li><strong>Scan Clipboard</strong> scans the clipboard for commands.</li>
+                  <li><strong>Copy LLM Bootstrap Prompt</strong> copies the initial prompt.</li>
+                  <li><strong>Clear</strong> clears the inbox.</li>
+                </ul>
+              `,
+            },
+            {
+              id: "sidebar-inbox",
+              title: "Command Inbox",
+              body: `
+                <p>Review commands, open details, execute, or dismiss.</p>
+                <div class="guideDemo">
+                  ${renderCommandRowPreview("pending")}
+                </div>
+                <ul class="guideList">
+                  <li>Checkbox selects the command.</li>
+                  <li>Status dot shows Executed vs Not run.</li>
+                  <li>Icons: Details, Execute, Dismiss.</li>
+                </ul>
+              `,
+            },
+            {
+              id: "sidebar-errors",
+              title: "Execution Errors",
+              body: `
+                <p>Errors appear as cards with copy + dismiss actions.</p>
+                <div class="guideDemo">
+                  ${renderErrorCardPreview()}
+                </div>
+                <ul class="guideList">
+                  <li>Error message</li>
+                  <li>Related command ID (if available)</li>
+                  <li>Copy result / Dismiss actions</li>
+                </ul>
+              `,
+            },
+            {
+              id: "sidebar-results",
+              title: "Results",
+              body: `
+                <p>After execution, copy the result and paste it back into the LLM.</p>
+                <div class="guideDemo">
+                  ${renderResultsPreview()}
+                </div>
+              `,
+            },
+            {
+              id: "sidebar-tools",
+              title: "Tools",
+              body: `
+                <p>Tools includes utilities like the Base64 helper.</p>
+              `,
+            },
+            {
+              id: "sidebar-controls",
+              title: "Controls",
+              body: `
+                <p>Controls include auto scan and other settings.</p>
+              `,
+            },
+          ],
+        },
+        {
+          id: "dialogs",
+          title: "Dialogs",
+          body: `
+            <p>Dialogs let you manage providers, appearance, and command details.</p>
+          `,
+          children: [
+            {
+              id: "dialog-llm-profiles",
+              title: "LLM Profiles dialog",
+              body: `
+                <p>Add or edit LLM provider entries (id, label, URL, allowed hosts).</p>
+                <div class="guideDemo">${renderLlmProfilesDialogPreview()}</div>
+                <ul class="guideList">
+                  <li>ID (unique key)</li>
+                  <li>Label (display name)</li>
+                  <li>Start URL</li>
+                  <li>Allowed hosts</li>
+                  <li>Reset / Save actions</li>
+                </ul>
+              `,
+            },
+            {
+              id: "dialog-appearance",
+              title: "Appearance dialog",
+              body: `
+                <p>Choose and edit appearance themes.</p>
+                <div class="guideDemo">${renderAppearanceDialogPreview()}</div>
+                <ul class="guideList">
+                  <li>Appearance list</li>
+                  <li>Color swatches</li>
+                  <li>Edit / Save actions</li>
+                </ul>
+              `,
+            },
+            {
+              id: "dialog-command-details",
+              title: "Command details dialog",
+              body: `
+                <p>Review full command content, decoded base64, and run or dismiss.</p>
+                <div class="guideDemo">${renderCommandDetailsDialogPreview()}</div>
+                <ul class="guideList">
+                  <li>Status indicator</li>
+                  <li>Command section</li>
+                  <li>Decoded base64 section</li>
+                  <li>Execute / Dismiss / Show decoded actions</li>
+                </ul>
+              `,
+            },
+          ],
+        },
+      ],
     },
   ];
 }
@@ -998,10 +1158,101 @@ function getGuideSections() {
 function setActiveGuideNav(id) {
   guideActiveId = id;
   if (!guideNav) return;
-  const buttons = Array.from(guideNav.querySelectorAll("button"));
+  const buttons = Array.from(guideNav.querySelectorAll(".guideTreeLabel"));
   for (const btn of buttons) {
     btn.classList.toggle("active", btn.dataset.target === id);
   }
+}
+
+function buildGuideNav(nodes, container, level) {
+  const state = [];
+  for (const node of nodes) {
+    const row = document.createElement("div");
+    row.className = "guideTreeNode";
+    row.style.paddingLeft = `${level * 12}px`;
+
+    const toggle = document.createElement("button");
+    toggle.className = "guideTreeToggle";
+
+    const label = document.createElement("button");
+    label.className = "guideTreeLabel";
+    label.textContent = node.title;
+    label.dataset.target = `guide-${node.id}`;
+    label.onclick = () => {
+      const target = document.getElementById(`guide-${node.id}`);
+      if (!target) return;
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      setActiveGuideNav(`guide-${node.id}`);
+    };
+
+    row.appendChild(toggle);
+    row.appendChild(label);
+    container.appendChild(row);
+
+    let childrenWrap = null;
+    let childrenState = [];
+    if (node.children && node.children.length) {
+      toggle.textContent = "v";
+      childrenWrap = document.createElement("div");
+      childrenWrap.className = "guideTreeChildren open";
+      container.appendChild(childrenWrap);
+      childrenState = buildGuideNav(node.children, childrenWrap, level + 1);
+      toggle.onclick = () => {
+        const open = childrenWrap.classList.toggle("open");
+        toggle.textContent = open ? "v" : ">";
+      };
+    } else {
+      toggle.textContent = "";
+      toggle.classList.add("empty");
+      toggle.disabled = true;
+    }
+
+    state.push({
+      id: node.id,
+      row,
+      label,
+      toggle,
+      childrenWrap,
+      children: childrenState,
+    });
+  }
+  return state;
+}
+
+function buildGuideContent(nodes, level) {
+  if (!guideContent) return;
+  for (const node of nodes) {
+    const sectionEl = document.createElement("section");
+    sectionEl.className = "guideSection";
+    sectionEl.id = `guide-${node.id}`;
+    sectionEl.dataset.level = String(level);
+    sectionEl.innerHTML = `<h3>${node.title}</h3>${node.body || ""}`;
+    const textContent = sectionEl.textContent || "";
+    sectionEl.dataset.search = `${node.title} ${textContent}`.trim();
+    guideContent.appendChild(sectionEl);
+    if (node.children && node.children.length) {
+      buildGuideContent(node.children, level + 1);
+    }
+  }
+}
+
+function updateGuideNavVisibility(nodes) {
+  const hasQuery = !!(guideSearchInput && String(guideSearchInput.value || "").trim());
+  let anyVisible = false;
+  for (const node of nodes) {
+    const section = document.getElementById(`guide-${node.id}`);
+    const selfVisible = section ? section.style.display !== "none" : false;
+    const childVisible = node.children && node.children.length ? updateGuideNavVisibility(node.children) : false;
+    const visible = selfVisible || childVisible;
+    if (node.row) node.row.style.display = visible ? "" : "none";
+    if (node.childrenWrap) {
+      node.childrenWrap.style.display = childVisible ? "" : "none";
+      if (childVisible && node.toggle) node.toggle.textContent = "v";
+      if (childVisible && hasQuery) node.childrenWrap.classList.add("open");
+    }
+    if (visible) anyVisible = true;
+  }
+  return anyVisible;
 }
 
 function applyGuideSearch() {
@@ -1015,12 +1266,7 @@ function applyGuideSearch() {
     section.style.display = visible ? "" : "none";
     if (visible && !firstVisible) firstVisible = section;
   }
-  const navButtons = Array.from(guideNav.querySelectorAll("button"));
-  for (const btn of navButtons) {
-    const targetId = btn.dataset.target;
-    const section = targetId ? document.getElementById(targetId) : null;
-    btn.style.display = section && section.style.display === "none" ? "none" : "";
-  }
+  updateGuideNavVisibility(guideNavState);
   if (firstVisible && firstVisible.id) setActiveGuideNav(firstVisible.id);
 }
 
@@ -1029,29 +1275,11 @@ function initGuide() {
   guideInitialized = true;
   const closeRow = guideContent.querySelector(".guideCloseRow");
   const sections = getGuideSections();
-  for (const section of sections) {
-    const navBtn = document.createElement("button");
-    navBtn.textContent = section.title;
-    navBtn.dataset.target = `guide-${section.id}`;
-    navBtn.onclick = () => {
-      const target = document.getElementById(`guide-${section.id}`);
-      if (!target) return;
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
-      setActiveGuideNav(`guide-${section.id}`);
-    };
-    guideNav.appendChild(navBtn);
-  }
+  guideNav.innerHTML = "";
   if (closeRow) guideContent.innerHTML = "";
   if (closeRow) guideContent.appendChild(closeRow);
-  for (const section of sections) {
-    const sectionEl = document.createElement("section");
-    sectionEl.className = "guideSection";
-    sectionEl.id = `guide-${section.id}`;
-    sectionEl.innerHTML = `<h3>${section.title}</h3>${section.body}`;
-    const textContent = sectionEl.textContent || "";
-    sectionEl.dataset.search = `${section.title} ${textContent}`.trim();
-    guideContent.appendChild(sectionEl);
-  }
+  buildGuideContent(sections, 0);
+  guideNavState = buildGuideNav(sections, guideNav, 0);
   if (guideSearchInput) {
     guideSearchInput.addEventListener("input", applyGuideSearch);
   }

@@ -5,6 +5,7 @@
   <meta charset="utf-8" />
   <title>Operator Overlay</title>
   <link rel="stylesheet" href="./theme.css">
+  <link rel="stylesheet" href="./ui_components.css">
   <style>
     html {
       overflow-x: hidden;
@@ -465,6 +466,60 @@
       scrollbar-color: var(--border) var(--panel-bg-alt);
     }
 
+    .guideTreeNode {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .guideTreeToggle {
+      width: 18px;
+      height: 18px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 12px;
+      padding: 0;
+      cursor: pointer;
+    }
+
+    .guideTreeToggle.empty {
+      visibility: hidden;
+    }
+
+    .guideTreeLabel {
+      text-align: left;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text);
+      font-size: 12px;
+      padding: 4px 6px;
+      border-radius: 6px;
+      cursor: pointer;
+      flex: 1;
+      word-break: break-word;
+    }
+
+    .guideTreeLabel.active {
+      border-color: var(--accent);
+      background: var(--accent-muted);
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .guideTreeChildren {
+      display: none;
+      margin-left: 6px;
+      border-left: 1px solid var(--border);
+      padding-left: 6px;
+      gap: 4px;
+      flex-direction: column;
+    }
+
+    .guideTreeChildren.open {
+      display: flex;
+    }
+
     .guideNav::-webkit-scrollbar,
     .guideContent::-webkit-scrollbar {
       width: 10px;
@@ -519,6 +574,27 @@
       box-sizing: border-box;
       overflow-wrap: anywhere;
       word-break: break-word;
+    }
+
+    .guideSection[data-level="1"] h3 {
+      font-size: 13px;
+      margin-top: 6px;
+    }
+
+    .guideSection[data-level="2"] h3 {
+      font-size: 12px;
+      margin-top: 6px;
+    }
+
+    .guideList {
+      margin: 8px 0 0;
+      padding-left: 18px;
+      font-size: 12px;
+      color: var(--text);
+    }
+
+    .guideList li {
+      margin: 4px 0;
     }
 
     .guideSection {
@@ -594,6 +670,95 @@
       display: grid;
       gap: 4px;
       font-size: 12px;
+    }
+
+    .guidePreviewLayout {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--panel-bg);
+    }
+
+    .guidePreviewSidebar {
+      background: var(--panel-bg);
+      padding: 8px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .guidePreviewBlock {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px;
+      background: var(--panel-bg-alt);
+      font-size: 11px;
+      color: var(--text);
+    }
+
+    .guidePreviewMain {
+      display: flex;
+      flex-direction: column;
+      background: var(--app-bg);
+    }
+
+    .guidePreviewFrame {
+      width: 100%;
+    }
+
+    .guidePreviewChat {
+      padding: 10px;
+      font-size: 11px;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
+      min-height: 120px;
+    }
+
+    .guideMenuPreview {
+      position: static;
+      display: flex;
+      flex-direction: column;
+      width: 180px;
+    }
+
+    .guideMenuPreview .menuEntry.active {
+      border: 1px solid var(--accent);
+      background: var(--accent-muted);
+    }
+
+    .guideDialogPreview {
+      width: 100%;
+      max-width: 520px;
+    }
+
+    .guideField {
+      padding: 6px 8px;
+      border: 1px solid var(--control-border);
+      border-radius: 6px;
+      background: var(--control-bg);
+      color: var(--control-text);
+      font-size: 12px;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .guideResults {
+      display: grid;
+      gap: 8px;
+    }
+
+    .guideResult {
+      width: 100%;
+      height: 80px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px;
+      background: var(--panel-bg);
+      color: var(--text);
+      resize: none;
+      font-size: 12px;
+      box-sizing: border-box;
     }
 
     .guideSwatch {

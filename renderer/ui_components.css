@@ -1,0 +1,365 @@
+/* Shared UI component styles for previews and overlays. */
+
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.small {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+button {
+  padding: 8px 10px;
+  margin: 0;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--panel-bg-alt);
+  color: var(--text);
+  border-radius: 6px;
+}
+
+select {
+  padding: 6px 8px;
+}
+
+.btnPrimary {
+  background: var(--accent);
+  color: var(--button-primary-text);
+  border: 1px solid var(--accent);
+}
+
+.btnSecondary {
+  background: var(--panel-bg-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btnGhost {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid transparent;
+}
+
+.btnPrimary:hover,
+.btnSecondary:hover,
+.btnGhost:hover {
+  filter: brightness(0.97);
+}
+
+.btnPrimary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.btnWide {
+  width: 100%;
+  padding: 10px 12px;
+  font-weight: 600;
+}
+
+.pill {
+  display: inline-block;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* Command list items */
+.cmd {
+  border: 1px solid var(--border);
+  padding: 4px 6px;
+  margin: 4px 0;
+  border-radius: 6px;
+}
+
+.cmdCompact .cmdLine {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.cmdCompact .cmdLeft {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.cmdCompact .cmdLeftText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cmdCompact .cmdId {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cmdCompact .cmdAction {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.cmdCompact .cmdMeta {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.cmdCompact .cmdRight {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.cmdCompact .cmdStatus {
+  font-size: 11px;
+  line-height: 1;
+}
+
+.cmdCompact .cmdBtn {
+  padding: 2px;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cmdCompact .cmdBtn svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+
+.cmdSelectCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.cmdStatusIcon {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.cmdStatusIcon.executed {
+  background: var(--success);
+  border: 1px solid var(--success-border);
+}
+
+.cmdStatusIcon.pending {
+  background: var(--warning-accent);
+  border: 1px solid var(--warning);
+}
+
+.cmd.executed {
+  background: var(--success-bg);
+}
+
+.cmd.pending {
+  background: var(--warning-bg);
+}
+
+.cmd.active {
+  border-color: var(--accent);
+  background: var(--accent-muted);
+  outline: 2px solid var(--focus-ring);
+}
+
+/* Error cards */
+.errorList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.errorCard {
+  border: 1px solid var(--error-border);
+  background: var(--error-bg);
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.errorMessage {
+  font-size: 12px;
+  color: var(--error);
+  font-weight: 600;
+}
+
+.errorMeta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.errorActions {
+  display: flex;
+  gap: 6px;
+}
+
+.errorActions button {
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+/* Top bar */
+.topBar {
+  width: 100%;
+  height: 100%;
+  background: var(--panel-bg);
+  border-bottom: 1px solid var(--topbar-divider);
+  box-shadow: 0 1px 0 var(--topbar-shadow);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  box-sizing: border-box;
+  font-size: 12px;
+}
+
+.topBarRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+}
+
+.menuBar {
+  display: flex;
+  gap: 10px;
+}
+
+.menuItem {
+  color: var(--text);
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.menuItem.active,
+.menuItem:hover {
+  background: var(--panel-bg-alt);
+}
+
+.topBarItem {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.topBarButton {
+  background: var(--panel-bg-alt);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.topBarIconBtn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  background: var(--panel-bg-alt);
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text);
+  padding: 0;
+}
+
+.topBarIconBtn svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+/* Modals */
+.modal {
+  background: var(--modal-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  width: 92%;
+  max-width: 680px;
+  box-shadow: 0 10px 30px var(--modal-shadow);
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--modal-header-bg);
+  border-bottom: 1px solid var(--border);
+  border-radius: 10px 10px 0 0;
+}
+
+.modalBody {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modalSectionTitle {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.modalSection {
+  background: var(--panel-bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.modalMeta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--modal-footer-bg);
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 10px 10px;
+}
