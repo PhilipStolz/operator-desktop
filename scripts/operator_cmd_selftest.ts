@@ -715,6 +715,32 @@ const tests: TestCase[] = [
       );
     },
   },
+  {
+    name: "Guided getting started overlay exists",
+    run: async () => {
+      const html = await loadRepoFile(path.join("renderer", "overlay.html"));
+      assert(html.includes('id="guidedOverlay"'), "Expected guidedOverlay in overlay.html");
+      assert(html.includes('id="guidedSpotlight"'), "Expected guidedSpotlight in overlay.html");
+      assert(html.includes('id="guidedTooltip"'), "Expected guidedTooltip in overlay.html");
+      assert(html.includes('id="guidedStep"'), "Expected guidedStep in overlay.html");
+      assert(html.includes('id="guidedTitle"'), "Expected guidedTitle in overlay.html");
+      assert(html.includes('id="guidedBody"'), "Expected guidedBody in overlay.html");
+      assert(html.includes('id="guidedPrev"'), "Expected guidedPrev button in overlay.html");
+      assert(html.includes('id="guidedNext"'), "Expected guidedNext button in overlay.html");
+      assert(html.includes('id="guidedClose"'), "Expected guidedClose button in overlay.html");
+    },
+  },
+  {
+    name: "Guided getting started script hooks exist",
+    run: async () => {
+      const js = await loadRepoFile(path.join("renderer", "overlay.js"));
+      assert(js.includes("openGuidedGettingStarted"), "Expected openGuidedGettingStarted in overlay.js");
+      assert(js.includes("closeGuidedGettingStarted"), "Expected closeGuidedGettingStarted in overlay.js");
+      assert(js.includes("guidedSteps"), "Expected guidedSteps definition in overlay.js");
+      assert(js.includes("scrollIntoView"), "Expected guided mode to scroll target into view");
+      assert(js.includes("getBoundingClientRect"), "Expected guided mode to position spotlight/tooltip");
+    },
+  },
 ];
 
 async function runAll() {
