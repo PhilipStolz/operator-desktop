@@ -10,11 +10,18 @@
       --sidebar-width: 360px;
       --inbox-height: 220px;
     }
+    html {
+      height: 100%;
+      overflow: hidden;
+    }
+
     body {
       margin: 0;
       font-family: sans-serif;
       background: var(--app-bg);
       color: var(--text);
+      height: 100%;
+      overflow: hidden;
     }
 
     .sidebar {
@@ -31,7 +38,27 @@
       flex-direction: column;
       gap: 10px;
       overflow-x: hidden;
-      overflow-y: auto
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) var(--panel-bg);
+    }
+
+    .sidebar::-webkit-scrollbar {
+      width: 10px;
+    }
+
+    .sidebar::-webkit-scrollbar-track {
+      background: var(--panel-bg);
+    }
+
+    .sidebar::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 8px;
+      border: 2px solid var(--panel-bg);
+    }
+
+    .sidebar::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
     }
 
     .contentHint {

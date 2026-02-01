@@ -6,11 +6,16 @@
   <title>Operator Overlay</title>
   <link rel="stylesheet" href="./theme.css">
   <style>
+    html {
+      overflow-x: hidden;
+    }
+
     body {
       margin: 0;
       background: transparent;
       font-family: sans-serif;
       color: var(--text);
+      overflow-x: hidden;
     }
 
     input,
@@ -417,6 +422,7 @@
       display: grid;
       grid-template-columns: 240px 1fr;
       overflow: hidden;
+      box-sizing: border-box;
     }
 
     .guideSidebar {
@@ -428,6 +434,7 @@
       padding: 16px;
       overflow: hidden;
       min-height: 0;
+      box-sizing: border-box;
     }
 
     .guideSearch {
@@ -453,6 +460,31 @@
       overflow: auto;
       padding-right: 4px;
       min-height: 0;
+      overflow-x: hidden;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) var(--panel-bg-alt);
+    }
+
+    .guideNav::-webkit-scrollbar,
+    .guideContent::-webkit-scrollbar {
+      width: 10px;
+    }
+
+    .guideNav::-webkit-scrollbar-track,
+    .guideContent::-webkit-scrollbar-track {
+      background: var(--panel-bg-alt);
+    }
+
+    .guideNav::-webkit-scrollbar-thumb,
+    .guideContent::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 8px;
+      border: 2px solid var(--panel-bg-alt);
+    }
+
+    .guideNav::-webkit-scrollbar-thumb:hover,
+    .guideContent::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
     }
 
     .guideNav button {
@@ -464,6 +496,7 @@
       padding: 6px 8px;
       border-radius: 8px;
       cursor: pointer;
+      word-break: break-word;
     }
 
     .guideNav button.active {
@@ -480,6 +513,12 @@
       flex-direction: column;
       gap: 18px;
       min-height: 0;
+      overflow-x: hidden;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) var(--panel-bg);
+      box-sizing: border-box;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
 
     .guideSection {
@@ -487,6 +526,9 @@
       background: var(--panel-bg);
       border-radius: 12px;
       padding: 14px 16px;
+      box-sizing: border-box;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
 
     .guideSection h3 {
