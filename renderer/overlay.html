@@ -611,6 +611,119 @@
       gap: 8px;
     }
 
+    .guideMiniApp {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      background: var(--panel-bg);
+    }
+
+    .guideMiniSidebar {
+      background: var(--panel-bg-alt);
+      padding: 8px;
+      display: grid;
+      gap: 6px;
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .guideMiniSidebar .guideMiniCard {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px;
+      background: var(--panel-bg);
+      color: var(--text);
+      font-size: 10px;
+    }
+
+    .guideMiniMain {
+      display: grid;
+      grid-template-rows: 28px 1fr;
+      background: var(--app-bg);
+    }
+
+    .guideMiniTopbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 8px;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel-bg);
+      font-size: 10px;
+    }
+
+    .guideMiniFolder {
+      width: 18px;
+      height: 14px;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      background: var(--panel-bg-alt);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      color: var(--text);
+    }
+
+    .guideMiniChip {
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      font-size: 9px;
+      background: var(--panel-bg-alt);
+      color: var(--text);
+    }
+
+    .guideMiniChat {
+      padding: 8px;
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .guideMiniMenu {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel-bg);
+      padding: 6px;
+      display: grid;
+      gap: 4px;
+      font-size: 10px;
+      width: 140px;
+    }
+
+    .guideMiniMenuItem {
+      padding: 4px 6px;
+      border-radius: 6px;
+    }
+
+    .guideMiniMenuItem.active {
+      background: var(--accent-muted);
+      border: 1px solid var(--accent);
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .guideMiniDialog {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      background: var(--modal-bg);
+      display: grid;
+      gap: 8px;
+      font-size: 10px;
+    }
+
+    .guideMiniField {
+      border: 1px solid var(--control-border);
+      border-radius: 6px;
+      padding: 4px 6px;
+      background: var(--control-bg);
+      color: var(--control-text);
+      font-size: 10px;
+    }
+
     .alphaPopup.open {
       display: inline-flex;
     }

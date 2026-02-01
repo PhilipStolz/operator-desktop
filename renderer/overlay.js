@@ -769,27 +769,57 @@ function getGuideSections() {
       title: "Overview",
       body: `
         <p>Operator helps you run file and UI commands safely while keeping the LLM in the loop.</p>
-        <p>The usual flow is: choose a workspace, select an LLM provider, copy the bootstrap prompt, extract commands, then execute and paste results back.</p>
+        <p>Below is a compact map of the UI so you can orient yourself quickly.</p>
         <div class="guideDemo">
-          <div class="guideRow">
-            <span class="guidePill">Workspace</span>
-            <span class="guidePill">LLM provider</span>
-            <span class="guidePill">Inbox</span>
-            <span class="guidePill">Results</span>
+          <div class="guideMiniApp">
+            <div class="guideMiniSidebar">
+              <div class="guideMiniCard">Operator Control</div>
+              <div class="guideMiniCard">Command Inbox</div>
+              <div class="guideMiniCard">Execution Errors</div>
+              <div class="guideMiniCard">Results</div>
+            </div>
+            <div class="guideMiniMain">
+              <div class="guideMiniTopbar">
+                <span class="guideMiniChip">Workspace</span>
+                <span class="guideMiniFolder">📁</span>
+                <span class="guideMiniChip">LLM provider</span>
+                <span class="guideMiniChip">Getting Started</span>
+              </div>
+              <div class="guideMiniChat">LLM chat / web view</div>
+            </div>
           </div>
         </div>
+        <p>Typical flow: set workspace → select LLM provider → copy bootstrap prompt → Extract & Scan → execute commands → copy results back.</p>
       `,
     },
     {
       id: "workspace-llm",
       title: "Workspace and LLM provider",
       body: `
-        <p>Select a workspace to enable file commands. Then pick the LLM provider you want to use.</p>
+        <p><strong>Why set a workspace?</strong> File commands (read/write/search) are only allowed inside a workspace root. Without it, file actions cannot run.</p>
+        <p><strong>How to set it:</strong> Use the folder icon in the top bar or choose Workspace → Select Workspace… from the menu.</p>
+        <p><strong>LLM provider:</strong> Choose the provider in the top bar. Manage the list under Settings → LLM Profiles…</p>
         <div class="guideDemo">
           <div class="guideRow">
-            <button class="guideBtnGhost">Choose Workspace</button>
-            <span class="guidePill">Workspace: (not set)</span>
-            <span class="guidePill">LLM provider: Chat</span>
+            <div class="guideMiniTopbar" style="width: 100%;">
+              <span class="guideMiniChip">Workspace: (not set)</span>
+              <span class="guideMiniFolder">📁</span>
+              <span class="guideMiniChip">LLM provider: Chat</span>
+            </div>
+          </div>
+          <div class="guideRow">
+            <div class="guideMiniMenu">
+              <div class="guideMiniMenuItem">Workspace</div>
+              <div class="guideMiniMenuItem">Settings</div>
+              <div class="guideMiniMenuItem active">LLM Profiles…</div>
+              <div class="guideMiniMenuItem">Appearance…</div>
+            </div>
+          </div>
+          <p class="small">Elements:</p>
+          <div class="guideRow">
+            <span class="guidePill">Folder icon</span>
+            <span class="guidePill">Workspace status</span>
+            <span class="guidePill">LLM provider dropdown</span>
           </div>
         </div>
       `,
@@ -798,11 +828,17 @@ function getGuideSections() {
       id: "bootstrap",
       title: "Bootstrap prompt",
       body: `
-        <p>Use the copy button to place the bootstrap prompt on your clipboard, then paste it into the LLM chat (Ctrl+V on Windows/Linux, Cmd+V on macOS).</p>
+        <p>The bootstrap prompt tells the LLM how to talk to Operator. You must paste it into the LLM chat before scanning.</p>
+        <p><strong>Step:</strong> Click Copy LLM Bootstrap Prompt → paste into the LLM chat (Ctrl+V / Cmd+V).</p>
         <div class="guideDemo">
           <div class="guideRow">
             <button class="guideBtnGhost">Copy LLM Bootstrap Prompt</button>
             <span class="guidePill">Clipboard</span>
+          </div>
+          <p class="small">Elements:</p>
+          <div class="guideRow">
+            <span class="guidePill">Copy button</span>
+            <span class="guidePill">Clipboard output</span>
           </div>
         </div>
       `,
@@ -811,12 +847,17 @@ function getGuideSections() {
       id: "extract",
       title: "Extract and scan",
       body: `
-        <p>Click the primary Extract & Scan button to capture commands from the chat.</p>
-        <p>If auto extract & scan is enabled, the app runs this step in short intervals.</p>
+        <p>Extract & Scan reads the LLM chat and pulls out OPERATOR_CMD blocks.</p>
+        <p>If auto extract & scan is enabled, the app runs this step repeatedly.</p>
         <div class="guideDemo">
           <div class="guideRow">
             <button class="guideBtnPrimary">Extract & Scan</button>
             <button class="guideBtnGhost">Scan Clipboard</button>
+          </div>
+          <p class="small">Elements:</p>
+          <div class="guideRow">
+            <span class="guidePill">Extract & Scan (primary)</span>
+            <span class="guidePill">Scan Clipboard</span>
           </div>
         </div>
       `,
@@ -825,7 +866,8 @@ function getGuideSections() {
       id: "inbox",
       title: "Command Inbox",
       body: `
-        <p>Review commands, inspect details, then execute or dismiss them.</p>
+        <p>Each command is listed with its ID and action. Click Details for full content or Execute to run.</p>
+        <p>Commands marked NOT RUN are pending. Executed commands are styled differently.</p>
         <div class="guideDemo">
           <div class="guideCard">
             <strong>cmd-1024</strong>
@@ -836,6 +878,14 @@ function getGuideSections() {
               <button class="guideBtnPrimary">Execute</button>
             </div>
           </div>
+          <p class="small">Elements:</p>
+          <div class="guideRow">
+            <span class="guidePill">Command ID</span>
+            <span class="guidePill">Action line</span>
+            <span class="guidePill">Status</span>
+            <span class="guidePill">Details</span>
+            <span class="guidePill">Execute</span>
+          </div>
         </div>
       `,
     },
@@ -843,11 +893,16 @@ function getGuideSections() {
       id: "results",
       title: "Results",
       body: `
-        <p>After execution, copy the result and paste it back into the LLM chat.</p>
+        <p>After execution, copy the result and paste it back into the LLM chat so it can continue.</p>
         <div class="guideDemo">
           <div class="guideRow">
             <button class="guideBtnGhost">Copy Result</button>
             <span class="guidePill">Ctrl/Cmd+V</span>
+          </div>
+          <p class="small">Elements:</p>
+          <div class="guideRow">
+            <span class="guidePill">Copy Result</span>
+            <span class="guidePill">Clipboard</span>
           </div>
         </div>
       `,
@@ -856,7 +911,7 @@ function getGuideSections() {
       id: "errors",
       title: "Execution errors",
       body: `
-        <p>Error cards explain what went wrong and let you copy an error result for the LLM.</p>
+        <p>Error cards explain what went wrong and let you copy a result the LLM can understand.</p>
         <div class="guideDemo">
           <div class="guideCard">
             <strong>Invalid OPERATOR_CMD (ERR_INVALID_BASE64)</strong>
@@ -865,6 +920,13 @@ function getGuideSections() {
               <button class="guideBtnGhost">Copy result</button>
               <button class="guideBtnGhost">Dismiss</button>
             </div>
+          </div>
+          <p class="small">Elements:</p>
+          <div class="guideRow">
+            <span class="guidePill">Error message</span>
+            <span class="guidePill">Related ID</span>
+            <span class="guidePill">Copy result</span>
+            <span class="guidePill">Dismiss</span>
           </div>
         </div>
       `,
@@ -875,11 +937,57 @@ function getGuideSections() {
       body: `
         <p>Appearances let you tweak colors without touching code.</p>
         <div class="guideDemo">
+          <div class="guideMiniDialog">
+            <div><strong>Appearance</strong></div>
+            <div class="guideMiniField">Operator Classic</div>
+            <div class="guideRow">
+              <div class="guideSwatch"></div>
+              <div class="guideSwatch" style="background: var(--panel-bg-alt);"></div>
+              <div class="guideSwatch" style="background: var(--error);"></div>
+              <div class="guideSwatch" style="background: var(--warning);"></div>
+            </div>
+            <div class="guideRow">
+              <button class="guideBtnGhost">Edit</button>
+              <button class="guideBtnPrimary">Save</button>
+            </div>
+          </div>
+          <p class="small">Elements:</p>
           <div class="guideRow">
-            <div class="guideSwatch"></div>
-            <div class="guideSwatch" style="background: var(--panel-bg-alt);"></div>
-            <div class="guideSwatch" style="background: var(--error);"></div>
-            <div class="guideSwatch" style="background: var(--warning);"></div>
+            <span class="guidePill">Appearance list</span>
+            <span class="guidePill">Color swatches</span>
+            <span class="guidePill">Edit/Save</span>
+          </div>
+        </div>
+      `,
+    },
+    {
+      id: "llm-profiles",
+      title: "LLM Profiles dialog",
+      body: `
+        <p>Use this dialog to add or edit LLM providers (name, URL, allowed hosts).</p>
+        <div class="guideDemo">
+          <div class="guideMiniDialog">
+            <div><strong>LLM Profiles</strong></div>
+            <div class="guideRow">
+              <div class="guideMiniField" style="width: 90px;">id</div>
+              <div class="guideMiniField" style="width: 120px;">label</div>
+              <div class="guideMiniField" style="flex:1;">startUrl</div>
+            </div>
+            <div class="guideRow">
+              <div class="guideMiniField" style="width: 120px;">allowedHosts</div>
+            </div>
+            <div class="guideRow">
+              <button class="guideBtnGhost">Reset</button>
+              <button class="guideBtnPrimary">Save</button>
+            </div>
+          </div>
+          <p class="small">Elements:</p>
+          <div class="guideRow">
+            <span class="guidePill">ID</span>
+            <span class="guidePill">Label</span>
+            <span class="guidePill">URL</span>
+            <span class="guidePill">Allowed hosts</span>
+            <span class="guidePill">Save/Reset</span>
           </div>
         </div>
       `,
