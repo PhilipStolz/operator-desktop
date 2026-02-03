@@ -1338,12 +1338,21 @@ function getGuideSections() {
                 <p>Review commands, open details, execute, or dismiss.</p>
                 <div class="guideDemo guideSidebarDemo">
                   ${renderCommandRowPreview("pending")}
+                  <div class="row" style="margin-top:8px;">
+                    <label class="chk"><input type="checkbox" checked> Copy execution results to clipboard</label>
+                  </div>
+                  <div class="row" style="margin-top:6px;">
+                    <button class="resetBtn" title="Reset executed states" aria-label="Reset executed states"></button>
+                    <span class="small">Reset executed states</span>
+                  </div>
                 </div>
                 <ul class="guideList">
                   <li>Status dot shows Executed vs Not run.</li>
                   <li><strong>Details</strong> (eye icon) opens the full command dialog.</li>
                   <li><strong>Execute</strong> (play icon) runs the command; the result appears under Results.</li>
                   <li><strong>Dismiss</strong> (X icon) removes the command from the inbox.</li>
+                  <li><strong>Copy execution results to clipboard</strong> automatically copies each result.</li>
+                  <li><strong>Reset executed states</strong> clears the executed markers.</li>
                 </ul>
               `,
             },
@@ -1352,7 +1361,7 @@ function getGuideSections() {
               title: "Execution Errors",
               body: `
                 <p>Errors appear as cards with copy + dismiss actions.</p>
-                <div class="guideDemo">
+                <div class="guideDemo guideSidebarDemo">
                   ${renderErrorCardPreview()}
                 </div>
                 <ul class="guideList">
@@ -1367,73 +1376,76 @@ function getGuideSections() {
               title: "Results",
               body: `
                 <p>After execution, copy the result and paste it back into the LLM.</p>
-                <div class="guideDemo">
+                <div class="guideDemo guideSidebarDemo">
                   ${renderResultsPreview()}
                 </div>
+                <ul class="guideList">
+                  <li><strong>Copy Result</strong> copies the latest result. This mirrors the "Copy execution results to clipboard" option in the inbox.</li>
+                  <li><strong>Copy decoded details_b64</strong> copies the decoded details payload.</li>
+                </ul>
               `,
             },
             {
               id: "sidebar-tools",
               title: "Tools",
               body: `
-                <p>Tools includes utilities like the Base64 helper.</p>
+                <p>Tools groups small utility helpers that support your workflow without affecting commands directly.</p>
               `,
+              children: [
+                {
+                  id: "tools-base64",
+                  title: "Base64 Helper",
+                  body: `
+                    <p>Use the Base64 helper to encode text or JSON into base64 when commands require content_b64 or similar fields.</p>
+                    <div class="guideDemo guideSidebarDemo">
+                      <div class="accordion">
+                        <div class="accordionBody" style="display:block;">
+                          <div class="small" style="margin-bottom:6px;">Text or JSON to base64 (UTF-8).</div>
+                          <textarea style="height:80px;" placeholder="Input text or JSON"></textarea>
+                          <div class="row" style="margin-top:6px;">
+                            <button>Encode</button>
+                            <button>Encode JSON</button>
+                            <button>Copy output</button>
+                          </div>
+                          <textarea style="height:80px; margin-top:6px;" readonly placeholder="Base64 output"></textarea>
+                        </div>
+                      </div>
+                    </div>
+                    <ul class="guideList">
+                      <li><strong>Input</strong> paste text or JSON to encode.</li>
+                      <li><strong>Encode</strong> creates base64 from the input text.</li>
+                      <li><strong>Encode JSON</strong> stringifies JSON then encodes it.</li>
+                      <li><strong>Copy output</strong> copies the base64 result to the clipboard.</li>
+                      <li><strong>Output</strong> shows the encoded base64 string.</li>
+                    </ul>
+                  `,
+                },
+              ],
             },
             {
               id: "sidebar-controls",
               title: "Controls",
               body: `
-                <p>Controls include auto scan and other settings.</p>
-              `,
-            },
-          ],
-        },
-        {
-          id: "dialogs",
-          title: "Dialogs",
-          body: `
-            <p>Dialogs let you manage providers, appearance, and command details.</p>
-          `,
-          children: [
-            {
-              id: "dialog-llm-profiles",
-              title: "LLM Profiles dialog",
-              body: `
-                <p>Add or edit LLM provider entries (id, label, URL, allowed hosts).</p>
-                <div class="guideDemo">${renderLlmProfilesDialogPreview()}</div>
+                <p>Controls groups operational toggles that adjust how Operator behaves during scanning and execution.</p>
+                <div class="guideDemo guideSidebarDemo">
+                  <div class="row">
+                    <label class="chk">
+                      <input type="checkbox" /> auto extract &amp; scan
+                    </label>
+                    <span class="small">interval</span>
+                    <select class="guideCompactSelect">
+                      <option>2s</option>
+                      <option selected>3s</option>
+                      <option>5s</option>
+                      <option>10s</option>
+                    </select>
+                  </div>
+                  <div class="small">Auto pauses while you interact with Command Inbox.</div>
+                </div>
                 <ul class="guideList">
-                  <li>ID (unique key)</li>
-                  <li>Label (display name)</li>
-                  <li>Start URL</li>
-                  <li>Allowed hosts</li>
-                  <li>Reset / Save actions</li>
-                </ul>
-              `,
-            },
-            {
-              id: "dialog-appearance",
-              title: "Appearance dialog",
-              body: `
-                <p>Choose and edit appearance themes.</p>
-                <div class="guideDemo">${renderAppearanceDialogPreview()}</div>
-                <ul class="guideList">
-                  <li>Appearance list</li>
-                  <li>Color swatches</li>
-                  <li>Edit / Save actions</li>
-                </ul>
-              `,
-            },
-            {
-              id: "dialog-command-details",
-              title: "Command details dialog",
-              body: `
-                <p>Review full command content, decoded base64, and run or dismiss.</p>
-                <div class="guideDemo">${renderCommandDetailsDialogPreview()}</div>
-                <ul class="guideList">
-                  <li>Status indicator</li>
-                  <li>Command section</li>
-                  <li>Decoded base64 section</li>
-                  <li>Execute / Dismiss / Show decoded actions</li>
+                  <li><strong>auto extract &amp; scan</strong> runs extraction automatically on a timer.</li>
+                  <li><strong>interval</strong> sets how often automatic extraction runs.</li>
+                  <li><strong>Auto pauses while you interact with Command Inbox</strong> prevents updates while you're reviewing commands.</li>
                 </ul>
               `,
             },
