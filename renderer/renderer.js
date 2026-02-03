@@ -51,7 +51,6 @@ const chkAutoCopy = $("chkAutoCopy");
 let commands = [];
 let errorItems = [];
 let lastResultText = "";
-let selectedKeys = new Set();
 let pendingFocusKey = null;
 
 const EXECUTED_KEY = "operator.executedIds.v1";
@@ -390,18 +389,8 @@ function commandKey(cmd, index) {
   return `idx:${index}`;
 }
 
-function isSelected(key) {
-  return selectedKeys.has(key);
-}
-
-function setSelected(key, value) {
-  if (value) selectedKeys.add(key);
-  else selectedKeys.delete(key);
-}
-
 function selectFocusAfterScan() {
   if (!commands.length) {
-    selectedKeys = new Set();
     pendingFocusKey = null;
     return;
   }
@@ -427,7 +416,6 @@ function selectFocusAfterScan() {
   if (focusIndex === -1) focusIndex = commands.length - 1;
 
   const key = commandKey(commands[focusIndex], focusIndex);
-  selectedKeys = new Set([key]);
   pendingFocusKey = key;
 }
 
@@ -733,20 +721,10 @@ function renderInbox() {
     const cmd = commands[i];
     const key = commandKey(cmd, i);
     const executed = !!(cmd.id && executedIds.has(cmd.id));
-    const selected = isSelected(key);
     const div = document.createElement("div");
     const statusClass = executed ? "executed" : "pending";
     const classes = ["cmd", "cmdCompact", statusClass];
-    if (selected) classes.push("active");
     div.className = classes.join(" ");
-    div.onclick = (ev) => {
-      const tag = ev?.target?.tagName;
-      if (tag === "BUTTON" || tag === "INPUT") return;
-      const next = !isSelected(key);
-      setSelected(key, next);
-      div.classList.toggle("active", next);
-      setStatus(`Selected: ${cmd.id || cmd.action || "(command)"}`);
-    };
 
     const line = document.createElement("div");
     line.className = "cmdLine";
@@ -754,23 +732,12 @@ function renderInbox() {
     const left = document.createElement("div");
     left.className = "cmdLeft";
 
-    const selectBox = document.createElement("input");
-    selectBox.type = "checkbox";
-    selectBox.checked = selected;
-    selectBox.onclick = (ev) => {
-      if (ev && ev.stopPropagation) ev.stopPropagation();
-      setSelected(key, selectBox.checked);
-      if (selectBox.checked) div.classList.add("active");
-      else div.classList.remove("active");
-    };
-
     const statusIcon = document.createElement("span");
     statusIcon.className = `cmdStatusIcon ${executed ? "executed" : "pending"}`;
     statusIcon.title = executed ? "Executed" : "Not run";
 
     const selectCol = document.createElement("div");
     selectCol.className = "cmdSelectCol";
-    selectCol.appendChild(selectBox);
     selectCol.appendChild(statusIcon);
     const textWrap = document.createElement("div");
     textWrap.className = "cmdLeftText";
@@ -808,7 +775,6 @@ function renderInbox() {
     btnDrop.onclick = (ev) => {
       if (ev && ev.stopPropagation) ev.stopPropagation();
       commands = commands.filter((c) => c !== cmd);
-      selectedKeys.delete(key);
       renderInbox();
     };
 
@@ -932,9 +898,6 @@ function listCommandEntries() {
   return entries;
 }
 
-function getSelectedEntries() {
-  return listCommandEntries().filter((entry) => selectedKeys.has(entry.key));
-}
 
 async function executeCommand(cmd) { // JSON.parse related_id
   try {
@@ -1208,7 +1171,7 @@ if (cmdModalDismiss) {
   cmdModalDismiss.onclick = () => {
     if (!modalCmd) return;
     commands = commands.filter((c) => c !== modalCmd);
-    if (modalKey) selectedKeys.delete(modalKey);
+    // No selection state to update.
     closeCommandModal();
     renderInbox();
   };
@@ -1217,7 +1180,7 @@ if (cmdModalDismiss) {
 btnClear.onclick = () => {
   commands = [];
   lastResultText = "";
-  selectedKeys = new Set();
+  // No selection state to reset.
   inboxEl.innerHTML = "";
   resultEl.value = "";
   setErrors([]);

@@ -786,11 +786,15 @@ function renderTopbarPreview() {
           </div>
           <div class="row">
             <span class="small">LLM</span>
-            <select>
+            <select class="guideCompactSelect">
               <option>Chat</option>
             </select>
+            <div class="guideRowSpacer"></div>
           </div>
-          <button class="topBarButton">Getting Started</button>
+          <div class="row">
+            <button class="topBarButton guideTopbarButton">Getting Started</button>
+            <div class="guideRowSpacer"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -804,7 +808,6 @@ function renderCommandRowPreview(status) {
       <div class="cmdLine">
         <div class="cmdLeft">
           <div class="cmdSelectCol">
-            <input type="checkbox" />
             <span class="cmdStatusIcon ${statusClass}"></span>
           </div>
           <div class="cmdLeftText">
@@ -1274,9 +1277,13 @@ function getGuideSections() {
               body: `
                 <p>Select which LLM provider to use for the web chat view. This determines the URL loaded in the chat area.</p>
                 <div class="guideDemo">
-                  <select>
-                    <option>Chat</option>
-                  </select>
+                  <div class="row">
+                    <span class="small">LLM</span>
+                    <select class="guideCompactSelect">
+                      <option>Chat</option>
+                    </select>
+                    <div class="guideRowSpacer"></div>
+                  </div>
                 </div>
                 <p>Manage providers via Settings -> LLM Profiles...</p>
               `,
@@ -1287,7 +1294,10 @@ function getGuideSections() {
               body: `
                 <p>Opens the guided tour that walks you through the core workflow step by step.</p>
                 <div class="guideDemo">
-                  <button class="topBarButton">Getting Started</button>
+                  <div class="row">
+                    <button class="topBarButton guideTopbarButton">Getting Started</button>
+                    <div class="guideRowSpacer"></div>
+                  </div>
                 </div>
               `,
             },
@@ -1305,7 +1315,7 @@ function getGuideSections() {
               title: "Operator Control",
               body: `
                 <p>Run scans and copy the bootstrap prompt.</p>
-                <div class="guideDemo">
+                <div class="guideDemo guideSidebarDemo">
                   <button class="btnPrimary btnWide">Extract & Scan</button>
                   <div class="row">
                     <button class="btnSecondary">Scan Clipboard</button>
@@ -1316,7 +1326,7 @@ function getGuideSections() {
                 <ul class="guideList">
                   <li><strong>Extract & Scan</strong> captures commands from the chat.</li>
                   <li><strong>Scan Clipboard</strong> scans the clipboard for commands.</li>
-                  <li><strong>Copy LLM Bootstrap Prompt</strong> copies the initial prompt.</li>
+                  <li><strong>Copy LLM Bootstrap Prompt</strong> copies the initial prompt to your clipboard so you can paste it into the LLM chat (Ctrl+V on Windows/Linux, Cmd+V on macOS).</li>
                   <li><strong>Clear</strong> clears the inbox.</li>
                 </ul>
               `,
@@ -1326,13 +1336,14 @@ function getGuideSections() {
               title: "Command Inbox",
               body: `
                 <p>Review commands, open details, execute, or dismiss.</p>
-                <div class="guideDemo">
+                <div class="guideDemo guideSidebarDemo">
                   ${renderCommandRowPreview("pending")}
                 </div>
                 <ul class="guideList">
-                  <li>Checkbox selects the command.</li>
                   <li>Status dot shows Executed vs Not run.</li>
-                  <li>Icons: Details, Execute, Dismiss.</li>
+                  <li><strong>Details</strong> (eye icon) opens the full command dialog.</li>
+                  <li><strong>Execute</strong> (play icon) runs the command; the result appears under Results.</li>
+                  <li><strong>Dismiss</strong> (X icon) removes the command from the inbox.</li>
                 </ul>
               `,
             },
