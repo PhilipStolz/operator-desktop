@@ -42,6 +42,8 @@ const menuLlmProfiles = document.getElementById("menuLlmProfiles");
 const menuAppearance = document.getElementById("menuAppearance");
 const menuGettingStarted = document.getElementById("menuGettingStarted");
 const menuUserGuide = document.getElementById("menuUserGuide");
+const menuAbout = document.getElementById("menuAbout");
+const menuCheckUpdates = document.getElementById("menuCheckUpdates");
 const guidedOverlay = document.getElementById("guidedOverlay");
 const guidedSpotlight = document.getElementById("guidedSpotlight");
 const guidedTooltip = document.getElementById("guidedTooltip");
@@ -56,6 +58,18 @@ const guideSearchInput = document.getElementById("guideSearchInput");
 const guideNav = document.getElementById("guideNav");
 const guideContent = document.getElementById("guideContent");
 const guideCloseBtn = document.getElementById("guideCloseBtn");
+const aboutOverlay = document.getElementById("aboutOverlay");
+const aboutClose = document.getElementById("aboutClose");
+const aboutCloseFooter = document.getElementById("aboutCloseFooter");
+const aboutVersion = document.getElementById("aboutVersion");
+const aboutChannel = document.getElementById("aboutChannel");
+const aboutRepo = document.getElementById("aboutRepo");
+const updatesOverlay = document.getElementById("updatesOverlay");
+const updatesClose = document.getElementById("updatesClose");
+const updatesCloseFooter = document.getElementById("updatesCloseFooter");
+const updatesCheck = document.getElementById("updatesCheck");
+const updatesOpen = document.getElementById("updatesOpen");
+const updatesStatus = document.getElementById("updatesStatus");
 
 let activeOverlay = null;
 let llmOpenSeq = 0;
@@ -88,6 +102,113 @@ function setOverlayState(el, open) {
   if (!el) return;
   el.classList.toggle("open", !!open);
   el.setAttribute("aria-hidden", open ? "false" : "true");
+}
+
+function normalizeVersion(raw) {
+  return String(raw || "").trim().replace(/^v/i, "");
+}
+
+function compareVersions(a, b) {
+  const pa = normalizeVersion(a).split(".").map((n) => parseInt(n, 10));
+  const pb = normalizeVersion(b).split(".").map((n) => parseInt(n, 10));
+  const len = Math.max(pa.length, pb.length);
+  for (let i = 0; i < len; i += 1) {
+    const va = Number.isFinite(pa[i]) ? pa[i] : 0;
+    const vb = Number.isFinite(pb[i]) ? pb[i] : 0;
+    if (va > vb) return 1;
+    if (va < vb) return -1;
+  }
+  return 0;
+}
+
+async function openAbout() {
+  closeMenus();
+  activeOverlay = "about";
+  setOverlayState(aboutOverlay, true);
+  setOverlayState(gettingOverlay, false);
+  setOverlayState(llmOverlay, false);
+  setOverlayState(appearanceOverlay, false);
+  setOverlayState(appearanceEditorOverlay, false);
+  setOverlayState(guideOverlay, false);
+  setOverlayState(updatesOverlay, false);
+  if (!aboutVersion || !aboutChannel || !aboutRepo) return;
+  try {
+    const info = await window.operator?.getAppInfo?.();
+    aboutVersion.textContent = info?.version ? String(info.version) : "-";
+    aboutChannel.textContent = info?.channel ? String(info.channel) : "-";
+    aboutRepo.textContent = info?.repoUrl ? String(info.repoUrl) : "-";
+  } catch {
+    aboutVersion.textContent = "-";
+    aboutChannel.textContent = "-";
+    aboutRepo.textContent = "-";
+  }
+}
+
+function closeAbout() {
+  setOverlayState(aboutOverlay, false);
+  if (activeOverlay === "about") activeOverlay = null;
+  try {
+    window.operator?.closeAbout?.();
+  } catch {}
+}
+
+async function openUpdates() {
+  closeMenus();
+  activeOverlay = "updates";
+  setOverlayState(updatesOverlay, true);
+  setOverlayState(gettingOverlay, false);
+  setOverlayState(llmOverlay, false);
+  setOverlayState(appearanceOverlay, false);
+  setOverlayState(appearanceEditorOverlay, false);
+  setOverlayState(guideOverlay, false);
+  setOverlayState(aboutOverlay, false);
+  if (updatesStatus) updatesStatus.textContent = 'Press "Check now" to look for updates.';
+}
+
+function closeUpdates() {
+  setOverlayState(updatesOverlay, false);
+  if (activeOverlay === "updates") activeOverlay = null;
+  try {
+    window.operator?.closeUpdates?.();
+  } catch {}
+}
+
+async function checkForUpdates() {
+  if (!updatesStatus) return;
+  updatesStatus.textContent = "Checking for updates...";
+  try {
+    const info = await window.operator?.getAppInfo?.();
+    const repoUrl = info?.repoUrl || "";
+    const match = repoUrl.match(/github\.com\/([^/]+\/[^/]+)(?:\.git)?$/i);
+    if (!match) {
+      updatesStatus.textContent = "Repository not configured.";
+      return;
+    }
+    const slug = match[1].replace(/\.git$/i, "");
+    const apiUrl = `https://api.github.com/repos/${slug}/releases/latest`;
+    const res = await fetch(apiUrl, { headers: { Accept: "application/vnd.github+json" } });
+    if (!res.ok) {
+      updatesStatus.textContent = "Unable to check updates right now.";
+      return;
+    }
+    const data = await res.json();
+    const latest = normalizeVersion(data?.tag_name || data?.name || "");
+    const current = normalizeVersion(info?.version || "");
+    if (!latest || !current) {
+      updatesStatus.textContent = "Unable to determine versions.";
+      return;
+    }
+    const cmp = compareVersions(latest, current);
+    if (cmp > 0) {
+      updatesStatus.textContent = `New version available: v${latest} (current v${current}).`;
+    } else if (cmp < 0) {
+      updatesStatus.textContent = `You're running a newer build (v${current}) than the latest release (v${latest}).`;
+    } else {
+      updatesStatus.textContent = `You're up to date (v${current}).`;
+    }
+  } catch {
+    updatesStatus.textContent = "Unable to check updates right now.";
+  }
 }
 
 function applyAppearanceVars(payload) {
@@ -869,6 +990,9 @@ function renderMenuPreview(kind) {
       <div class="menuPopup open guideMenuPreview">
         <div class="menuEntry active">Getting Started</div>
         <div class="menuEntry">User Guide</div>
+        <div class="menuSeparator"></div>
+        <div class="menuEntry">About...</div>
+        <div class="menuEntry">Check for Updates</div>
       </div>
     `;
   }
@@ -1250,6 +1374,7 @@ function getGuideSections() {
               title: "Help menu",
               body: `
                 <p>Help provides Getting Started and the User Guide for quick reference.</p>
+                <p>Use About to view version and release channel. Use Check for Updates to see if a newer release is available.</p>
                 <div class="guideDemo">${renderMenuPreview("help")}</div>
               `,
             },
@@ -2062,6 +2187,18 @@ if (guideOverlay) {
 
 if (guideCloseBtn) guideCloseBtn.onclick = () => closeUserGuide();
 
+if (aboutOverlay) {
+  aboutOverlay.addEventListener("click", (ev) => {
+    if (ev.target === aboutOverlay) closeAbout();
+  });
+}
+
+if (updatesOverlay) {
+  updatesOverlay.addEventListener("click", (ev) => {
+    if (ev.target === updatesOverlay) closeUpdates();
+  });
+}
+
 // Keep editor open on backdrop clicks.
 
 if (menuLayer) {
@@ -2092,6 +2229,8 @@ window.addEventListener("keydown", (ev) => {
   else if (activeOverlay === "getting") closeGettingStarted();
   else if (activeOverlay === "appearance") closeAppearance(true);
   else if (activeOverlay === "guide") closeUserGuide();
+  else if (activeOverlay === "about") closeAbout();
+  else if (activeOverlay === "updates") closeUpdates();
 });
 
 if (window.operator?.onOpenGettingStarted) {
@@ -2103,6 +2242,18 @@ if (window.operator?.onOpenGettingStarted) {
 if (window.operator?.onOpenUserGuide) {
   window.operator.onOpenUserGuide(() => {
     openUserGuide();
+  });
+}
+
+if (window.operator?.onOpenAbout) {
+  window.operator.onOpenAbout(() => {
+    openAbout();
+  });
+}
+
+if (window.operator?.onOpenUpdates) {
+  window.operator.onOpenUpdates(() => {
+    openUpdates();
   });
 }
 
@@ -2149,6 +2300,8 @@ window.__openLlmProfiles = openLlmProfiles;
 window.__openAppearance = openAppearance;
 window.__openGuidedGettingStarted = openGuidedGettingStarted;
 window.__closeGuidedGettingStarted = closeGuidedGettingStarted;
+window.__openAbout = openAbout;
+window.__openUpdates = openUpdates;
 
 attachAppearanceInputHandlers();
 if (guidedPrev) {
@@ -2247,5 +2400,34 @@ if (menuUserGuide) {
   menuUserGuide.onclick = async () => {
     requestCloseMenu();
     await window.operator?.openUserGuide?.();
+  };
+}
+
+if (menuAbout) {
+  menuAbout.onclick = async () => {
+    requestCloseMenu();
+    await window.operator?.openAbout?.();
+  };
+}
+
+if (menuCheckUpdates) {
+  menuCheckUpdates.onclick = async () => {
+    requestCloseMenu();
+    await window.operator?.openUpdates?.();
+  };
+}
+
+if (aboutClose) aboutClose.onclick = () => closeAbout();
+if (aboutCloseFooter) aboutCloseFooter.onclick = () => closeAbout();
+if (updatesClose) updatesClose.onclick = () => closeUpdates();
+if (updatesCloseFooter) updatesCloseFooter.onclick = () => closeUpdates();
+if (updatesCheck) updatesCheck.onclick = () => { void checkForUpdates(); };
+if (updatesOpen) {
+  updatesOpen.onclick = async () => {
+    const info = await window.operator?.getAppInfo?.();
+    const repoUrl = info?.repoUrl || "";
+    if (repoUrl && window.operator?.openExternal) {
+      window.operator.openExternal(`${repoUrl.replace(/\\.git$/i, "")}/releases`).catch(() => {});
+    }
   };
 }

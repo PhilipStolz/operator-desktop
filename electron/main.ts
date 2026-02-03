@@ -29,6 +29,8 @@ import {
 } from "./operator_cmd";
 
 const APP_NAME = "Operator — Human-in-the-Loop";
+const APP_CHANNEL = process.env.OPERATOR_CHANNEL ?? "alpha";
+const REPO_URL = "https://github.com/PhilipStolz/operator-desktop";
 const MAX_READ_BYTES = 200_000;
 const MAX_READSLICE_BYTES = 2_000_000;
 const MAX_SEARCH_BYTES = 2_000_000;
@@ -1869,7 +1871,7 @@ async function createWindow() {
     overlayView.setBounds({ x: 0, y: 0, width: w, height: h });
   }
 
-  function openOverlay(kind: "getting-started" | "llm-profiles" | "appearance" | "user-guide") {
+  function openOverlay(kind: "getting-started" | "llm-profiles" | "appearance" | "user-guide" | "about" | "updates") {
     overlayVisible = true;
     applyOverlayBounds();
     if (kind === "getting-started") {
@@ -1878,6 +1880,12 @@ async function createWindow() {
     } else if (kind === "user-guide") {
       overlayView.webContents.send("operator:openUserGuide");
       overlayView.webContents.executeJavaScript("window.__openUserGuide && window.__openUserGuide()").catch(() => {});
+    } else if (kind === "about") {
+      overlayView.webContents.send("operator:openAbout");
+      overlayView.webContents.executeJavaScript("window.__openAbout && window.__openAbout()").catch(() => {});
+    } else if (kind === "updates") {
+      overlayView.webContents.send("operator:openUpdates");
+      overlayView.webContents.executeJavaScript("window.__openUpdates && window.__openUpdates()").catch(() => {});
     } else if (kind === "appearance") {
       overlayView.webContents.send("operator:openAppearance");
       overlayView.webContents.executeJavaScript("window.__openAppearance && window.__openAppearance()").catch(() => {});
@@ -2011,6 +2019,44 @@ async function createWindow() {
   ipcMain.handle("operator:closeUserGuide", async () => {
     overlayVisible = false;
     applyOverlayBounds();
+    return { ok: true };
+  });
+
+  ipcMain.handle("operator:openAbout", async () => {
+    openOverlay("about");
+    return { ok: true };
+  });
+
+  ipcMain.handle("operator:closeAbout", async () => {
+    overlayVisible = false;
+    applyOverlayBounds();
+    return { ok: true };
+  });
+
+  ipcMain.handle("operator:openUpdates", async () => {
+    openOverlay("updates");
+    return { ok: true };
+  });
+
+  ipcMain.handle("operator:closeUpdates", async () => {
+    overlayVisible = false;
+    applyOverlayBounds();
+    return { ok: true };
+  });
+
+  ipcMain.handle("operator:getAppInfo", async () => {
+    return {
+      version: app.getVersion(),
+      channel: APP_CHANNEL,
+      repoUrl: REPO_URL,
+    };
+  });
+
+  ipcMain.handle("operator:openExternal", async (_evt, { url }: { url: string }) => {
+    const target = String(url || "").trim();
+    if (target.startsWith("https://")) {
+      shell.openExternal(target);
+    }
     return { ok: true };
   });
 

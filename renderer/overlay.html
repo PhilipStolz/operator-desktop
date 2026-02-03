@@ -1222,6 +1222,49 @@
       </div>
     </div>
   </div>
+  <div id="aboutOverlay" class="overlay" aria-hidden="true">
+    <div class="modal">
+      <div class="modalHeader">
+        <div>About Operator</div>
+        <button id="aboutClose">X</button>
+      </div>
+      <div class="modalBody">
+        <div class="row">
+          <div class="small">Version</div>
+          <div id="aboutVersion">-</div>
+        </div>
+        <div class="row">
+          <div class="small">Channel</div>
+          <div id="aboutChannel">-</div>
+        </div>
+        <div class="row">
+          <div class="small">Repository</div>
+          <div id="aboutRepo">-</div>
+        </div>
+      </div>
+      <div class="modalFooter">
+        <button id="aboutCloseFooter">Close</button>
+      </div>
+    </div>
+  </div>
+  <div id="updatesOverlay" class="overlay" aria-hidden="true">
+    <div class="modal">
+      <div class="modalHeader">
+        <div>Check for Updates</div>
+        <button id="updatesClose">X</button>
+      </div>
+      <div class="modalBody">
+        <div id="updatesStatus" class="small">Press "Check now" to look for updates.</div>
+        <div class="row" style="margin-top:8px;">
+          <button id="updatesCheck">Check now</button>
+          <button id="updatesOpen" class="btnGhost">Open releases page</button>
+        </div>
+      </div>
+      <div class="modalFooter">
+        <button id="updatesCloseFooter">Close</button>
+      </div>
+    </div>
+  </div>
   <div id="alphaPopup" class="alphaPopup" aria-hidden="true">
     <input id="alphaSlider" class="alphaSlider" type="range" min="0" max="100" step="1" />
     <input id="alphaValue" class="alphaValueInput" type="number" min="0" max="1" step="0.01" />
@@ -1241,6 +1284,9 @@
     <div class="menuPopup" id="menuHelp">
       <div class="menuEntry" id="menuGettingStarted">Getting Started</div>
       <div class="menuEntry" id="menuUserGuide">User Guide</div>
+      <div class="menuSeparator"></div>
+      <div class="menuEntry" id="menuAbout">About...</div>
+      <div class="menuEntry" id="menuCheckUpdates">Check for Updates</div>
     </div>
   </div>
   <div id="guidedOverlay" class="guidedOverlay" aria-hidden="true">

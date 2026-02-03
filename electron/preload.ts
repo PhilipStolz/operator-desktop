@@ -49,6 +49,12 @@ contextBridge.exposeInMainWorld("operator", {
   onOpenGettingStarted: (cb: () => void) => ipcRenderer.on("operator:openGettingStarted", () => cb()),
   openUserGuide: () => ipcRenderer.invoke("operator:openUserGuide"),
   onOpenUserGuide: (cb: () => void) => ipcRenderer.on("operator:openUserGuide", () => cb()),
+  openAbout: () => ipcRenderer.invoke("operator:openAbout"),
+  onOpenAbout: (cb: () => void) => ipcRenderer.on("operator:openAbout", () => cb()),
+  closeAbout: () => ipcRenderer.invoke("operator:closeAbout"),
+  openUpdates: () => ipcRenderer.invoke("operator:openUpdates"),
+  onOpenUpdates: (cb: () => void) => ipcRenderer.on("operator:openUpdates", () => cb()),
+  closeUpdates: () => ipcRenderer.invoke("operator:closeUpdates"),
   onWorkspaceChanged: (cb: (workspaceRoot: string | null) => void) =>
     ipcRenderer.on("operator:workspaceChanged", (_evt, payload: { workspaceRoot: string | null }) => cb(payload.workspaceRoot)),
   onLlmProfilesChanged: (cb: (payload: { profiles: any[]; activeId?: string }) => void) =>
@@ -60,6 +66,8 @@ contextBridge.exposeInMainWorld("operator", {
   closeLlmProfiles: () => ipcRenderer.invoke("operator:closeLlmProfiles"),
   openAppearance: () => ipcRenderer.invoke("operator:openAppearance"),
   closeAppearance: () => ipcRenderer.invoke("operator:closeAppearance"),
+  getAppInfo: () => ipcRenderer.invoke("operator:getAppInfo"),
+  openExternal: (url: string) => ipcRenderer.invoke("operator:openExternal", { url }),
   showToast: (payload: { message: string; kind?: string }) => ipcRenderer.invoke("operator:showToast", payload),
   onToast: (cb: (payload: { message: string; kind?: string }) => void) =>
     ipcRenderer.on("operator:toast", (_evt, payload: { message: string; kind?: string }) => cb(payload)),
