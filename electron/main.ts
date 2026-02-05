@@ -11,6 +11,7 @@ import {
 } from "electron";
 import * as path from "path";
 import * as fs from "fs/promises";
+import * as https from "https";
 import type { Event as ElectronEvent } from "electron";
 import {
   DEFAULT_LLM_ID,
@@ -44,6 +45,41 @@ type Appearance = {
   label: string;
   vars: Record<string, string>;
 };
+
+function fetchJson(url: string): Promise<{ ok: boolean; status: number; data?: any }> {
+  return new Promise((resolve) => {
+    const req = https.request(
+      url,
+      {
+        method: "GET",
+        headers: {
+          "User-Agent": "Operator",
+          Accept: "application/vnd.github+json",
+        },
+      },
+      (res) => {
+        const status = res.statusCode || 0;
+        const chunks: Buffer[] = [];
+        res.on("data", (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+        res.on("end", () => {
+          const text = Buffer.concat(chunks).toString("utf-8");
+          if (status < 200 || status >= 300) {
+            resolve({ ok: false, status });
+            return;
+          }
+          try {
+            const data = JSON.parse(text);
+            resolve({ ok: true, status, data });
+          } catch {
+            resolve({ ok: false, status });
+          }
+        });
+      }
+    );
+    req.on("error", () => resolve({ ok: false, status: 0 }));
+    req.end();
+  });
+}
 
 const DEFAULT_APPEARANCES: Appearance[] = [
   {
@@ -2084,6 +2120,17 @@ async function createWindow() {
       shell.openExternal(target);
     }
     return { ok: true };
+  });
+
+  ipcMain.handle("operator:checkUpdates", async (_evt, { repo }: { repo: string }) => {
+    const slug = String(repo || "").trim();
+    if (!slug) return { ok: false, status: 0 };
+    const apiUrl = `https://api.github.com/repos/${slug}/releases`;
+    const res = await fetchJson(apiUrl);
+    if (!res.ok || !Array.isArray(res.data)) return res;
+    const list = res.data.filter((r: any) => r && !r.draft && !r.prerelease);
+    if (!list.length) return { ok: false, status: 404 };
+    return { ok: true, status: 200, data: list[0] };
   });
 
   ipcMain.handle("operator:openLlmProfiles", async () => {

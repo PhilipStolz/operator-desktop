@@ -185,13 +185,18 @@ async function checkForUpdates() {
       return;
     }
     const slug = match[1].replace(/\.git$/i, "");
-    const apiUrl = `https://api.github.com/repos/${slug}/releases/latest`;
-    const res = await fetch(apiUrl, { headers: { Accept: "application/vnd.github+json" } });
-    if (!res.ok) {
-      updatesStatus.textContent = "Unable to check updates right now.";
+    const res = await window.operator?.checkUpdates?.(slug);
+    if (!res?.ok) {
+      if (res?.status === 404) {
+        updatesStatus.textContent = "No published releases found yet.";
+      } else if (res?.status) {
+        updatesStatus.textContent = `Unable to check updates right now. (HTTP ${res.status})`;
+      } else {
+        updatesStatus.textContent = "Unable to check updates right now.";
+      }
       return;
     }
-    const data = await res.json();
+    const data = res?.data;
     const latest = normalizeVersion(data?.tag_name || data?.name || "");
     const current = normalizeVersion(info?.version || "");
     if (!latest || !current) {

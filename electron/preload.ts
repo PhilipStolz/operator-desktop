@@ -68,6 +68,7 @@ contextBridge.exposeInMainWorld("operator", {
   closeAppearance: () => ipcRenderer.invoke("operator:closeAppearance"),
   getAppInfo: () => ipcRenderer.invoke("operator:getAppInfo"),
   openExternal: (url: string) => ipcRenderer.invoke("operator:openExternal", { url }),
+  checkUpdates: (repo: string) => ipcRenderer.invoke("operator:checkUpdates", { repo }),
   showToast: (payload: { message: string; kind?: string }) => ipcRenderer.invoke("operator:showToast", payload),
   onToast: (cb: (payload: { message: string; kind?: string }) => void) =>
     ipcRenderer.on("operator:toast", (_evt, payload: { message: string; kind?: string }) => cb(payload)),
