@@ -29,7 +29,6 @@ import {
 } from "./operator_cmd";
 
 const APP_NAME = "Operator — Human-in-the-Loop";
-const APP_CHANNEL = process.env.OPERATOR_CHANNEL ?? "alpha";
 const REPO_URL = "https://github.com/PhilipStolz/operator-desktop";
 const MAX_READ_BYTES = 200_000;
 const MAX_READSLICE_BYTES = 2_000_000;
@@ -1848,6 +1847,7 @@ async function createWindow() {
   let menuVisible = false;
   let toastVisible = false;
   let toastSize = { width: TOAST_WIDTH, height: TOAST_HEIGHT };
+  let overlayReady = false;
 
   function applyToastBounds() {
     const [w, h] = win.getContentSize();
@@ -1872,6 +1872,11 @@ async function createWindow() {
   }
 
   function openOverlay(kind: "getting-started" | "llm-profiles" | "appearance" | "user-guide" | "about" | "updates") {
+    if (!overlayReady) {
+      overlayVisible = false;
+      applyOverlayBounds();
+      return;
+    }
     overlayVisible = true;
     applyOverlayBounds();
     if (kind === "getting-started") {
@@ -1970,6 +1975,15 @@ async function createWindow() {
   topbarView.webContents.loadFile(path.join(app.getAppPath(), "renderer", "topbar.html")).catch(() => { });
   overlayView.webContents.loadFile(path.join(app.getAppPath(), "renderer", "overlay.html")).catch(() => { });
   toastView.webContents.loadFile(path.join(app.getAppPath(), "renderer", "toast.html")).catch(() => { });
+  overlayView.webContents.on("did-finish-load", () => {
+    overlayReady = true;
+  });
+  overlayView.webContents.on("did-fail-load", () => {
+    overlayReady = false;
+  });
+  overlayView.webContents.on("render-process-gone", () => {
+    overlayReady = false;
+  });
 
   // Load webchat
   const startUrl = startUrlOverride ?? activeProfile.startUrl;
@@ -2045,9 +2059,18 @@ async function createWindow() {
   });
 
   ipcMain.handle("operator:getAppInfo", async () => {
+    let releaseStatus = "alpha";
+    try {
+      const pkgPath = path.join(app.getAppPath(), "package.json");
+      const raw = await fs.readFile(pkgPath, "utf-8");
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.releaseStatus === "string") {
+        releaseStatus = parsed.releaseStatus.trim() || releaseStatus;
+      }
+    } catch {}
     return {
       version: app.getVersion(),
-      channel: APP_CHANNEL,
+      releaseStatus,
       repoUrl: REPO_URL,
     };
   });
@@ -2083,6 +2106,11 @@ async function createWindow() {
   });
 
   ipcMain.handle("operator:openMenu", async (_evt, payload: { menu: "workspace" | "settings" | "help"; rect: { left: number; right: number; top: number; bottom: number } }) => {
+    if (!overlayReady) {
+      menuVisible = false;
+      applyOverlayBounds();
+      return { ok: false, error: "overlay not ready" };
+    }
     menuVisible = true;
     applyOverlayBounds();
     const rect = payload?.rect;

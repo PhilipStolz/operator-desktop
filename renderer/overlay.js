@@ -62,7 +62,7 @@ const aboutOverlay = document.getElementById("aboutOverlay");
 const aboutClose = document.getElementById("aboutClose");
 const aboutCloseFooter = document.getElementById("aboutCloseFooter");
 const aboutVersion = document.getElementById("aboutVersion");
-const aboutChannel = document.getElementById("aboutChannel");
+const aboutReleaseStatus = document.getElementById("aboutReleaseStatus");
 const aboutRepo = document.getElementById("aboutRepo");
 const updatesOverlay = document.getElementById("updatesOverlay");
 const updatesClose = document.getElementById("updatesClose");
@@ -131,15 +131,15 @@ async function openAbout() {
   setOverlayState(appearanceEditorOverlay, false);
   setOverlayState(guideOverlay, false);
   setOverlayState(updatesOverlay, false);
-  if (!aboutVersion || !aboutChannel || !aboutRepo) return;
+  if (!aboutVersion || !aboutReleaseStatus || !aboutRepo) return;
   try {
     const info = await window.operator?.getAppInfo?.();
     aboutVersion.textContent = info?.version ? String(info.version) : "-";
-    aboutChannel.textContent = info?.channel ? String(info.channel) : "-";
+    aboutReleaseStatus.textContent = info?.releaseStatus ? String(info.releaseStatus) : "-";
     aboutRepo.textContent = info?.repoUrl ? String(info.repoUrl) : "-";
   } catch {
     aboutVersion.textContent = "-";
-    aboutChannel.textContent = "-";
+    aboutReleaseStatus.textContent = "-";
     aboutRepo.textContent = "-";
   }
 }
@@ -1374,7 +1374,7 @@ function getGuideSections() {
               title: "Help menu",
               body: `
                 <p>Help provides Getting Started and the User Guide for quick reference.</p>
-                <p>Use About to view version and release channel. Use Check for Updates to see if a newer release is available.</p>
+                <p>Use About to view version and release status. Use Check for Updates to see if a newer release is available.</p>
                 <div class="guideDemo">${renderMenuPreview("help")}</div>
               `,
             },
