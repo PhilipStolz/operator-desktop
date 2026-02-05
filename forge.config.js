@@ -5,6 +5,7 @@ module.exports = {
   packagerConfig: {
     asar: true,
     name: 'Operator',
+    executableName: "operator-desktop"
   },
   rebuildConfig: {},
   makers: [
