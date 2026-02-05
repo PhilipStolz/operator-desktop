@@ -29,6 +29,11 @@ import {
   type OperatorResult,
 } from "./operator_cmd";
 
+const squirrelStartup = require("electron-squirrel-startup");
+if (squirrelStartup) {
+  app.quit();
+}
+
 const APP_NAME = "Operator — Human-in-the-Loop";
 const REPO_URL = "https://github.com/PhilipStolz/operator-desktop";
 let APP_RELEASE_STATUS = "alpha";
@@ -2520,3 +2525,4 @@ app.whenReady().then(() => {
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
+
