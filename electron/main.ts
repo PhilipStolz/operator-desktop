@@ -10,6 +10,7 @@ import {
   Menu,
 } from "electron";
 import * as path from "path";
+import { existsSync } from "fs";
 import * as fs from "fs/promises";
 import * as https from "https";
 import type { Event as ElectronEvent } from "electron";
@@ -316,8 +317,11 @@ ipcMain.handle("operator:readClipboard", async () => {
 
 
 function getAssetPath(...segments: string[]) {
-  const base = app.isPackaged ? process.resourcesPath : app.getAppPath();
-  return path.join(base, "assets", ...segments);
+  const packagedPath = path.join(process.resourcesPath, "assets", ...segments);
+  if (app.isPackaged && existsSync(packagedPath)) {
+    return packagedPath;
+  }
+  return path.join(app.getAppPath(), "assets", ...segments);
 }
 
 function getUserAppearancePath() {
