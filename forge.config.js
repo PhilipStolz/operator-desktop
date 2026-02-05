@@ -5,13 +5,18 @@ module.exports = {
   packagerConfig: {
     asar: true,
     name: 'Operator',
-    executableName: "operator-desktop"
+    executableName: "operator-desktop",
+    icon: 'assets/icons/win/OperatorIcon',
   },
   rebuildConfig: {},
   makers: [
     {
       name: '@electron-forge/maker-squirrel',
-      config: {},
+      config: {
+        name: 'operator-desktop',
+        shortcutName: 'Operator',
+        setupIcon: 'assets/icons/win/OperatorIcon.ico',
+      },
     },
     {
       name: '@electron-forge/maker-zip',

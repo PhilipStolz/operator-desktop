@@ -1669,6 +1669,9 @@ async function applyUnifiedPatchSingleFile(
 
 async function createWindow() {
   app.setName(APP_NAME);
+  if (process.platform === "win32") {
+    app.setAppUserModelId(APP_NAME);
+  }
 
   try {
     const pkgPath = path.join(app.getAppPath(), "package.json");
