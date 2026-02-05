@@ -26,7 +26,7 @@ Edit package.json and set:
 
 Then commit:
  git add package.json package-lock.json
- git commit -m "chore: bump version to 0.0.5"
+ git commit -m "bump version to 0.0.6"
  git push origin main
 
 3) Create and push the release tag
@@ -34,15 +34,15 @@ Then commit:
 Use the same version as in package.json, prefixed with v.
 
 Command:
- git tag v0.0.5
- git push origin v0.0.5
+ git tag v0.0.6
+ git push origin v0.0.6
 
 This triggers the GitHub Actions workflow "Release" which builds artifacts for Windows, macOS, and Linux and uploads them to a GitHub Draft Release.
 
 Verify and publish (GitHub UI)
 
 1) Go to GitHub -> Repository -> Actions
-2) Open the workflow run for the tag (for example v0.0.5)
+2) Open the workflow run for the tag (for example v0.0.6)
 3) Wait until all jobs are green
 4) Go to GitHub -> Repository -> Releases
 5) Open the newest Draft release
@@ -56,13 +56,13 @@ Hotfix release
 
 For a quick fix:
 1) Apply the fix on main
-2) Bump the version, for example to 0.0.6
-3) Create and push tag v0.0.6
+2) Bump the version, for example to 0.0.7
+3) Create and push tag v0.0.7
 4) Verify the draft release and publish it
 
 Notes
 
-- Tag and version must match. If package.json says 0.0.5, the tag must be v0.0.5.
+- Tag and version must match. If package.json says 0.0.6, the tag must be v0.0.6.
 - Do not commit build outputs such as out/ or dist/.
 - Do not reuse an existing tag for a different build. Always bump the version.
 
