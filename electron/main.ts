@@ -2128,7 +2128,7 @@ async function createWindow() {
     const apiUrl = `https://api.github.com/repos/${slug}/releases`;
     const res = await fetchJson(apiUrl);
     if (!res.ok || !Array.isArray(res.data)) return res;
-    const list = res.data.filter((r: any) => r && !r.draft && !r.prerelease);
+    const list = res.data.filter((r: any) => r && !r.draft);
     if (!list.length) return { ok: false, status: 404 };
     return { ok: true, status: 200, data: list[0] };
   });
