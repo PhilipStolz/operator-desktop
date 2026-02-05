@@ -30,6 +30,7 @@ import {
 
 const APP_NAME = "Operator — Human-in-the-Loop";
 const REPO_URL = "https://github.com/PhilipStolz/operator-desktop";
+let APP_RELEASE_STATUS = "alpha";
 const MAX_READ_BYTES = 200_000;
 const MAX_READSLICE_BYTES = 2_000_000;
 const MAX_SEARCH_BYTES = 2_000_000;
@@ -409,10 +410,11 @@ async function resetUserAppearances() {
 }
 
 function applyBranding(win: BrowserWindow) {
-  win.setTitle(APP_NAME);
+  const suffix = APP_RELEASE_STATUS && APP_RELEASE_STATUS !== "stable" ? ` (${APP_RELEASE_STATUS})` : "";
+  win.setTitle(`${APP_NAME}${suffix}`);
   win.on("page-title-updated", (event) => {
     event.preventDefault();
-    win.setTitle(APP_NAME);
+    win.setTitle(`${APP_NAME}${suffix}`);
   });
 }
 
@@ -1632,6 +1634,16 @@ async function applyUnifiedPatchSingleFile(
 async function createWindow() {
   app.setName(APP_NAME);
 
+  try {
+    const pkgPath = path.join(app.getAppPath(), "package.json");
+    const raw = await fs.readFile(pkgPath, "utf-8");
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed.releaseStatus === "string") {
+      const status = parsed.releaseStatus.trim();
+      if (status) APP_RELEASE_STATUS = status;
+    }
+  } catch {}
+
   const userProfiles = await loadUserProfiles();
   const userAppearances = await loadUserAppearances();
   const storedAppearanceId = await loadAppearanceId();
@@ -2059,18 +2071,9 @@ async function createWindow() {
   });
 
   ipcMain.handle("operator:getAppInfo", async () => {
-    let releaseStatus = "alpha";
-    try {
-      const pkgPath = path.join(app.getAppPath(), "package.json");
-      const raw = await fs.readFile(pkgPath, "utf-8");
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed.releaseStatus === "string") {
-        releaseStatus = parsed.releaseStatus.trim() || releaseStatus;
-      }
-    } catch {}
     return {
       version: app.getVersion(),
-      releaseStatus,
+      releaseStatus: APP_RELEASE_STATUS,
       repoUrl: REPO_URL,
     };
   });

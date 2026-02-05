@@ -972,6 +972,24 @@ function renderResultsPreview() {
   `;
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function getGuideAppInfo() {
+  const info = window.__guideAppInfo || {};
+  return {
+    version: info.version || "0.0.4",
+    releaseStatus: info.releaseStatus || "Alpha",
+    repoUrl: info.repoUrl || "github.com/PhilipStolz/operator-desktop",
+  };
+}
+
 function renderMenuPreview(kind) {
   if (kind === "workspace") {
     return `
@@ -1377,6 +1395,89 @@ function getGuideSections() {
                 <p>Use About to view version and release status. Use Check for Updates to see if a newer release is available.</p>
                 <div class="guideDemo">${renderMenuPreview("help")}</div>
               `,
+              children: [
+                {
+                  id: "help-getting-started",
+                  title: "Getting Started",
+                  body: `<p>Opens the guided walkthrough of the core workflow.</p>`,
+                },
+                {
+                  id: "help-user-guide",
+                  title: "User Guide",
+                  body: `<p>Opens this searchable guide with UI explanations and examples.</p>`,
+                },
+                {
+                  id: "help-about",
+                  title: "About",
+                  body: `
+                    <p>Shows the current version, release status, and repository.</p>
+                    <div class="guideDemo">
+                      ${(() => {
+                        const info = getGuideAppInfo();
+                        const repo = escapeHtml(String(info.repoUrl || "").replace(/^https?:\/\//i, ""));
+                        const version = escapeHtml(info.version);
+                        const status = escapeHtml(info.releaseStatus);
+                        return `
+                      <div class="modal guideDialogPreview">
+                        <div class="modalHeader">
+                          <div>About Operator</div>
+                          <button>Close</button>
+                        </div>
+                        <div class="modalBody">
+                          <div class="row">
+                            <div class="small">Version</div>
+                            <div>${version}</div>
+                          </div>
+                          <div class="row">
+                            <div class="small">Release status</div>
+                            <div>${status}</div>
+                          </div>
+                          <div class="row">
+                            <div class="small">Repository</div>
+                            <div>${repo}</div>
+                          </div>
+                        </div>
+                        <div class="modalFooter">
+                          <button>Close</button>
+                        </div>
+                      </div>
+                      `;
+                      })()}
+                    </div>
+                  `,
+                },
+                {
+                  id: "help-check-updates",
+                  title: "Check for Updates",
+                  body: `
+                    <p>Checks GitHub Releases to see if a newer version is available.</p>
+                    <div class="guideDemo">
+                      ${(() => {
+                        const info = getGuideAppInfo();
+                        const version = escapeHtml(info.version);
+                        return `
+                      <div class="modal guideDialogPreview">
+                        <div class="modalHeader">
+                          <div>Check for Updates</div>
+                          <button>Close</button>
+                        </div>
+                        <div class="modalBody">
+                          <div class="small">You're up to date (v${version}).</div>
+                          <div class="row" style="margin-top:8px;">
+                            <button>Check now</button>
+                            <button class="btnGhost">Open releases page</button>
+                          </div>
+                        </div>
+                        <div class="modalFooter">
+                          <button>Close</button>
+                        </div>
+                      </div>
+                      `;
+                      })()}
+                    </div>
+                  `,
+                },
+              ],
             },
             {
               id: "topbar-workspace",
@@ -1716,6 +1817,26 @@ function initGuide() {
 }
 
 function openUserGuide() {
+  if (!guideInitialized && window.operator?.getAppInfo) {
+    window.operator.getAppInfo().then((info) => {
+      window.__guideAppInfo = info || {};
+      initGuide();
+      applyGuideSearch();
+    }).catch(() => {
+      initGuide();
+      applyGuideSearch();
+    });
+    activeOverlay = "guide";
+    setOverlayState(guideOverlay, true);
+    setOverlayState(gettingOverlay, false);
+    setOverlayState(llmOverlay, false);
+    setOverlayState(appearanceOverlay, false);
+    if (guideSearchInput) {
+      guideSearchInput.value = "";
+      guideSearchInput.focus();
+    }
+    return;
+  }
   initGuide();
   activeOverlay = "guide";
   setOverlayState(guideOverlay, true);

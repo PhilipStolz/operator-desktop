@@ -6,7 +6,7 @@ A release build is triggered by pushing a git tag like v0.0.5.
 
 Preconditions
 - You are on branch main and it is up to date
-- package.json contains the correct version
+- package.json contains the correct version and releaseStatus
 - GitHub Actions workflow "Release" exists
 - Releases are created as Draft first so assets can be verified
 
@@ -18,9 +18,11 @@ Command:
  git checkout main
  git pull origin main
 
-2) Bump version in package.json
+2) Bump version + releaseStatus in package.json
 
-Edit package.json and set the version field to the new version, for example 0.0.5.
+Edit package.json and set:
+- version (for example 0.0.5)
+- releaseStatus (alpha | beta | stable)
 
 Then commit:
  git add package.json package-lock.json
